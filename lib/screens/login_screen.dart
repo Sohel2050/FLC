@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/screens/sign_up_screen.dart';
-import '../widgets/custom_button.dart';
+import '../widgets/play_mode_button.dart';
 import '../services/user_service.dart'; // Import UserService
 
 class LoginScreen extends StatelessWidget {
