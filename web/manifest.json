@@ -1,6 +1,6 @@
 {
-    "name": "flutter_chess",
-    "short_name": "flutter_chess",
+    "name": "flutter_chess_app",
+    "short_name": "flutter_chess_app",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
