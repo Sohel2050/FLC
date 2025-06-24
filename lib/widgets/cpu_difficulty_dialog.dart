@@ -1,0 +1,103 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/utils/constants.dart';
+import 'package:flutter_chess_app/widgets/color_option.dart';
+import 'package:flutter_chess_app/widgets/difficulty_option.dart';
+import 'package:squares/squares.dart';
+
+class CPUDifficultyDialog extends StatefulWidget {
+  final Function(int difficulty, int playerColor) onConfirm;
+
+  const CPUDifficultyDialog({super.key, required this.onConfirm});
+
+  @override
+  State<CPUDifficultyDialog> createState() => _CPUDifficultyDialogState();
+}
+
+class _CPUDifficultyDialogState extends State<CPUDifficultyDialog> {
+  int _selectedDifficulty = 2; // Default to Normal
+  int _selectedColor = Squares.white; // Default to White
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Player Color Selection
+        Text(
+          'Choose Your Color',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: ColorOption(
+                color: Colors.white,
+                label: 'White',
+                isSelected: _selectedColor == Squares.white,
+                onTap: () => setState(() => _selectedColor = Squares.white),
+                icon: '♔',
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ColorOption(
+                color: Colors.black,
+                label: 'Black',
+                isSelected: _selectedColor == Squares.black,
+                onTap: () => setState(() => _selectedColor = Squares.black),
+                icon: '♚',
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        // Difficulty Selection
+        Text(
+          'Select Difficulty',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+
+        ...Constants.difficulties.map(
+          (difficulty) => DifficultyOption(
+            name: difficulty['name'],
+            level: difficulty['level'],
+            description: difficulty['description'],
+            icon: difficulty['icon'],
+            isSelected: _selectedDifficulty == difficulty['level'],
+            onTap:
+                () => setState(() => _selectedDifficulty = difficulty['level']),
+          ),
+        ),
+
+        const SizedBox(height: 24),
+
+        // Action Buttons
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton(
+              onPressed: () {
+                widget.onConfirm(_selectedDifficulty, _selectedColor);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Start Game'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}

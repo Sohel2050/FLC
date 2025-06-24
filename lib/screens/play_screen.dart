@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
+import 'package:flutter_chess_app/widgets/animated_dialog.dart';
+import 'package:flutter_chess_app/widgets/cpu_difficulty_dialog.dart';
+import 'package:provider/provider.dart';
 import '../models/user_model.dart';
 import '../widgets/game_mode_card.dart';
 import '../widgets/play_mode_button.dart';
@@ -19,6 +23,7 @@ class _PlayScreenState extends State<PlayScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final gameProvider = context.read<GameProvider>();
     return Scaffold(
       body: Column(
         children: [
@@ -72,14 +77,33 @@ class _PlayScreenState extends State<PlayScreen> {
                   onPressed: () {
                     final selectedMode = Constants.gameModes[_selectedGameMode];
                     final timeControl = selectedMode[Constants.timeControl];
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder:
-                            (_) => GameScreen(
-                              user: widget.user,
-                              timeControl: timeControl,
-                              vsCPU: true,
+
+                    // Show CPU difficulty selection dialog
+                    AnimatedDialog.show(
+                      context: context,
+                      title: 'Play vs CPU',
+                      maxWidth: 400,
+                      child: CPUDifficultyDialog(
+                        onConfirm: (difficulty, playerColor) {
+                          // Save game settings to provider
+                          gameProvider.setVsCPU(true);
+                          gameProvider.setGameLevel(difficulty);
+                          gameProvider.setPlayer(playerColor);
+                          gameProvider.setTimeControl(timeControl);
+
+                          // Navigate to game screen
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) => GameScreen(
+                                    user: widget.user,
+                                    timeControl: timeControl,
+                                    vsCPU: true,
+                                  ),
                             ),
+                          );
+                        },
                       ),
                     );
                   },
