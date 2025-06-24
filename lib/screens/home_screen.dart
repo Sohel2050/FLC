@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import '../models/user_model.dart';
-import '../widgets/game_mode_card.dart';
-import '../widgets/play_mode_button.dart';
 import 'friends_screen.dart';
 import 'options_screen.dart';
 import 'play_screen.dart';
