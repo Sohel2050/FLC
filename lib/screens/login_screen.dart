@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/screens/sign_up_screen.dart';
 import '../widgets/custom_button.dart';
+import '../services/user_service.dart'; // Import UserService
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final UserService userService =
+        UserService(); // Create an instance of UserService
+
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
@@ -74,7 +78,7 @@ class LoginScreen extends StatelessWidget {
                   const SizedBox(height: 24),
 
                   // Login Button
-                  CustomButton(
+                  PlayModeButton(
                     text: 'Login',
                     icon: Icons.login,
                     onPressed: () {
@@ -85,13 +89,18 @@ class LoginScreen extends StatelessWidget {
                   const SizedBox(height: 16),
 
                   // Guest Button
-                  CustomButton(
+                  PlayModeButton(
                     text: 'Play as Guest',
                     icon: Icons.person_outline,
                     onPressed: () {
-                      // TODO: Implement guest login
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const HomeScreen()),
+                      final guestUser =
+                          userService.createGuestUser(); // Create guest user
+                      // Navigate to home and replace the current screen
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (_) => HomeScreen(user: guestUser),
+                        ),
+                        (route) => false,
                       );
                     },
                     isPrimary: false,

@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class Constants {
   static const String uid = 'uid';
   static const String email = 'email';
@@ -21,4 +23,15 @@ class Constants {
 
   // For the guest user's display name
   static const String guestDisplayName = 'Guest';
+
+  static const String timeControl = 'timeControl';
+  static const String title = 'title';
+  static const String icon = 'icon';
+
+  static const List<Map<String, dynamic>> gameModes = [
+    {'title': 'Classical', 'timeControl': '60 sec/move', 'icon': Icons.timer},
+    {'title': 'Blitz', 'timeControl': '5 min + 3 sec', 'icon': Icons.bolt},
+    {'title': 'Tempo', 'timeControl': '20 sec/move', 'icon': Icons.speed},
+    {'title': 'Quick Blitz', 'timeControl': '3 min', 'icon': Icons.flash_on},
+  ];
 }

@@ -1,27 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/utils/constants.dart';
+import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import '../models/user_model.dart';
 import '../widgets/game_mode_card.dart';
 import '../widgets/custom_button.dart';
+import 'friends_screen.dart';
+import 'options_screen.dart';
+import 'play_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final ChessUser user;
 
-  const HomeScreen({Key? key, required this.user}) : super(key: key);
+  const HomeScreen({super.key, required this.user});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _selectedGameMode = 0;
   int _selectedTab = 0;
 
-  final List<Map<String, dynamic>> _gameModes = [
-    {'title': 'Classical', 'timeControl': '60 sec/move', 'icon': Icons.timer},
-    {'title': 'Blitz', 'timeControl': '5 min + 3 sec', 'icon': Icons.bolt},
-    {'title': 'Tempo', 'timeControl': '20 sec/move', 'icon': Icons.speed},
-    {'title': 'Quick Blitz', 'timeControl': '3 min', 'icon': Icons.flash_on},
-  ];
+  late final List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      PlayScreen(user: widget.user),
+      FriendsScreen(user: widget.user),
+      OptionsScreen(user: widget.user),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,15 +38,11 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            CircleAvatar(
-              backgroundImage:
-                  widget.user.photoUrl != null
-                      ? NetworkImage(widget.user.photoUrl!)
-                      : null,
-              child:
-                  widget.user.photoUrl == null
-                      ? const Icon(Icons.person)
-                      : null,
+            ProfileImageWidget(
+              imageUrl: widget.user.photoUrl,
+              radius: 24,
+              isEditable: false,
+              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
             ),
             const SizedBox(width: 12),
             Column(
@@ -84,75 +89,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Game Modes Carousel
-          SizedBox(
-            height: 180,
-            child: PageView.builder(
-              controller: PageController(viewportFraction: 0.8),
-              onPageChanged: (index) {
-                setState(() {
-                  _selectedGameMode = index;
-                });
-              },
-              itemCount: _gameModes.length,
-              itemBuilder: (context, index) {
-                final mode = _gameModes[index];
-                return GameModeCard(
-                  title: mode['title'],
-                  timeControl: mode['timeControl'],
-                  icon: mode['icon'],
-                  isSelected: _selectedGameMode == index,
-                  onTap: () {
-                    setState(() {
-                      _selectedGameMode = index;
-                    });
-                  },
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 32),
-
-          // Play Buttons
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              children: [
-                CustomButton(
-                  text: 'Play Online',
-                  icon: Icons.public,
-                  onPressed: () {
-                    // TODO: Implement online play
-                  },
-                  isFullWidth: true,
-                ),
-                const SizedBox(height: 16),
-                CustomButton(
-                  text: 'Play vs CPU',
-                  icon: Icons.computer,
-                  onPressed: () {
-                    // TODO: Implement CPU play
-                  },
-                  isPrimary: false,
-                  isFullWidth: true,
-                ),
-                const SizedBox(height: 16),
-                CustomButton(
-                  text: 'Local Multiplayer',
-                  icon: Icons.people,
-                  onPressed: () {
-                    // TODO: Implement local multiplayer
-                  },
-                  isPrimary: false,
-                  isFullWidth: true,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      body: IndexedStack(index: _selectedTab, children: _screens),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedTab,
         onDestinationSelected: (index) {
