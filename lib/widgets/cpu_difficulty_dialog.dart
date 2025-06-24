@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/color_option.dart';
@@ -90,8 +92,10 @@ class _CPUDifficultyDialogState extends State<CPUDifficultyDialog> {
             const SizedBox(width: 12),
             ElevatedButton(
               onPressed: () {
+                log(
+                  'Selected Difficulty: $_selectedDifficulty, Color: $_selectedColor',
+                );
                 widget.onConfirm(_selectedDifficulty, _selectedColor);
-                Navigator.of(context).pop();
               },
               child: const Text('Start Game'),
             ),

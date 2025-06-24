@@ -74,12 +74,12 @@ class _PlayScreenState extends State<PlayScreen> {
                 PlayModeButton(
                   text: 'Play vs CPU',
                   icon: Icons.computer,
-                  onPressed: () {
+                  onPressed: () async {
                     final selectedMode = Constants.gameModes[_selectedGameMode];
                     final timeControl = selectedMode[Constants.timeControl];
 
                     // Show CPU difficulty selection dialog
-                    AnimatedDialog.show(
+                    final result = await AnimatedDialog.show(
                       context: context,
                       title: 'Play vs CPU',
                       maxWidth: 400,
@@ -91,21 +91,31 @@ class _PlayScreenState extends State<PlayScreen> {
                           gameProvider.setPlayer(playerColor);
                           gameProvider.setTimeControl(timeControl);
 
-                          // Navigate to game screen
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder:
-                                  (context) => GameScreen(
-                                    user: widget.user,
-                                    timeControl: timeControl,
-                                    vsCPU: true,
-                                  ),
-                            ),
-                          );
+                          // Return the values instead of navigating here
+                          Navigator.of(context).pop({
+                            'difficulty': difficulty,
+                            'playerColor': playerColor,
+                          });
                         },
                       ),
                     );
+
+                    // Navigate after dialog is closed with result
+                    if (result != null && result is Map) {
+                      if (context.mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder:
+                                (context) => GameScreen(
+                                  user: widget.user,
+                                  timeControl: timeControl,
+                                  vsCPU: true,
+                                ),
+                          ),
+                        );
+                      }
+                    }
                   },
                   isPrimary: false,
                   isFullWidth: true,
