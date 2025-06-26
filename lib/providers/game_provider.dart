@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:squares/squares.dart';
 import 'package:bishop/bishop.dart' as bishop;
@@ -7,6 +8,11 @@ import 'package:stockfish/stockfish.dart';
 import 'package:squares/squares.dart';
 
 class GameProvider extends ChangeNotifier {
+  late bishop.Game _game = bishop.Game(variant: bishop.Variant.standard());
+  late SquaresState _state = SquaresState.initial(0);
+  bool _aiThinking = false;
+  bool _flipBoard = false;
+
   bool _vsCPU = false;
   bool _isLoading = false;
   bool _playWhitesTimer = true;
@@ -29,6 +35,11 @@ class GameProvider extends ChangeNotifier {
   Duration _savedBlacksTime = Duration.zero;
 
   // Getters
+  bishop.Game get game => _game;
+  SquaresState get state => _state;
+  bool get aiThinking => _aiThinking;
+  bool get flipBoard => _flipBoard;
+
   bool get vsCPU => _vsCPU;
   bool get isLoading => _isLoading;
   bool get playWhitesTimer => _playWhitesTimer;
@@ -111,7 +122,13 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
-  void resetGame() {
+  // Reset the game state
+  void resetGame(bool isNewGame) {
+    // Change player color if it's a new game
+    if (isNewGame) {
+      _player = _player == Squares.white ? Squares.black : Squares.white;
+      notifyListeners();
+    }
     _whitesTime = _savedWhitesTime;
     _blacksTime = _savedBlacksTime;
     _playWhitesTimer = true;
@@ -120,6 +137,44 @@ class GameProvider extends ChangeNotifier {
     _blacksTimer?.cancel();
     _whitesTimer = null;
     _blacksTimer = null;
+    _game = bishop.Game(variant: bishop.Variant.standard());
+    _state = game.squaresState(player);
+  }
+
+  // Flip the board
+  void flipTheBoard() {
+    _flipBoard = !_flipBoard;
     notifyListeners();
+  }
+
+  // Set AI thinking state
+  void setAiThinking(bool thinking) {
+    _aiThinking = thinking;
+    notifyListeners();
+  }
+
+  // Make squares move
+  Future<bool> makeSquaresMove(Move move) async {
+    bool result = _game.makeSquaresMove(move);
+    if (result) {
+      _state = _game.squaresState(_player);
+      notifyListeners();
+    }
+    return result;
+  }
+
+  // Make a random move for AI
+  Future<void> makeRandomMove() async {
+    // Check if it's AI's turn and not already thinking
+    if (_state.state == PlayState.theirTurn && !_aiThinking) {
+      setAiThinking(true);
+      await Future.delayed(
+        Duration(milliseconds: Random().nextInt(4750) + 250),
+      );
+      _game.makeRandomMove();
+      _state = _game.squaresState(_player);
+      setAiThinking(false);
+      notifyListeners();
+    }
   }
 }

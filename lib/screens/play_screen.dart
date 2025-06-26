@@ -106,12 +106,7 @@ class _PlayScreenState extends State<PlayScreen> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder:
-                                (context) => GameScreen(
-                                  user: widget.user,
-                                  timeControl: timeControl,
-                                  vsCPU: true,
-                                ),
+                            builder: (context) => GameScreen(user: widget.user),
                           ),
                         );
                       }
