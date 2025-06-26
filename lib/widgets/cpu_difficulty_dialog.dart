@@ -38,7 +38,7 @@ class _CPUDifficultyDialogState extends State<CPUDifficultyDialog> {
             Expanded(
               child: ColorOption(
                 color: Colors.white,
-                label: 'White',
+                label: Constants.white,
                 isSelected: _selectedColor == Squares.white,
                 onTap: () => setState(() => _selectedColor = Squares.white),
                 icon: '♔',
@@ -48,7 +48,7 @@ class _CPUDifficultyDialogState extends State<CPUDifficultyDialog> {
             Expanded(
               child: ColorOption(
                 color: Colors.black,
-                label: 'Black',
+                label: Constants.black,
                 isSelected: _selectedColor == Squares.black,
                 onTap: () => setState(() => _selectedColor = Squares.black),
                 icon: '♚',
@@ -69,13 +69,15 @@ class _CPUDifficultyDialogState extends State<CPUDifficultyDialog> {
 
         ...Constants.difficulties.map(
           (difficulty) => DifficultyOption(
-            name: difficulty['name'],
-            level: difficulty['level'],
-            description: difficulty['description'],
-            icon: difficulty['icon'],
-            isSelected: _selectedDifficulty == difficulty['level'],
+            name: difficulty[Constants.name],
+            level: difficulty[Constants.level],
+            description: difficulty[Constants.description],
+            icon: difficulty[Constants.icon],
+            isSelected: _selectedDifficulty == difficulty[Constants.level],
             onTap:
-                () => setState(() => _selectedDifficulty = difficulty['level']),
+                () => setState(
+                  () => _selectedDifficulty = difficulty[Constants.level],
+                ),
           ),
         ),
 

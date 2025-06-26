@@ -28,6 +28,15 @@ class Constants {
   static const String title = 'title';
   static const String icon = 'icon';
 
+  static const String white = 'White';
+  static const String black = 'Black';
+  static const name = 'name';
+  static const level = 'level';
+  static const description = 'description';
+  static const String gameId = 'gameId';
+  static const String gameMode = 'gameMode';
+  static const String difficulty = 'difficulty';
+
   static const List<Map<String, dynamic>> gameModes = [
     {'title': 'Classical', 'timeControl': '60 sec/move', 'icon': Icons.timer},
     {'title': 'Blitz', 'timeControl': '5 min + 3 sec', 'icon': Icons.bolt},

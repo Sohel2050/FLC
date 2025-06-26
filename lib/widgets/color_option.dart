@@ -38,13 +38,7 @@ class ColorOption extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Text(
-              icon,
-              style: TextStyle(
-                fontSize: 32,
-                color: color == Colors.white ? Colors.black : Colors.white,
-              ),
-            ),
+            Text(icon, style: TextStyle(fontSize: 32, color: color)),
             const SizedBox(height: 8),
             Text(
               label,

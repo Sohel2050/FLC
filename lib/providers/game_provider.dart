@@ -7,6 +7,11 @@ import 'package:square_bishop/square_bishop.dart';
 import 'package:stockfish/stockfish.dart';
 import 'package:squares/squares.dart';
 
+// Custom game result for timeout
+class WonGameTimeout extends bishop.WonGame {
+  const WonGameTimeout({required super.winner});
+}
+
 class GameProvider extends ChangeNotifier {
   late bishop.Game _game = bishop.Game(variant: bishop.Variant.standard());
   late SquaresState _state = SquaresState.initial(0);
@@ -34,6 +39,11 @@ class GameProvider extends ChangeNotifier {
   Duration _savedWhitesTime = Duration.zero;
   Duration _savedBlacksTime = Duration.zero;
 
+  // Game over notifier
+  final ValueNotifier<bishop.GameResult?> _gameResultNotifier = ValueNotifier(
+    null,
+  );
+
   // Getters
   bishop.Game get game => _game;
   SquaresState get state => _state;
@@ -58,6 +68,12 @@ class GameProvider extends ChangeNotifier {
   Duration get blacksTime => _blacksTime;
   Duration get savedWhitesTime => _savedWhitesTime;
   Duration get savedBlacksTime => _savedBlacksTime;
+
+  bishop.GameResult? get gameResult => _gameResultNotifier.value;
+  ValueNotifier<bishop.GameResult?> get gameResultNotifier =>
+      _gameResultNotifier;
+
+  bool get isGameOver => _game.gameOver || _gameResultNotifier.value != null;
 
   void setVsCPU(bool value) {
     _vsCPU = value;
@@ -122,6 +138,57 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
+  // Start the timer for the current player
+  void _startTimer() {
+    _stopTimers(); // Stop any existing timers
+    if (_game.state.turn == Squares.white) {
+      _playWhitesTimer = true;
+      _playBlacksTimer = false;
+      _whitesTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (_whitesTime.inSeconds > 0) {
+          _whitesTime = _whitesTime - const Duration(seconds: 1);
+        } else {
+          _whitesTime = Duration.zero;
+          _gameResultNotifier.value = WonGameTimeout(winner: Squares.black);
+          _stopTimers();
+          // Use post-frame callback to avoid build-time issues
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _checkGameOver();
+          });
+        }
+        notifyListeners();
+      });
+    } else {
+      _playBlacksTimer = true;
+      _playWhitesTimer = false;
+      _blacksTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (_blacksTime.inSeconds > 0) {
+          _blacksTime = _blacksTime - const Duration(seconds: 1);
+        } else {
+          _blacksTime = Duration.zero;
+          _gameResultNotifier.value = WonGameTimeout(winner: Squares.white);
+          _stopTimers();
+          // Use post-frame callback to avoid build-time issues
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _checkGameOver();
+          });
+        }
+        notifyListeners();
+      });
+    }
+    notifyListeners();
+  }
+
+  // Stop both timers
+  void _stopTimers() {
+    _whitesTimer?.cancel();
+    _blacksTimer?.cancel();
+    _whitesTimer = null;
+    _blacksTimer = null;
+    _playWhitesTimer = false;
+    _playBlacksTimer = false;
+  }
+
   // Reset the game state
   void resetGame(bool isNewGame) {
     // Change player color if it's a new game
@@ -131,14 +198,12 @@ class GameProvider extends ChangeNotifier {
     }
     _whitesTime = _savedWhitesTime;
     _blacksTime = _savedBlacksTime;
-    _playWhitesTimer = true;
-    _playBlacksTimer = true;
-    _whitesTimer?.cancel();
-    _blacksTimer?.cancel();
-    _whitesTimer = null;
-    _blacksTimer = null;
+    _stopTimers(); // Ensure timers are stopped on reset
     _game = bishop.Game(variant: bishop.Variant.standard());
     _state = game.squaresState(player);
+    _gameResultNotifier.value = null; // Reset game result
+    notifyListeners();
+    _startTimer(); // Start timer for the new game
   }
 
   // Flip the board
@@ -153,11 +218,36 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Check for game over conditions
+  void _checkGameOver() {
+    if (_game.gameOver) {
+      _stopTimers();
+      _gameResultNotifier.value = _game.result;
+      notifyListeners();
+    } else if (_gameResultNotifier.value != null) {
+      // Handle timeout case - game result is set but chess game doesn't know it's over
+      _stopTimers();
+      notifyListeners();
+    }
+  }
+
   // Make squares move
   Future<bool> makeSquaresMove(Move move) async {
     bool result = _game.makeSquaresMove(move);
     if (result) {
       _state = _game.squaresState(_player);
+      // Add increment time after a successful move
+      if (_incrementalValue > 0) {
+        if (_game.state.turn == Squares.white) {
+          _blacksTime += Duration(seconds: _incrementalValue);
+        } else {
+          _whitesTime += Duration(seconds: _incrementalValue);
+        }
+      }
+      _checkGameOver();
+      if (!_game.gameOver) {
+        _startTimer(); // Restart timer for the next player
+      }
       notifyListeners();
     }
     return result;
@@ -173,7 +263,19 @@ class GameProvider extends ChangeNotifier {
       );
       _game.makeRandomMove();
       _state = _game.squaresState(_player);
+      // Add increment time after a successful move
+      if (_incrementalValue > 0) {
+        if (_game.state.turn == Squares.white) {
+          _blacksTime += Duration(seconds: _incrementalValue);
+        } else {
+          _whitesTime += Duration(seconds: _incrementalValue);
+        }
+      }
       setAiThinking(false);
+      _checkGameOver();
+      if (!_game.gameOver) {
+        _startTimer(); // Restart timer for the next player
+      }
       notifyListeners();
     }
   }

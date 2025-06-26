@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
+import 'package:flutter_chess_app/widgets/animated_dialog.dart';
+import 'package:flutter_chess_app/widgets/game_over_dialog.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:squares/squares.dart';
@@ -14,21 +16,53 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
+  late GameProvider _gameProvider;
+
   @override
   void initState() {
-    final gameProvider = context.read<GameProvider>();
-    gameProvider.resetGame(false);
     super.initState();
+    _gameProvider = context.read<GameProvider>();
+    _gameProvider.gameResultNotifier.addListener(_handleGameOver);
+
+    // We make sure to reset the game state when entering the game screen
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _gameProvider.resetGame(false); // Start the game and timer
+    });
+  }
+
+  @override
+  void dispose() {
+    _gameProvider.gameResultNotifier.removeListener(_handleGameOver);
+    super.dispose();
+  }
+
+  void _handleGameOver() {
+    AnimatedDialog.show(
+      context: context,
+      title: 'Game Over!',
+      maxWidth: 400,
+      child: GameOverDialog(
+        result: _gameProvider.gameResult,
+        user: widget.user,
+        playerColor: _gameProvider.player,
+      ),
+    ).then((action) {
+      if (action == GameOverAction.rematch) {
+        _gameProvider.resetGame(true); // Rematch, flip colors
+      } else if (action == GameOverAction.newGame) {
+        // Navigate back to play screen or home screen for a completely new game
+        Navigator.of(context).pop();
+      }
+    });
   }
 
   void _onMove(Move move) async {
-    final gameProvider = context.read<GameProvider>();
     // Make a squared move and set the squares state
-    await gameProvider.makeSquaresMove(move);
+    await _gameProvider.makeSquaresMove(move);
 
     // Check if VS CPU mode is enabled
-    if (gameProvider.vsCPU) {
-      gameProvider.makeRandomMove();
+    if (_gameProvider.vsCPU) {
+      _gameProvider.makeRandomMove();
     } else {
       // If it's a multiplayer game, notify the opponent about the move
       // This could be done via a WebSocket or similar real-time communication
