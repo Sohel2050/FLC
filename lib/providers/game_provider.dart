@@ -226,7 +226,7 @@ class GameProvider extends ChangeNotifier {
 
     // If player is black and playing vs CPU, let CPU make the first move
     if (_vsCPU && _player == Squares.black) {
-      makeRandomMove();
+      makeStockfishMove();
     }
   }
 
@@ -304,54 +304,64 @@ class GameProvider extends ChangeNotifier {
 
       if (isAiTurn && !_aiThinking) {
         setAiThinking(true);
-        _state = _game.squaresState(_player);
-        // Add increment time after a successful move
-        if (_incrementalValue > 0) {
-          if (_game.state.turn == Squares.white) {
-            _blacksTime += Duration(seconds: _incrementalValue);
-          } else {
-            _whitesTime += Duration(seconds: _incrementalValue);
+
+        if (event.contains(UCICommands.bestMove)) {
+          // Extract the best move from Stockfish output
+          final bestMove = event.split(' ')[1];
+          // Make the move in the game
+          _game.makeMoveString(bestMove);
+
+          setAiThinking(false);
+
+          _state = _game.squaresState(_player);
+          // Add increment time after a successful move
+          if (_incrementalValue > 0) {
+            if (_game.state.turn == Squares.white) {
+              _blacksTime += Duration(seconds: _incrementalValue);
+            } else {
+              _whitesTime += Duration(seconds: _incrementalValue);
+            }
           }
+
+          _checkGameOver();
+          if (!_game.gameOver) {
+            _startTimer(); // Restart timer for the next player
+          }
+          notifyListeners();
         }
-        setAiThinking(false);
-        _checkGameOver();
-        if (!_game.gameOver) {
-          _startTimer(); // Restart timer for the next player
-        }
-        notifyListeners();
       }
     });
   }
 
-  // Make a random move for AI
-  Future<void> makeRandomMove() async {
-    // Check if it's AI's turn and not already thinking
-    // Also check if it's the start of the game and player is black
-    bool isAiTurn =
-        _state.state == PlayState.theirTurn ||
-        (_vsCPU && _player == Squares.black && _game.state.moveNumber == 1);
+  // // Make a random move for AI
+  // Future<void> makeRandomMove() async {
+  //   // Check if it's AI's turn and not already thinking
+  //   // Also check if it's the start of the game and player is black
+  //   bool isAiTurn =
+  //       _state.state == PlayState.theirTurn ||
+  //       (_vsCPU && _player == Squares.black && _game.state.moveNumber == 1);
 
-    if (isAiTurn && !_aiThinking) {
-      setAiThinking(true);
-      await Future.delayed(
-        Duration(milliseconds: Random().nextInt(4750) + 250),
-      );
-      _game.makeRandomMove();
-      _state = _game.squaresState(_player);
-      // Add increment time after a successful move
-      if (_incrementalValue > 0) {
-        if (_game.state.turn == Squares.white) {
-          _blacksTime += Duration(seconds: _incrementalValue);
-        } else {
-          _whitesTime += Duration(seconds: _incrementalValue);
-        }
-      }
-      setAiThinking(false);
-      _checkGameOver();
-      if (!_game.gameOver) {
-        _startTimer(); // Restart timer for the next player
-      }
-      notifyListeners();
-    }
-  }
+  //   if (isAiTurn && !_aiThinking) {
+  //     setAiThinking(true);
+  //     await Future.delayed(
+  //       Duration(milliseconds: Random().nextInt(4750) + 250),
+  //     );
+  //     _game.makeRandomMove();
+  //     _state = _game.squaresState(_player);
+  //     // Add increment time after a successful move
+  //     if (_incrementalValue > 0) {
+  //       if (_game.state.turn == Squares.white) {
+  //         _blacksTime += Duration(seconds: _incrementalValue);
+  //       } else {
+  //         _whitesTime += Duration(seconds: _incrementalValue);
+  //       }
+  //     }
+  //     setAiThinking(false);
+  //     _checkGameOver();
+  //     if (!_game.gameOver) {
+  //       _startTimer(); // Restart timer for the next player
+  //     }
+  //     notifyListeners();
+  //   }
+  // }
 }

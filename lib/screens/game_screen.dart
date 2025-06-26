@@ -73,7 +73,7 @@ class _GameScreenState extends State<GameScreen> {
 
     // Check if VS CPU mode is enabled
     if (_gameProvider.vsCPU) {
-      _gameProvider.makeRandomMove();
+      _gameProvider.makeStockfishMove();
     } else {
       // If it's a multiplayer game, notify the opponent about the move
       // This could be done via a WebSocket or similar real-time communication
