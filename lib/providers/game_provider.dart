@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/stockfish/uci_commands.dart';
 import 'package:squares/squares.dart';
 import 'package:bishop/bishop.dart' as bishop;
 import 'package:square_bishop/square_bishop.dart';
@@ -15,6 +16,7 @@ class WonGameTimeout extends bishop.WonGame {
 class GameProvider extends ChangeNotifier {
   late bishop.Game _game = bishop.Game(variant: bishop.Variant.standard());
   late SquaresState _state = SquaresState.initial(0);
+  late Stockfish _stockfish = Stockfish();
   bool _aiThinking = false;
   bool _flipBoard = false;
 
@@ -74,6 +76,12 @@ class GameProvider extends ChangeNotifier {
       _gameResultNotifier;
 
   bool get isGameOver => _game.gameOver || _gameResultNotifier.value != null;
+
+  @override
+  void dispose() {
+    _stockfish.dispose();
+    super.dispose();
+  }
 
   void setVsCPU(bool value) {
     _vsCPU = value;
@@ -210,8 +218,11 @@ class GameProvider extends ChangeNotifier {
 
     notifyListeners();
 
-    // Start timer for the new game
-    _startTimer();
+    // Lets add a delay to start timer - not starting it imimediately
+    // Allo white to think for a bit before starting the timer
+    Future.delayed(const Duration(milliseconds: 500), () {
+      _startTimer();
+    });
 
     // If player is black and playing vs CPU, let CPU make the first move
     if (_vsCPU && _player == Squares.black) {
@@ -264,6 +275,52 @@ class GameProvider extends ChangeNotifier {
       notifyListeners();
     }
     return result;
+  }
+
+  // Wait until Stockfish is ready
+  Future<void> waitForStockfish() async {
+    // Ensure Stockfish is initialized - flag the isLoading state
+    while (_stockfish.state.value != StockfishState.ready) {
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+  }
+
+  // Make a move using Stockfish AI
+  Future<void> makeStockfishMove() async {
+    await waitForStockfish();
+
+    // Get current position in FEN format
+    _stockfish.stdin = '${UCICommands.position} ${_game.fen}';
+
+    // set Stockfish difficulty level
+    _stockfish.stdin = '${UCICommands.goMoveTime} ${_gameLevel * 1000}';
+
+    _stockfish.stdout.listen((event) {
+      // Check if it's AI's turn and not already thinking
+      // Also check if it's the start of the game and player is black
+      bool isAiTurn =
+          _state.state == PlayState.theirTurn ||
+          (_vsCPU && _player == Squares.black && _game.state.moveNumber == 1);
+
+      if (isAiTurn && !_aiThinking) {
+        setAiThinking(true);
+        _state = _game.squaresState(_player);
+        // Add increment time after a successful move
+        if (_incrementalValue > 0) {
+          if (_game.state.turn == Squares.white) {
+            _blacksTime += Duration(seconds: _incrementalValue);
+          } else {
+            _whitesTime += Duration(seconds: _incrementalValue);
+          }
+        }
+        setAiThinking(false);
+        _checkGameOver();
+        if (!_game.gameOver) {
+          _startTimer(); // Restart timer for the next player
+        }
+        notifyListeners();
+      }
+    });
   }
 
   // Make a random move for AI
