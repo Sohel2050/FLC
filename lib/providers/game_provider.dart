@@ -191,6 +191,12 @@ class GameProvider extends ChangeNotifier {
 
   // Reset the game state
   void resetGame(bool isNewGame) {
+    // Stop timers first
+    _stopTimers();
+
+    // Clear game result BEFORE resetting the game to prevent dialog retriggering
+    _gameResultNotifier.value = null;
+
     // Change player color if it's a new game
     if (isNewGame) {
       _player = _player == Squares.white ? Squares.black : Squares.white;
@@ -198,12 +204,14 @@ class GameProvider extends ChangeNotifier {
     }
     _whitesTime = _savedWhitesTime;
     _blacksTime = _savedBlacksTime;
-    _stopTimers(); // Ensure timers are stopped on reset
+
     _game = bishop.Game(variant: bishop.Variant.standard());
     _state = game.squaresState(player);
-    _gameResultNotifier.value = null; // Reset game result
+
     notifyListeners();
-    _startTimer(); // Start timer for the new game
+
+    // Start timer for the new game
+    _startTimer();
   }
 
   // Flip the board

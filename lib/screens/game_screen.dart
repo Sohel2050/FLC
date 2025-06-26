@@ -37,6 +37,15 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _handleGameOver() {
+    // Check if dialog is already showing to prevent multiple dialogs
+    if (ModalRoute.of(context)?.isCurrent != true) {
+      return;
+    }
+
+    // Only show dialog if game result is not null
+    final gameResult = _gameProvider.gameResult;
+    if (gameResult == null) return;
+
     AnimatedDialog.show(
       context: context,
       title: 'Game Over!',
