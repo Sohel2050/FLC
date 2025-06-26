@@ -78,35 +78,60 @@ class _PlayScreenState extends State<PlayScreen> {
                     final selectedMode = Constants.gameModes[_selectedGameMode];
                     final timeControl = selectedMode[Constants.timeControl];
 
-                    // Show CPU difficulty selection dialog
-                    final result = await AnimatedDialog.show(
-                      context: context,
-                      title: 'Play vs CPU',
-                      maxWidth: 400,
-                      child: CPUDifficultyDialog(
-                        onConfirm: (difficulty, playerColor) {
-                          // Save game settings to provider
-                          gameProvider.setVsCPU(true);
-                          gameProvider.setGameLevel(difficulty);
-                          gameProvider.setPlayer(playerColor);
-                          gameProvider.setTimeControl(timeControl);
+                    // Will show loading while initializing Stockfish
+                    gameProvider.setLoading(true);
 
-                          // Return the values instead of navigating here
-                          Navigator.of(context).pop({
-                            'difficulty': difficulty,
-                            'playerColor': playerColor,
-                          });
-                        },
-                      ),
-                    );
+                    try {
+                      // Initialize Stockfish before showing dialog
+                      await gameProvider.initializeStockfish();
 
-                    // Navigate after dialog is closed with result
-                    if (result != null && result is Map) {
+                      gameProvider.setLoading(false);
+
                       if (context.mounted) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => GameScreen(user: widget.user),
+                        // Show CPU difficulty selection dialog
+                        final result = await AnimatedDialog.show(
+                          context: context,
+                          title: 'Play vs CPU',
+                          maxWidth: 400,
+                          child: CPUDifficultyDialog(
+                            onConfirm: (difficulty, playerColor) {
+                              // Save game settings to provider
+                              gameProvider.setVsCPU(true);
+                              gameProvider.setGameLevel(difficulty);
+                              gameProvider.setPlayer(playerColor);
+                              gameProvider.setTimeControl(timeControl);
+
+                              // Return the values instead of navigating here
+                              Navigator.of(context).pop({
+                                'difficulty': difficulty,
+                                'playerColor': playerColor,
+                              });
+                            },
+                          ),
+                        );
+
+                        // Navigate after dialog is closed with result
+                        if (result != null && result is Map) {
+                          if (context.mounted) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => GameScreen(user: widget.user),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    } catch (e) {
+                      gameProvider.setLoading(false);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Failed to initialize chess engine: $e',
+                            ),
+                            backgroundColor: Colors.red,
                           ),
                         );
                       }

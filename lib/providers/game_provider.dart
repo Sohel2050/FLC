@@ -16,9 +16,10 @@ class WonGameTimeout extends bishop.WonGame {
 class GameProvider extends ChangeNotifier {
   late bishop.Game _game = bishop.Game(variant: bishop.Variant.standard());
   late SquaresState _state = SquaresState.initial(0);
-  late Stockfish _stockfish = Stockfish();
+  Stockfish? _stockfish;
   bool _aiThinking = false;
   bool _flipBoard = false;
+  bool _stockfishInitialized = false;
 
   bool _vsCPU = false;
   bool _isLoading = false;
@@ -77,9 +78,26 @@ class GameProvider extends ChangeNotifier {
 
   bool get isGameOver => _game.gameOver || _gameResultNotifier.value != null;
 
+  // Initialize Stockfish safely
+  Future<void> initializeStockfish() async {
+    if (_stockfishInitialized) return;
+
+    try {
+      _stockfish = Stockfish();
+      await waitForStockfish();
+      _stockfishInitialized = true;
+      print('Stockfish initialized successfully');
+    } catch (e) {
+      print('Failed to initialize Stockfish: $e');
+      _stockfish = null;
+      _stockfishInitialized = false;
+    }
+  }
+
   @override
   void dispose() {
-    _stockfish.dispose();
+    _stockfish?.dispose();
+    _stopTimers();
     super.dispose();
   }
 
@@ -279,89 +297,78 @@ class GameProvider extends ChangeNotifier {
 
   // Wait until Stockfish is ready
   Future<void> waitForStockfish() async {
-    // Ensure Stockfish is initialized - flag the isLoading state
-    while (_stockfish.state.value != StockfishState.ready) {
+    if (_stockfish == null) return;
+
+    // Timeout to prevent infinite waiting
+    int attempts = 0;
+    const maxAttempts = 60; // 30 seconds max
+
+    while (_stockfish!.state.value != StockfishState.ready &&
+        attempts < maxAttempts) {
       await Future.delayed(const Duration(milliseconds: 500));
+      attempts++;
+    }
+
+    if (attempts >= maxAttempts) {
+      throw Exception('Stockfish initialization timeout');
     }
   }
 
   // Make a move using Stockfish AI
   Future<void> makeStockfishMove() async {
-    await waitForStockfish();
+    if (_stockfish == null || !_stockfishInitialized) {
+      print('Stockfish not initialized, skipping AI move');
+      return;
+    }
 
-    // Get current position in FEN format
-    _stockfish.stdin = '${UCICommands.position} ${_game.fen}';
+    try {
+      await waitForStockfish();
 
-    // set Stockfish difficulty level
-    _stockfish.stdin = '${UCICommands.goMoveTime} ${_gameLevel * 1000}';
+      // Get current position in FEN format
+      _stockfish!.stdin = '${UCICommands.position} ${_game.fen}';
 
-    _stockfish.stdout.listen((event) {
-      // Check if it's AI's turn and not already thinking
-      // Also check if it's the start of the game and player is black
-      bool isAiTurn =
-          _state.state == PlayState.theirTurn ||
-          (_vsCPU && _player == Squares.black && _game.state.moveNumber == 1);
+      // set Stockfish difficulty level
+      _stockfish!.stdin = '${UCICommands.goMoveTime} ${_gameLevel * 1000}';
 
-      if (isAiTurn && !_aiThinking) {
-        setAiThinking(true);
+      _stockfish!.stdout.listen((event) {
+        // Check if it's AI's turn and not already thinking
+        // Also check if it's the start of the game and player is black
+        bool isAiTurn =
+            _state.state == PlayState.theirTurn ||
+            (_vsCPU && _player == Squares.black && _game.state.moveNumber == 1);
 
-        if (event.contains(UCICommands.bestMove)) {
-          // Extract the best move from Stockfish output
-          final bestMove = event.split(' ')[1];
-          // Make the move in the game
-          _game.makeMoveString(bestMove);
+        if (isAiTurn && !_aiThinking) {
+          setAiThinking(true);
 
-          setAiThinking(false);
+          if (event.contains(UCICommands.bestMove)) {
+            // Extract the best move from Stockfish output
+            final bestMove = event.split(' ')[1];
+            // Make the move in the game
+            _game.makeMoveString(bestMove);
 
-          _state = _game.squaresState(_player);
-          // Add increment time after a successful move
-          if (_incrementalValue > 0) {
-            if (_game.state.turn == Squares.white) {
-              _blacksTime += Duration(seconds: _incrementalValue);
-            } else {
-              _whitesTime += Duration(seconds: _incrementalValue);
+            setAiThinking(false);
+
+            _state = _game.squaresState(_player);
+            // Add increment time after a successful move
+            if (_incrementalValue > 0) {
+              if (_game.state.turn == Squares.white) {
+                _blacksTime += Duration(seconds: _incrementalValue);
+              } else {
+                _whitesTime += Duration(seconds: _incrementalValue);
+              }
             }
-          }
 
-          _checkGameOver();
-          if (!_game.gameOver) {
-            _startTimer(); // Restart timer for the next player
+            _checkGameOver();
+            if (!_game.gameOver) {
+              _startTimer(); // Restart timer for the next player
+            }
+            notifyListeners();
           }
-          notifyListeners();
         }
-      }
-    });
+      });
+    } catch (e) {
+      print('Error making Stockfish move: $e');
+      setAiThinking(false);
+    }
   }
-
-  // // Make a random move for AI
-  // Future<void> makeRandomMove() async {
-  //   // Check if it's AI's turn and not already thinking
-  //   // Also check if it's the start of the game and player is black
-  //   bool isAiTurn =
-  //       _state.state == PlayState.theirTurn ||
-  //       (_vsCPU && _player == Squares.black && _game.state.moveNumber == 1);
-
-  //   if (isAiTurn && !_aiThinking) {
-  //     setAiThinking(true);
-  //     await Future.delayed(
-  //       Duration(milliseconds: Random().nextInt(4750) + 250),
-  //     );
-  //     _game.makeRandomMove();
-  //     _state = _game.squaresState(_player);
-  //     // Add increment time after a successful move
-  //     if (_incrementalValue > 0) {
-  //       if (_game.state.turn == Squares.white) {
-  //         _blacksTime += Duration(seconds: _incrementalValue);
-  //       } else {
-  //         _whitesTime += Duration(seconds: _incrementalValue);
-  //       }
-  //     }
-  //     setAiThinking(false);
-  //     _checkGameOver();
-  //     if (!_game.gameOver) {
-  //       _startTimer(); // Restart timer for the next player
-  //     }
-  //     notifyListeners();
-  //   }
-  // }
 }
