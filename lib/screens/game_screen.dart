@@ -60,7 +60,9 @@ class _GameScreenState extends State<GameScreen> {
         _gameProvider.resetGame(true); // Rematch, flip colors
       } else if (action == GameOverAction.newGame) {
         // Navigate back to play screen or home screen for a completely new game
-        Navigator.of(context).pop();
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
       }
     });
   }
@@ -143,6 +145,13 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   _opponentsDataAndTime(BuildContext context, GameProvider gameProvider) {
+    // Determine opponent's color based on player's color
+    final int opponentColor =
+        gameProvider.player == Squares.white ? Squares.black : Squares.white;
+
+    // Determine if it's the opponent's turn
+    final bool isOpponentsTurn = gameProvider.game.state.turn == opponentColor;
+
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Row(
@@ -174,7 +183,10 @@ class _GameScreenState extends State<GameScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceVariant,
+              color:
+                  isOpponentsTurn
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : Theme.of(context).colorScheme.surfaceVariant,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
@@ -197,6 +209,10 @@ class _GameScreenState extends State<GameScreen> {
     BuildContext context,
     GameProvider gameProvider,
   ) {
+    // Determine if it's the current player's turn
+    final bool isPlayersTurn =
+        gameProvider.game.state.turn == gameProvider.player;
+
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Row(
@@ -225,7 +241,10 @@ class _GameScreenState extends State<GameScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
+              color:
+                  isPlayersTurn
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : Theme.of(context).colorScheme.surfaceVariant,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(

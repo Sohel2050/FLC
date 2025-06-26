@@ -212,6 +212,11 @@ class GameProvider extends ChangeNotifier {
 
     // Start timer for the new game
     _startTimer();
+
+    // If player is black and playing vs CPU, let CPU make the first move
+    if (_vsCPU && _player == Squares.black) {
+      makeRandomMove();
+    }
   }
 
   // Flip the board
@@ -264,7 +269,12 @@ class GameProvider extends ChangeNotifier {
   // Make a random move for AI
   Future<void> makeRandomMove() async {
     // Check if it's AI's turn and not already thinking
-    if (_state.state == PlayState.theirTurn && !_aiThinking) {
+    // Also check if it's the start of the game and player is black
+    bool isAiTurn =
+        _state.state == PlayState.theirTurn ||
+        (_vsCPU && _player == Squares.black && _game.state.moveNumber == 1);
+
+    if (isAiTurn && !_aiThinking) {
       setAiThinking(true);
       await Future.delayed(
         Duration(milliseconds: Random().nextInt(4750) + 250),

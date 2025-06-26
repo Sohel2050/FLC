@@ -1,5 +1,4 @@
 import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/color_option.dart';
