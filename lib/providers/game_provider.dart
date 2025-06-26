@@ -16,7 +16,7 @@ class WonGameTimeout extends bishop.WonGame {
 class GameProvider extends ChangeNotifier {
   late bishop.Game _game = bishop.Game(variant: bishop.Variant.standard());
   late SquaresState _state = SquaresState.initial(0);
-
+  Stockfish? _stockfish;
   bool _aiThinking = false;
   bool _flipBoard = false;
   bool _stockfishInitialized = false;
@@ -78,6 +78,29 @@ class GameProvider extends ChangeNotifier {
 
   bool get isGameOver => _game.gameOver || _gameResultNotifier.value != null;
 
+  // Initialize Stockfish safely
+  Future<void> initializeStockfish() async {
+    if (_stockfishInitialized) return;
+
+    try {
+      _stockfish = Stockfish();
+      await waitForStockfish();
+      _stockfishInitialized = true;
+      print('Stockfish initialized successfully');
+    } catch (e) {
+      print('Failed to initialize Stockfish: $e');
+      _stockfish = null;
+      _stockfishInitialized = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    _stockfish?.dispose();
+    _stopTimers();
+    super.dispose();
+  }
+
   void setVsCPU(bool value) {
     _vsCPU = value;
     notifyListeners();
@@ -95,16 +118,6 @@ class GameProvider extends ChangeNotifier {
 
   void setPlayer(int playerColor) {
     _player = playerColor;
-    notifyListeners();
-  }
-
-  void setWhitesTime(Duration time) {
-    _whitesTime = time;
-    notifyListeners();
-  }
-
-  void setBlacksTime(Duration time) {
-    _blacksTime = time;
     notifyListeners();
   }
 
@@ -152,7 +165,7 @@ class GameProvider extends ChangeNotifier {
   }
 
   // Start the timer for the current player
-  void startTimer() {
+  void _startTimer() {
     _stopTimers(); // Stop any existing timers
     if (_game.state.turn == Squares.white) {
       _playWhitesTimer = true;
@@ -166,7 +179,7 @@ class GameProvider extends ChangeNotifier {
           _stopTimers();
           // Use post-frame callback to avoid build-time issues
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            checkGameOver();
+            _checkGameOver();
           });
         }
         notifyListeners();
@@ -183,7 +196,7 @@ class GameProvider extends ChangeNotifier {
           _stopTimers();
           // Use post-frame callback to avoid build-time issues
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            checkGameOver();
+            _checkGameOver();
           });
         }
         notifyListeners();
@@ -203,7 +216,7 @@ class GameProvider extends ChangeNotifier {
   }
 
   // Reset the game state
-  Future<void> resetGame(bool isNewGame) async {
+  void resetGame(bool isNewGame) {
     // Stop timers first
     _stopTimers();
 
@@ -226,8 +239,13 @@ class GameProvider extends ChangeNotifier {
     // Lets add a delay to start timer - not starting it imimediately
     // Allo white to think for a bit before starting the timer
     Future.delayed(const Duration(milliseconds: 500), () {
-      startTimer();
+      _startTimer();
     });
+
+    // If player is black and playing vs CPU, let CPU make the first move
+    if (_vsCPU && _player == Squares.black) {
+      makeStockfishMove();
+    }
   }
 
   // Flip the board
@@ -242,19 +260,8 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // get position fen
-  getPositionFen() {
-    return game.fen;
-  }
-
-  // set sqaures state
-  Future<void> setSquaresState() async {
-    _state = game.squaresState(player);
-    notifyListeners();
-  }
-
   // Check for game over conditions
-  void checkGameOver() {
+  void _checkGameOver() {
     if (_game.gameOver) {
       _stopTimers();
       _gameResultNotifier.value = _game.result;
@@ -279,70 +286,123 @@ class GameProvider extends ChangeNotifier {
           _whitesTime += Duration(seconds: _incrementalValue);
         }
       }
-      checkGameOver();
+      _checkGameOver();
       if (!_game.gameOver) {
-        startTimer(); // Restart timer for the next player
+        _startTimer(); // Restart timer for the next player
       }
       notifyListeners();
     }
     return result;
   }
 
-  // // Make a move using Stockfish AI
-  // Future<void> makeStockfishMove() async {
-  //   if (_stockfish == null || !_stockfishInitialized) {
-  //     print('Stockfish not initialized, skipping AI move');
-  //     return;
-  //   }
+  // Wait until Stockfish is ready
+  // Wait until Stockfish is ready
+  Future<void> waitForStockfish() async {
+    if (_stockfish == null) return;
 
-  //   try {
-  //     await waitForStockfish();
+    // Add timeout to prevent infinite waiting
+    int attempts = 0;
+    const maxAttempts = 60; // 30 seconds max
 
-  //     // Get current position in FEN format
-  //     _stockfish!.stdin = '${UCICommands.position} ${_game.fen}';
+    while (_stockfish!.state.value != StockfishState.ready &&
+        attempts < maxAttempts) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      attempts++;
+    }
 
-  //     // set Stockfish difficulty level
-  //     _stockfish!.stdin = '${UCICommands.goMoveTime} ${_gameLevel * 1000}';
+    if (attempts >= maxAttempts) {
+      throw Exception('Stockfish initialization timeout');
+    }
+  }
 
-  //     _stockfish!.stdout.listen((event) {
-  //       // Check if it's AI's turn and not already thinking
-  //       // Also check if it's the start of the game and player is black
-  //       bool isAiTurn =
-  //           _state.state == PlayState.theirTurn ||
-  //           (_vsCPU && _player == Squares.black && _game.state.moveNumber == 1);
+  // Make a move using Stockfish AI
+  Future<void> makeStockfishMove() async {
+    if (_stockfish == null || !_stockfishInitialized) {
+      print('Stockfish not initialized, skipping AI move');
+      return;
+    }
 
-  //       if (isAiTurn && !_aiThinking) {
-  //         setAiThinking(true);
+    try {
+      await waitForStockfish();
 
-  //         if (event.contains(UCICommands.bestMove)) {
-  //           // Extract the best move from Stockfish output
-  //           final bestMove = event.split(' ')[1];
-  //           // Make the move in the game
-  //           _game.makeMoveString(bestMove);
+      // Get current position in FEN format
+      _stockfish!.stdin = '${UCICommands.position} ${_game.fen}';
 
-  //           setAiThinking(false);
+      // set Stockfish difficulty level
+      _stockfish!.stdin = '${UCICommands.goMoveTime} ${_gameLevel * 1000}';
 
-  //           _state = _game.squaresState(_player);
-  //           // Add increment time after a successful move
-  //           if (_incrementalValue > 0) {
-  //             if (_game.state.turn == Squares.white) {
-  //               _blacksTime += Duration(seconds: _incrementalValue);
-  //             } else {
-  //               _whitesTime += Duration(seconds: _incrementalValue);
-  //             }
-  //           }
+      _stockfish!.stdout.listen((event) {
+        // Check if it's AI's turn and not already thinking
+        // Also check if it's the start of the game and player is black
+        bool isAiTurn =
+            _state.state == PlayState.theirTurn ||
+            (_vsCPU && _player == Squares.black && _game.state.moveNumber == 1);
 
-  //           checkGameOver();
-  //           if (!_game.gameOver) {
-  //             startTimer(); // Restart timer for the next player
-  //           }
-  //           notifyListeners();
-  //         }
+        if (isAiTurn && !_aiThinking) {
+          setAiThinking(true);
+
+          if (event.contains(UCICommands.bestMove)) {
+            // Extract the best move from Stockfish output
+            final bestMove = event.split(' ')[1];
+            // Make the move in the game
+            _game.makeMoveString(bestMove);
+
+            setAiThinking(false);
+
+            _state = _game.squaresState(_player);
+            // Add increment time after a successful move
+            if (_incrementalValue > 0) {
+              if (_game.state.turn == Squares.white) {
+                _blacksTime += Duration(seconds: _incrementalValue);
+              } else {
+                _whitesTime += Duration(seconds: _incrementalValue);
+              }
+            }
+
+            _checkGameOver();
+            if (!_game.gameOver) {
+              _startTimer(); // Restart timer for the next player
+            }
+            notifyListeners();
+          }
+        }
+      });
+    } catch (e) {
+      print('Error making Stockfish move: $e');
+      setAiThinking(false);
+    }
+  }
+}
+
+  // // Make a random move for AI
+  // Future<void> makeRandomMove() async {
+  //   // Check if it's AI's turn and not already thinking
+  //   // Also check if it's the start of the game and player is black
+  //   bool isAiTurn =
+  //       _state.state == PlayState.theirTurn ||
+  //       (_vsCPU && _player == Squares.black && _game.state.moveNumber == 1);
+
+  //   if (isAiTurn && !_aiThinking) {
+  //     setAiThinking(true);
+  //     await Future.delayed(
+  //       Duration(milliseconds: Random().nextInt(4750) + 250),
+  //     );
+  //     _game.makeRandomMove();
+  //     _state = _game.squaresState(_player);
+  //     // Add increment time after a successful move
+  //     if (_incrementalValue > 0) {
+  //       if (_game.state.turn == Squares.white) {
+  //         _blacksTime += Duration(seconds: _incrementalValue);
+  //       } else {
+  //         _whitesTime += Duration(seconds: _incrementalValue);
   //       }
-  //     });
-  //   } catch (e) {
-  //     print('Error making Stockfish move: $e');
+  //     }
   //     setAiThinking(false);
+  //     _checkGameOver();
+  //     if (!_game.gameOver) {
+  //       _startTimer(); // Restart timer for the next player
+  //     }
+  //     notifyListeners();
   //   }
   // }
-}
+
