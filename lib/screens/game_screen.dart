@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
+import 'package:flutter_chess_app/stockfish/uci_commands.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/game_over_dialog.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:squares/squares.dart';
+import 'package:stockfish/stockfish.dart';
 
 class GameScreen extends StatefulWidget {
   final ChessUser user;
@@ -17,6 +19,7 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   late GameProvider _gameProvider;
+  Stockfish? _stockfish;
 
   @override
   void initState() {
@@ -25,15 +28,105 @@ class _GameScreenState extends State<GameScreen> {
     _gameProvider.gameResultNotifier.addListener(_handleGameOver);
 
     // We make sure to reset the game state when entering the game screen
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _gameProvider.resetGame(false); // Start the game and timer
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _gameProvider.resetGame(false); // Start the game and timer
+
+      // If player is black and playing vs CPU, let CPU make the first move
+      if (_gameProvider.vsCPU && _gameProvider.player == Squares.black) {
+        makeStockfishMove();
+      }
     });
   }
 
   @override
   void dispose() {
+    _stockfish?.dispose();
     _gameProvider.gameResultNotifier.removeListener(_handleGameOver);
     super.dispose();
+  }
+
+  // Wait until Stockfish is ready
+  Future<void> waitForStockfish() async {
+    if (_stockfish == null) return;
+
+    // Timeout to prevent infinite waiting
+    int attempts = 0;
+    const maxAttempts = 60; // 30 seconds max
+
+    while (_stockfish!.state.value != StockfishState.ready &&
+        attempts < maxAttempts) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      attempts++;
+    }
+
+    if (attempts >= maxAttempts) {
+      throw Exception('Stockfish initialization timeout');
+    }
+  }
+
+  // Make a move using Stockfish AI
+  Future<void> makeStockfishMove() async {
+    _gameProvider = context.read<GameProvider>();
+
+    try {
+      await waitForStockfish();
+
+      // Get current position in FEN format
+      _stockfish!.stdin =
+          '${UCICommands.position} ${_gameProvider.getPositionFen()}';
+
+      // set Stockfish difficulty level
+      _stockfish!.stdin =
+          '${UCICommands.goMoveTime} ${_gameProvider.gameLevel * 1000}';
+
+      _stockfish!.stdout.listen((event) {
+        // Check if it's AI's turn and not already thinking
+        // Also check if it's the start of the game and player is black
+        bool isAiTurn =
+            _gameProvider.state.state == PlayState.theirTurn ||
+            (_gameProvider.vsCPU &&
+                _gameProvider.player == Squares.black &&
+                _gameProvider.game.state.moveNumber == 1);
+
+        if (isAiTurn && !_gameProvider.aiThinking) {
+          _gameProvider.setAiThinking(true);
+
+          if (event.contains(UCICommands.bestMove)) {
+            // Extract the best move from Stockfish output
+            final bestMove = event.split(' ')[1];
+            // Make the move in the game
+            _gameProvider.game.makeMoveString(bestMove);
+
+            _gameProvider.setAiThinking(false);
+
+            _gameProvider.setSquaresState();
+            // Add increment time after a successful move
+            if (_gameProvider.incrementalValue > 0) {
+              if (_gameProvider.game.state.turn == Squares.white) {
+                _gameProvider.setBlacksTime(
+                  _gameProvider.blacksTime +
+                      Duration(seconds: _gameProvider.incrementalValue),
+                );
+              } else {
+                _gameProvider.setWhitesTime(
+                  _gameProvider.whitesTime +
+                      Duration(seconds: _gameProvider.incrementalValue),
+                );
+              }
+            }
+
+            _gameProvider.checkGameOver();
+            if (!_gameProvider.isGameOver) {
+              _gameProvider.startTimer(); // Restart timer for the next player
+            }
+            setState(() {});
+          }
+        }
+      });
+    } catch (e) {
+      print('Error making Stockfish move: $e');
+      _gameProvider.setAiThinking(false);
+    }
   }
 
   void _handleGameOver() {
@@ -55,9 +148,14 @@ class _GameScreenState extends State<GameScreen> {
         user: widget.user,
         playerColor: _gameProvider.player,
       ),
-    ).then((action) {
+    ).then((action) async {
       if (action == GameOverAction.rematch) {
-        _gameProvider.resetGame(true); // Rematch, flip colors
+        await _gameProvider.resetGame(true); // Rematch, flip colors
+
+        // If player is black and playing vs CPU, let CPU make the first move
+        if (_gameProvider.vsCPU && _gameProvider.player == Squares.black) {
+          makeStockfishMove();
+        }
       } else if (action == GameOverAction.newGame) {
         // Navigate back to play screen or home screen for a completely new game
         if (mounted) {
@@ -73,7 +171,7 @@ class _GameScreenState extends State<GameScreen> {
 
     // Check if VS CPU mode is enabled
     if (_gameProvider.vsCPU) {
-      _gameProvider.makeStockfishMove();
+      makeStockfishMove();
     } else {
       // If it's a multiplayer game, notify the opponent about the move
       // This could be done via a WebSocket or similar real-time communication
@@ -125,7 +223,15 @@ class _GameScreenState extends State<GameScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     OutlinedButton(
-                      onPressed: () => gameProvider.resetGame(true),
+                      onPressed: () async {
+                        await gameProvider.resetGame(true);
+
+                        // If player is black and playing vs CPU, let CPU make the first move
+                        if (_gameProvider.vsCPU &&
+                            _gameProvider.player == Squares.black) {
+                          makeStockfishMove();
+                        }
+                      },
                       child: const Text('New Game'),
                     ),
                     const SizedBox(width: 16),
