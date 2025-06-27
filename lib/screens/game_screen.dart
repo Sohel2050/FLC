@@ -77,11 +77,15 @@ class _GameScreenState extends State<GameScreen> {
     // Check if VS CPU mode is enabled
     if (_gameProvider.vsCPU) {
       _gameProvider.makeStockfishMove();
+    } else if (_gameProvider.localMultiplayer) {
+      // In local multiplayer, no external notification is needed, just make the move
+      // The makeSquaresMove already handles turn switching and timer updates
     } else {
-      // If it's a multiplayer game, notify the opponent about the move
-      // This could be done via a WebSocket or similar real-time communication
-      // For now, we just print the move
-      print('Move made: ${move.from} to ${move.to}');
+      // If it's an online multiplayer game, notify the opponent about the move
+      // This would be done via a WebSocket or similar real-time communication
+      print(
+        'Move made: ${move.from} to ${move.to} (Online Multiplayer - Placeholder)',
+      );
     }
   }
 
@@ -169,7 +173,13 @@ class _GameScreenState extends State<GameScreen> {
         builder: (context, gameProvider, _) {
           return Scaffold(
             appBar: AppBar(
-              title: const Text('Game Screen'),
+              title: Text(
+                gameProvider.vsCPU
+                    ? 'VS CPU'
+                    : gameProvider.localMultiplayer
+                    ? 'Local Multiplayer'
+                    : 'Online Game',
+              ),
               actions: [
                 // Flip Board button
                 IconButton(
@@ -194,13 +204,13 @@ class _GameScreenState extends State<GameScreen> {
             ),
             body: Center(
               child: Column(
-                mainAxisAlignment:
-                    gameProvider.localMultiplayer
-                        ? MainAxisAlignment.center
-                        : MainAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
                   // Opponent (CPU or Human) data and time
-                  _opponentsDataAndTime(context, gameProvider),
+                  if (gameProvider.localMultiplayer)
+                    _localMultiplayerOpponentDataAndTime(context, gameProvider)
+                  else
+                    _opponentsDataAndTime(context, gameProvider),
 
                   Padding(
                     padding: const EdgeInsets.all(4.0),
@@ -224,7 +234,13 @@ class _GameScreenState extends State<GameScreen> {
                   ),
 
                   // Current user data and time
-                  _currentUserDataAndTime(context, gameProvider),
+                  if (gameProvider.localMultiplayer)
+                    _localMultiplayerCurrentUserDataAndTime(
+                      context,
+                      gameProvider,
+                    )
+                  else
+                    _currentUserDataAndTime(context, gameProvider),
                 ],
               ),
             ),
@@ -340,6 +356,127 @@ class _GameScreenState extends State<GameScreen> {
             child: Text(
               gameProvider.getFormattedTime(
                 gameProvider.player == Squares.white
+                    ? gameProvider.whitesTime
+                    : gameProvider.blacksTime,
+              ),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontFamily: 'monospace',
+                color: Theme.of(context).colorScheme.onPrimaryContainer,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  _localMultiplayerOpponentDataAndTime(
+    BuildContext context,
+    GameProvider gameProvider,
+  ) {
+    final bool isOpponentWhite = gameProvider.player == Squares.black;
+    final bool isOpponentsTurn =
+        gameProvider.game.state.turn ==
+        (isOpponentWhite ? Squares.white : Squares.black);
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
+        children: [
+          ProfileImageWidget(
+            imageUrl: null,
+            radius: 20,
+            isEditable: false,
+            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+            placeholderIcon: isOpponentWhite ? Icons.person : Icons.person,
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isOpponentWhite ? 'Player 1 (White)' : 'Player 2 (Black)',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              Text(
+                'Rating: N/A', // No rating for local multiplayer
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color:
+                  isOpponentsTurn
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : Theme.of(context).colorScheme.surfaceVariant,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              gameProvider.getFormattedTime(
+                isOpponentWhite
+                    ? gameProvider.whitesTime
+                    : gameProvider.blacksTime,
+              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontFamily: 'monospace'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Padding _localMultiplayerCurrentUserDataAndTime(
+    BuildContext context,
+    GameProvider gameProvider,
+  ) {
+    final bool isPlayerWhite = gameProvider.player == Squares.white;
+    final bool isPlayersTurn =
+        gameProvider.game.state.turn ==
+        (isPlayerWhite ? Squares.white : Squares.black);
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Row(
+        children: [
+          ProfileImageWidget(
+            imageUrl: null,
+            radius: 20,
+            isEditable: false,
+            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+            placeholderIcon: isPlayerWhite ? Icons.person : Icons.person,
+          ),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isPlayerWhite ? 'Player 1 (White)' : 'Player 2 (Black)',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              Text(
+                'Rating: N/A', // No rating for local multiplayer
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color:
+                  isPlayersTurn
+                      ? Theme.of(context).colorScheme.primaryContainer
+                      : Theme.of(context).colorScheme.surfaceVariant,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              gameProvider.getFormattedTime(
+                isPlayerWhite
                     ? gameProvider.whitesTime
                     : gameProvider.blacksTime,
               ),

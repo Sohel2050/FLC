@@ -107,7 +107,7 @@ class GameProvider extends ChangeNotifier {
 
   // Initialize Stockfish safely
   Future<void> initializeStockfish() async {
-    if (_stockfishInitialized) return;
+    if (_stockfishInitialized || _localMultiplayer) return;
 
     try {
       // Initialize Stockfish
@@ -295,7 +295,7 @@ class GameProvider extends ChangeNotifier {
     });
 
     // If player is black and playing vs CPU, let CPU make the first move
-    if (_vsCPU && _player == Squares.black) {
+    if (_vsCPU && _player == Squares.black && !_localMultiplayer) {
       makeStockfishMove();
     }
   }
@@ -329,7 +329,10 @@ class GameProvider extends ChangeNotifier {
   Future<bool> makeSquaresMove(Move move) async {
     bool result = _game.makeSquaresMove(move);
     if (result) {
-      _state = _game.squaresState(_player);
+      _state =
+          _localMultiplayer
+              ? _game.squaresState(_game.state.turn)
+              : _game.squaresState(_player);
       // Add increment time after a successful move
       if (_incrementalValue > 0) {
         if (_game.state.turn == Squares.white) {

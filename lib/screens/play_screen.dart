@@ -154,7 +154,19 @@ class _PlayScreenState extends State<PlayScreen> {
                   text: 'Local Multiplayer',
                   icon: Icons.people,
                   onPressed: () {
-                    // TODO: Implement local multiplayer
+                    final selectedMode = Constants.gameModes[_selectedGameMode];
+                    final timeControl = selectedMode[Constants.timeControl];
+
+                    gameProvider.setVsCPU(false); // Ensure vsCPU is false
+                    gameProvider.setLocalMultiplayer(true);
+                    gameProvider.setTimeControl(timeControl);
+
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => GameScreen(user: widget.user),
+                      ),
+                    );
                   },
                   isPrimary: false,
                   isFullWidth: true,
