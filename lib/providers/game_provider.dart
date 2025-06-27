@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/stockfish/uci_commands.dart';
 import 'package:squares/squares.dart';
@@ -7,6 +6,7 @@ import 'package:bishop/bishop.dart' as bishop;
 import 'package:square_bishop/square_bishop.dart';
 import 'package:stockfish/stockfish.dart';
 import 'package:squares/squares.dart';
+import 'package:logger/logger.dart';
 
 // Custom game result for timeout
 class WonGameTimeout extends bishop.WonGame {
@@ -20,6 +20,7 @@ class GameProvider extends ChangeNotifier {
   bool _aiThinking = false;
   bool _flipBoard = false;
   bool _stockfishInitialized = false;
+  final Logger _logger = Logger();
 
   bool _vsCPU = false;
   bool _isLoading = false;
@@ -83,12 +84,20 @@ class GameProvider extends ChangeNotifier {
     if (_stockfishInitialized) return;
 
     try {
+      // Initialize Stockfish
       _stockfish = Stockfish();
+
+      // Load Stockfish binary
       await waitForStockfish();
+
+      // Set Stockfish options
+      _setupStockfishListener();
+
+      // Set Stockfish to use the default engine
       _stockfishInitialized = true;
-      print('Stockfish initialized successfully');
+      _logger.i('####Stockfish initialized successfully###');
     } catch (e) {
-      print('Failed to initialize Stockfish: $e');
+      _logger.e('####Failed to initialize Stockfish: $e###');
       _stockfish = null;
       _stockfishInitialized = false;
     }
@@ -296,9 +305,13 @@ class GameProvider extends ChangeNotifier {
   }
 
   // Wait until Stockfish is ready
-  // Wait until Stockfish is ready
   Future<void> waitForStockfish() async {
+    _logger.i('Waiting for Stockfish to be ready...');
+    // If Stockfish is not initialized, do nothing
     if (_stockfish == null) return;
+
+    // Wait until Stockfish is ready
+    _logger.i('Waiting for Stockfish to initialize...');
 
     // Add timeout to prevent infinite waiting
     int attempts = 0;
@@ -306,9 +319,12 @@ class GameProvider extends ChangeNotifier {
 
     while (_stockfish!.state.value != StockfishState.ready &&
         attempts < maxAttempts) {
+      _logger.i('Stockfish not ready, attempt ${attempts + 1}/$maxAttempts');
+      // Wait for a short duration before checking again
       await Future.delayed(const Duration(milliseconds: 500));
       attempts++;
     }
+    _logger.i('Stockfish is ready after $attempts attempts');
 
     if (attempts >= maxAttempts) {
       throw Exception('Stockfish initialization timeout');
@@ -318,91 +334,76 @@ class GameProvider extends ChangeNotifier {
   // Make a move using Stockfish AI
   Future<void> makeStockfishMove() async {
     if (_stockfish == null || !_stockfishInitialized) {
-      print('Stockfish not initialized, skipping AI move');
+      _logger.i('Stockfish not initialized, skipping AI move');
       return;
     }
 
     try {
       await waitForStockfish();
 
-      // Get current position in FEN format
-      _stockfish!.stdin = '${UCICommands.position} ${_game.fen}';
+      // Check if it's AI's turn
+      bool isAiTurn =
+          _state.state == PlayState.theirTurn ||
+          (_vsCPU && _player == Squares.black && _game.state.moveNumber == 1);
 
-      // set Stockfish difficulty level
-      _stockfish!.stdin = '${UCICommands.goMoveTime} ${_gameLevel * 1000}';
+      if (isAiTurn && !_aiThinking) {
+        _logger.i('AI is thinking...');
+        setAiThinking(true);
 
-      _stockfish!.stdout.listen((event) {
-        // Check if it's AI's turn and not already thinking
-        // Also check if it's the start of the game and player is black
-        bool isAiTurn =
-            _state.state == PlayState.theirTurn ||
-            (_vsCPU && _player == Squares.black && _game.state.moveNumber == 1);
+        // Get current position in FEN format
+        _stockfish!.stdin = '${UCICommands.position} ${_game.fen}';
 
-        if (isAiTurn && !_aiThinking) {
-          setAiThinking(true);
-
-          if (event.contains(UCICommands.bestMove)) {
-            // Extract the best move from Stockfish output
-            final bestMove = event.split(' ')[1];
-            // Make the move in the game
-            _game.makeMoveString(bestMove);
-
-            setAiThinking(false);
-
-            _state = _game.squaresState(_player);
-            // Add increment time after a successful move
-            if (_incrementalValue > 0) {
-              if (_game.state.turn == Squares.white) {
-                _blacksTime += Duration(seconds: _incrementalValue);
-              } else {
-                _whitesTime += Duration(seconds: _incrementalValue);
-              }
-            }
-
-            _checkGameOver();
-            if (!_game.gameOver) {
-              _startTimer(); // Restart timer for the next player
-            }
-            notifyListeners();
-          }
-        }
-      });
+        // Set Stockfish difficulty level
+        _stockfish!.stdin = '${UCICommands.goMoveTime} ${_gameLevel * 1000}';
+      }
     } catch (e) {
-      print('Error making Stockfish move: $e');
+      _logger.e('Error making Stockfish move: $e');
       setAiThinking(false);
     }
   }
+
+  void _setupStockfishListener() {
+    if (_stockfish == null) return;
+
+    _stockfish!.stdout.listen((event) {
+      _logger.i('Stockfish output: $event');
+
+      // Check if it's AI's turn and not already thinking
+      bool isAiTurn =
+          _state.state == PlayState.theirTurn ||
+          (_vsCPU && _player == Squares.black && _game.state.moveNumber == 1);
+
+      _logger.i('Is AI turn: $isAiTurn, AI thinking: $_aiThinking');
+
+      if (isAiTurn && _aiThinking && event.contains(UCICommands.bestMove)) {
+        // Extract the best move from Stockfish output
+        final bestMove = event.split(' ')[1];
+        _logger.i('Best move from Stockfish: $bestMove');
+
+        // Make the move in the game
+        _game.makeMoveString(bestMove);
+
+        setAiThinking(false);
+
+        _state = _game.squaresState(_player);
+
+        // Add increment time after a successful move
+        if (_incrementalValue > 0) {
+          if (_game.state.turn == Squares.white) {
+            _blacksTime += Duration(seconds: _incrementalValue);
+          } else {
+            _whitesTime += Duration(seconds: _incrementalValue);
+          }
+        }
+
+        _logger.i('Move made: $bestMove');
+
+        _checkGameOver();
+        if (!_game.gameOver) {
+          _startTimer(); // Restart timer for the next player
+        }
+        notifyListeners();
+      }
+    });
+  }
 }
-
-  // // Make a random move for AI
-  // Future<void> makeRandomMove() async {
-  //   // Check if it's AI's turn and not already thinking
-  //   // Also check if it's the start of the game and player is black
-  //   bool isAiTurn =
-  //       _state.state == PlayState.theirTurn ||
-  //       (_vsCPU && _player == Squares.black && _game.state.moveNumber == 1);
-
-  //   if (isAiTurn && !_aiThinking) {
-  //     setAiThinking(true);
-  //     await Future.delayed(
-  //       Duration(milliseconds: Random().nextInt(4750) + 250),
-  //     );
-  //     _game.makeRandomMove();
-  //     _state = _game.squaresState(_player);
-  //     // Add increment time after a successful move
-  //     if (_incrementalValue > 0) {
-  //       if (_game.state.turn == Squares.white) {
-  //         _blacksTime += Duration(seconds: _incrementalValue);
-  //       } else {
-  //         _whitesTime += Duration(seconds: _incrementalValue);
-  //       }
-  //     }
-  //     setAiThinking(false);
-  //     _checkGameOver();
-  //     if (!_game.gameOver) {
-  //       _startTimer(); // Restart timer for the next player
-  //     }
-  //     notifyListeners();
-  //   }
-  // }
-
