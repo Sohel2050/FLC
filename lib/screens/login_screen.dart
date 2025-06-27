@@ -78,7 +78,7 @@ class LoginScreen extends StatelessWidget {
                   const SizedBox(height: 24),
 
                   // Login Button
-                  PlayModeButton(
+                  MainAppButton(
                     text: 'Login',
                     icon: Icons.login,
                     onPressed: () {
@@ -89,7 +89,7 @@ class LoginScreen extends StatelessWidget {
                   const SizedBox(height: 16),
 
                   // Guest Button
-                  PlayModeButton(
+                  MainAppButton(
                     text: 'Play as Guest',
                     icon: Icons.person_outline,
                     onPressed: () {

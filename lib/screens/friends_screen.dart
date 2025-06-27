@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/screens/sign_up_screen.dart';
+import 'package:flutter_chess_app/widgets/play_mode_button.dart';
 import '../models/user_model.dart';
 
 class FriendsScreen extends StatelessWidget {
@@ -17,15 +19,27 @@ class FriendsScreen extends StatelessWidget {
             const Icon(Icons.people, size: 80, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
-              'Friends List for ${user.displayName}',
+              'Account required',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
             const SizedBox(height: 8),
             Text(
-              'This is where your friends will appear.',
+              'To play with friends, please create an account.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
+            const SizedBox(height: 16),
+
+            MainAppButton(
+              text: 'Create Account',
+              onPressed: () {
+                // Navigate to sign-up screen
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const SignUpScreen()),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
           ],
         ),
       ),

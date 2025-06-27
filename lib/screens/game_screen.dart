@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
+import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/confirmation_dialog.dart';
 import 'package:flutter_chess_app/widgets/game_over_dialog.dart';
@@ -157,6 +158,9 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Access the settings provider
+    final settingsProvider = context.read<SettingsProvider>();
+
     return PopScope(
       canPop: _gameProvider.isGameOver,
       onPopInvoked: (didPop) async {
@@ -220,8 +224,13 @@ class _GameScreenState extends State<GameScreen> {
                               ? gameProvider.state.board.flipped()
                               : gameProvider.state.board,
                       playState: gameProvider.state.state,
-                      pieceSet: PieceSet.merida(),
-                      theme: BoardTheme.brown,
+                      pieceSet: settingsProvider.getPieceSet(),
+                      theme: settingsProvider.boardTheme,
+                      animatePieces: settingsProvider.animatePieces,
+                      labelConfig:
+                          settingsProvider.showLabels
+                              ? LabelConfig.standard
+                              : LabelConfig.disabled,
                       moves: gameProvider.state.moves,
                       onMove: _onMove,
                       onPremove: _onMove,

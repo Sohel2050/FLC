@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
+import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'screens/login_screen.dart';
 import 'package:provider/provider.dart';
 
 void main() {
   runApp(
     MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => GameProvider())],
+      providers: [
+        ChangeNotifierProvider(create: (_) => GameProvider()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()),
+      ],
       child: const MyApp(),
     ),
   );

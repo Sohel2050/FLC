@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-class PlayModeButton extends StatelessWidget {
+class MainAppButton extends StatelessWidget {
   final String text;
   final IconData? icon;
   final VoidCallback onPressed;
   final bool isPrimary;
   final bool isFullWidth;
 
-  const PlayModeButton({
+  const MainAppButton({
     super.key,
     required this.text,
     this.icon,

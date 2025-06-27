@@ -89,7 +89,7 @@ class SignUpScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  PlayModeButton(
+                  MainAppButton(
                     text: 'Sign Up',
                     icon: Icons.person_add_alt_1,
                     onPressed: () {

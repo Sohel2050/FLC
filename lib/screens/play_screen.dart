@@ -63,7 +63,7 @@ class _PlayScreenState extends State<PlayScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             child: Column(
               children: [
-                PlayModeButton(
+                MainAppButton(
                   text: 'Play Online',
                   icon: Icons.public,
                   onPressed: () {
@@ -72,7 +72,7 @@ class _PlayScreenState extends State<PlayScreen> {
                   isFullWidth: true,
                 ),
                 const SizedBox(height: 16),
-                PlayModeButton(
+                MainAppButton(
                   text: 'Play vs CPU',
                   icon: Icons.computer,
                   onPressed: () async {
@@ -150,7 +150,7 @@ class _PlayScreenState extends State<PlayScreen> {
                   isFullWidth: true,
                 ),
                 const SizedBox(height: 16),
-                PlayModeButton(
+                MainAppButton(
                   text: 'Local Multiplayer',
                   icon: Icons.people,
                   onPressed: () {
