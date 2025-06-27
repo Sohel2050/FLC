@@ -4,6 +4,7 @@ import '../models/user_model.dart';
 import 'friends_screen.dart';
 import 'options_screen.dart';
 import 'play_screen.dart';
+import 'rules_info_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final ChessUser user;
@@ -62,7 +63,20 @@ class _HomeScreenState extends State<HomeScreen> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
-              // TODO: Handle menu item selection
+              if (value == 'rules') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const RulesInfoScreen(),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('This feature requires an account.'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
             },
             itemBuilder:
                 (context) => [
