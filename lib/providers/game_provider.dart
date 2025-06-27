@@ -5,12 +5,16 @@ import 'package:squares/squares.dart';
 import 'package:bishop/bishop.dart' as bishop;
 import 'package:square_bishop/square_bishop.dart';
 import 'package:stockfish/stockfish.dart';
-import 'package:squares/squares.dart';
 import 'package:logger/logger.dart';
 
 // Custom game result for timeout
 class WonGameTimeout extends bishop.WonGame {
   const WonGameTimeout({required super.winner});
+}
+
+// Custom game result for resignation
+class WonGameResignation extends bishop.WonGame {
+  const WonGameResignation({required super.winner});
 }
 
 class GameProvider extends ChangeNotifier {
@@ -23,6 +27,7 @@ class GameProvider extends ChangeNotifier {
   final Logger _logger = Logger();
 
   bool _vsCPU = false;
+  bool _localMultiplayer = false;
   bool _isLoading = false;
   bool _playWhitesTimer = true;
   bool _playBlacksTimer = true;
@@ -55,6 +60,7 @@ class GameProvider extends ChangeNotifier {
   bool get flipBoard => _flipBoard;
 
   bool get vsCPU => _vsCPU;
+  bool get localMultiplayer => _localMultiplayer;
   bool get isLoading => _isLoading;
   bool get playWhitesTimer => _playWhitesTimer;
   bool get playBlacksTimer => _playBlacksTimer;
@@ -78,6 +84,26 @@ class GameProvider extends ChangeNotifier {
       _gameResultNotifier;
 
   bool get isGameOver => _game.gameOver || _gameResultNotifier.value != null;
+
+  /// Resigns the current game, setting the game result to a win for the opponent.
+  void resignGame() {
+    final winner =
+        _game.state.turn == Squares.white ? Squares.black : Squares.white;
+    _gameResultNotifier.value = WonGameResignation(winner: winner);
+    _checkGameOver();
+    notifyListeners();
+  }
+
+  /// Offers a draw in the current game.
+  /// This is a placeholder for future multiplayer implementation.
+  void offerDraw() {
+    // TODO: Implement draw offer logic for local multiplayer and online play
+    _logger.i('Draw offer initiated (placeholder)');
+    // For now, we can simulate a draw or do nothing
+    // _gameResultNotifier.value = bishop.DrawnGame(reason: bishop.DrawReason.agreement);
+    // _checkGameOver();
+    // notifyListeners();
+  }
 
   // Initialize Stockfish safely
   Future<void> initializeStockfish() async {
@@ -105,13 +131,30 @@ class GameProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    _stockfish?.dispose();
+    disposeStockfish();
     _stopTimers();
     super.dispose();
   }
 
+  // Disposes the Stockfish engine instance and resets the initialization flag.
+  // This is useful for cleaning up when a CPU game ends and the user
+  // wants to return to the main menu, without destroying the GameProvider.
+  void disposeStockfish() {
+    if (_stockfish != null) {
+      _stockfish!.dispose();
+      _stockfish = null;
+      _stockfishInitialized = false;
+      _logger.i('Stockfish engine disposed.');
+    }
+  }
+
   void setVsCPU(bool value) {
     _vsCPU = value;
+    notifyListeners();
+  }
+
+  void setLocalMultiplayer(bool value) {
+    _localMultiplayer = value;
     notifyListeners();
   }
 

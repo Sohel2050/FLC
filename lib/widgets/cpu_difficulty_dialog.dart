@@ -1,8 +1,10 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/color_option.dart';
 import 'package:flutter_chess_app/widgets/difficulty_option.dart';
+import 'package:provider/provider.dart';
 import 'package:squares/squares.dart';
 
 class CPUDifficultyDialog extends StatefulWidget {
@@ -87,7 +89,12 @@ class _CPUDifficultyDialogState extends State<CPUDifficultyDialog> {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                // dispose stockfish engine if needed
+                context.read<GameProvider>().disposeStockfish();
+
+                Navigator.of(context).pop(); // Close the dialog without action
+              },
               child: const Text('Cancel'),
             ),
             const SizedBox(width: 12),

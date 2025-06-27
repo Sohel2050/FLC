@@ -34,6 +34,8 @@ class GameOverDialog extends StatelessWidget {
         winType = 'by Checkmate';
       } else if (result is bishop.WonGameTimeout) {
         winType = 'by Timeout';
+      } else if (result is bishop.WonGameResignation) {
+        winType = 'by Resignation';
       } else if (result is bishop.WonGameElimination) {
         winType = 'by Elimination';
       } else if (result is bishop.WonGameStalemate) {
@@ -109,7 +111,7 @@ class GameOverDialog extends StatelessWidget {
           'Your Rating: ${user.classicalRating}',
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        // Add more player data if needed for rematch context
+        // Will add more player data if needed later
       ],
     );
   }

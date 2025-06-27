@@ -4,6 +4,7 @@ import 'package:flutter_chess_app/screens/game_screen.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/cpu_difficulty_dialog.dart';
+import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 import 'package:provider/provider.dart';
 import '../models/user_model.dart';
 import '../widgets/game_mode_card.dart';
@@ -80,6 +81,11 @@ class _PlayScreenState extends State<PlayScreen> {
 
                     // Will show loading while initializing Stockfish
                     gameProvider.setLoading(true);
+                    LoadingDialog.show(
+                      context,
+                      message: 'Initializing Stockfish engine...',
+                      barrierDismissible: false,
+                    );
 
                     try {
                       // Initialize Stockfish before showing dialog
@@ -88,6 +94,9 @@ class _PlayScreenState extends State<PlayScreen> {
                       gameProvider.setLoading(false);
 
                       if (context.mounted) {
+                        // Hide loading dialog
+                        LoadingDialog.hide(context);
+
                         // Show CPU difficulty selection dialog
                         final result = await AnimatedDialog.show(
                           context: context,
