@@ -79,7 +79,7 @@ class _GameScreenState extends State<GameScreen> {
     if (_gameProvider.vsCPU) {
       _gameProvider.makeStockfishMove();
     } else if (_gameProvider.localMultiplayer) {
-      // In local multiplayer, no external notification is needed, just make the move
+      // In local multiplayer, no external notification is needed, we just make the move
       // The makeSquaresMove already handles turn switching and timer updates
     } else {
       // If it's an online multiplayer game, notify the opponent about the move

@@ -121,9 +121,7 @@ class GameProvider extends ChangeNotifier {
 
       // Set Stockfish to use the default engine
       _stockfishInitialized = true;
-      _logger.i('####Stockfish initialized successfully###');
     } catch (e) {
-      _logger.e('####Failed to initialize Stockfish: $e###');
       _stockfish = null;
       _stockfishInitialized = false;
     }
@@ -280,11 +278,12 @@ class GameProvider extends ChangeNotifier {
       _player = _player == Squares.white ? Squares.black : Squares.white;
       notifyListeners();
     }
+
     _whitesTime = _savedWhitesTime;
     _blacksTime = _savedBlacksTime;
 
     _game = bishop.Game(variant: bishop.Variant.standard());
-    _state = game.squaresState(player);
+    _state = _game.squaresState(_player);
 
     notifyListeners();
 
@@ -333,6 +332,7 @@ class GameProvider extends ChangeNotifier {
           _localMultiplayer
               ? _game.squaresState(_game.state.turn)
               : _game.squaresState(_player);
+
       // Add increment time after a successful move
       if (_incrementalValue > 0) {
         if (_game.state.turn == Squares.white) {
@@ -352,25 +352,20 @@ class GameProvider extends ChangeNotifier {
 
   // Wait until Stockfish is ready
   Future<void> waitForStockfish() async {
-    _logger.i('Waiting for Stockfish to be ready...');
     // If Stockfish is not initialized, do nothing
     if (_stockfish == null) return;
 
     // Wait until Stockfish is ready
-    _logger.i('Waiting for Stockfish to initialize...');
-
     // Add timeout to prevent infinite waiting
     int attempts = 0;
     const maxAttempts = 60; // 30 seconds max
 
     while (_stockfish!.state.value != StockfishState.ready &&
         attempts < maxAttempts) {
-      _logger.i('Stockfish not ready, attempt ${attempts + 1}/$maxAttempts');
       // Wait for a short duration before checking again
       await Future.delayed(const Duration(milliseconds: 500));
       attempts++;
     }
-    _logger.i('Stockfish is ready after $attempts attempts');
 
     if (attempts >= maxAttempts) {
       throw Exception('Stockfish initialization timeout');

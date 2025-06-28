@@ -102,10 +102,6 @@ class SettingsProvider with ChangeNotifier {
         return PieceSet.merida();
       case 'letters':
         return PieceSet.letters();
-      case 'xiangqi':
-        return PieceSet.xiangqi();
-      case 'xiangqiIcons':
-        return PieceSet.xiangqiIcons();
       default:
         return PieceSet.merida();
     }

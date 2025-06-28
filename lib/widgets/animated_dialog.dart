@@ -105,11 +105,22 @@ class _AnimatedDialogState extends State<AnimatedDialog> {
         color: Theme.of(context).colorScheme.secondaryContainer,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
-      child: Text(
-        widget.title!,
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-          color: Theme.of(context).colorScheme.onSecondaryContainer,
-        ),
+      child: Row(
+        children: [
+          Text(
+            widget.title!,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              color: Theme.of(context).colorScheme.onSecondaryContainer,
+            ),
+          ),
+
+          const Spacer(),
+
+          IconButton(
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close),
+          ),
+        ],
       ),
     );
   }
