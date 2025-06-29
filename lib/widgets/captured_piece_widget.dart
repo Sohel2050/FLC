@@ -45,7 +45,7 @@ class CapturedPiecesWidget extends StatelessWidget {
                         margin: const EdgeInsets.only(right: 4),
                         child: Stack(
                           children: [
-                            Container(
+                            SizedBox(
                               width: 24,
                               height: 24,
                               child: pieceSet.piece(context, pieceName),

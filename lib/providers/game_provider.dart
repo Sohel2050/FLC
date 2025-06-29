@@ -445,6 +445,8 @@ class GameProvider extends ChangeNotifier {
           _whitesTime += Duration(seconds: _incrementalValue);
         }
       }
+      // Update captured pieces after the move
+      //updateCapturedPieces();
       _checkGameOver();
       if (!_game.gameOver) {
         _startTimer(); // Restart timer for the next player
@@ -467,6 +469,59 @@ class GameProvider extends ChangeNotifier {
 
     return '$from$to';
   }
+
+  // void updateCapturedPieces() {
+  //   // Get the initial piece counts from the starting position
+  //   final initialGame = bishop.Game(variant: bishop.Variant.standard());
+  //   final initialBoard = initialGame.board;
+  //   final variant = _game.variant;
+
+  //   Map<String, int> initialWhite = {};
+  //   Map<String, int> initialBlack = {};
+
+  //   for (var piece in initialBoard) {
+  //     if (piece == 0) continue;
+  //     String symbol = variant.pieceSymbol(piece & 7);
+  //     int colour = (piece >> 3) & 1; // 0 = white, 1 = black in Bishop
+  //     if (colour == Squares.white) {
+  //       initialWhite[symbol] = (initialWhite[symbol] ?? 0) + 1;
+  //     } else if (colour == Squares.black) {
+  //       initialBlack[symbol] = (initialBlack[symbol] ?? 0) + 1;
+  //     }
+  //   }
+
+  //   // Get the current piece counts
+  //   Map<String, int> currentWhite = {};
+  //   Map<String, int> currentBlack = {};
+  //   for (var piece in _game.board) {
+  //     if (piece == 0) continue;
+  //     String symbol = variant.pieceSymbol(piece & 7);
+  //     int colour = (piece >> 3) & 1; // 0 = white, 1 = black in Bishop
+  //     if (colour == Squares.white) {
+  //       currentWhite[symbol] = (currentWhite[symbol] ?? 0) + 1;
+  //     } else if (colour == Squares.black) {
+  //       currentBlack[symbol] = (currentBlack[symbol] ?? 0) + 1;
+  //     }
+  //   }
+
+  //   // Calculate captured pieces
+  //   _whiteCapturedPieces.clear();
+  //   _blackCapturedPieces.clear();
+
+  //   initialBlack.forEach((symbol, count) {
+  //     int captured = count - (currentBlack[symbol] ?? 0);
+  //     for (int i = 0; i < captured; i++) {
+  //       _whiteCapturedPieces.add(symbol.toLowerCase());
+  //     }
+  //   });
+
+  //   initialWhite.forEach((symbol, count) {
+  //     int captured = count - (currentWhite[symbol] ?? 0);
+  //     for (int i = 0; i < captured; i++) {
+  //       _blackCapturedPieces.add(symbol.toUpperCase());
+  //     }
+  //   });
+  // }
 
   // Helper method to convert square index to algebraic notation
   String _squareToAlgebraic(int square) {
