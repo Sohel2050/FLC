@@ -48,6 +48,15 @@ class GameProvider extends ChangeNotifier {
   Duration _savedWhitesTime = Duration.zero;
   Duration _savedBlacksTime = Duration.zero;
 
+  // Captured pieces
+  // These lists will hold the captured pieces for each player
+  // They will be used to display captured pieces in the UI
+  // and calculate material advantage
+  // They will be updated whenever a piece is captured
+  List<String> _whiteCapturedPieces = [];
+  List<String> _blackCapturedPieces = [];
+  List<String> _moveHistory = [];
+
   // Game over notifier
   final ValueNotifier<bishop.GameResult?> _gameResultNotifier = ValueNotifier(
     null,
@@ -79,11 +88,51 @@ class GameProvider extends ChangeNotifier {
   Duration get savedWhitesTime => _savedWhitesTime;
   Duration get savedBlacksTime => _savedBlacksTime;
 
+  List<String> get whiteCapturedPieces => _whiteCapturedPieces;
+  List<String> get blackCapturedPieces => _blackCapturedPieces;
+  List<String> get moveHistory => _moveHistory;
+
   bishop.GameResult? get gameResult => _gameResultNotifier.value;
   ValueNotifier<bishop.GameResult?> get gameResultNotifier =>
       _gameResultNotifier;
 
   bool get isGameOver => _game.gameOver || _gameResultNotifier.value != null;
+
+  // Calculate material advantage
+  int get materialAdvantage {
+    int whitePoints = _calculateMaterialPoints(_whiteCapturedPieces);
+    int blackPoints = _calculateMaterialPoints(_blackCapturedPieces);
+    return whitePoints - blackPoints;
+  }
+
+  // Get material advantage from player's perspective
+  int getMaterialAdvantageForPlayer(int playerColor) {
+    int advantage = materialAdvantage;
+    return playerColor == Squares.white ? advantage : -advantage;
+  }
+
+  int _calculateMaterialPoints(List<String> pieces) {
+    int points = 0;
+    for (String piece in pieces) {
+      switch (piece.toLowerCase()) {
+        case 'p':
+          points += 1;
+          break;
+        case 'n':
+        case 'b':
+          points += 3;
+          break;
+        case 'r':
+          points += 5;
+          break;
+        case 'q':
+          points += 9;
+          break;
+        // King has no point value in material calculation
+      }
+    }
+    return points;
+  }
 
   /// Resigns the current game, setting the game result to a win for the opponent.
   void resignGame() {
@@ -267,11 +316,13 @@ class GameProvider extends ChangeNotifier {
 
   // Reset the game state
   void resetGame(bool isNewGame) {
-    // Stop timers first
     _stopTimers();
-
-    // Clear game result BEFORE resetting the game to prevent dialog retriggering
     _gameResultNotifier.value = null;
+
+    // Clear captured pieces and move history
+    _whiteCapturedPieces.clear();
+    _blackCapturedPieces.clear();
+    _moveHistory.clear();
 
     // Change player color if it's a new game
     if (isNewGame) {
@@ -283,12 +334,32 @@ class GameProvider extends ChangeNotifier {
     _blacksTime = _savedBlacksTime;
 
     _game = bishop.Game(variant: bishop.Variant.standard());
-    _state = _game.squaresState(_player);
+
+    // Initialize state correctly for local multiplayer
+    if (_localMultiplayer) {
+      // Start with white's turn
+      final currentTurn = _game.state.turn; // This will be white initially
+      final dynamicState = _game.squaresState(currentTurn);
+      final baseState = _game.squaresState(_player);
+
+      _state = SquaresState(
+        player: currentTurn,
+        state: PlayState.ourTurn,
+        size: dynamicState.size,
+        board: baseState.board,
+        moves: dynamicState.moves,
+        history: dynamicState.history,
+        hands: dynamicState.hands,
+        gates: dynamicState.gates,
+      );
+    } else {
+      _state = _game.squaresState(_player);
+    }
 
     notifyListeners();
 
-    // Lets add a delay to start timer - not starting it imimediately
-    // Allo white to think for a bit before starting the timer
+    // Lets add a delay to start timer - not starting it immediately
+    // Allow white to think for a bit before starting the timer
     Future.delayed(const Duration(milliseconds: 500), () {
       _startTimer();
     });
@@ -326,12 +397,78 @@ class GameProvider extends ChangeNotifier {
 
   // Make squares move
   Future<bool> makeSquaresMove(Move move) async {
+    // Store the piece at destination before making the move (for capture detection)
+    String? capturedPiece;
+    if (move.to < _game.board.length) {
+      int pieceAtDestination = _game.board[move.to];
+      _logger.i('Piece at destination (${move.to}): $pieceAtDestination');
+      if (pieceAtDestination != 0) {
+        // Convert piece integer to symbol using the variant's piece type system
+        capturedPiece = _getPieceSymbol(pieceAtDestination);
+        _logger.i('Captured piece: $capturedPiece at square ${move.to}');
+      }
+    }
+
+    _logger.i(
+      'Making move: ${move.from} to ${move.to}, captured: $capturedPiece',
+    );
+
     bool result = _game.makeSquaresMove(move);
     if (result) {
-      _state =
-          _localMultiplayer
-              ? _game.squaresState(_game.state.turn)
-              : _game.squaresState(_player);
+      // Track captured piece
+      if (capturedPiece != null) {
+        if (_game.state.turn == Squares.white) {
+          // Black just captured (since turn switched after move)
+          _blackCapturedPieces.add(capturedPiece);
+          _logger.i(
+            'Black captured piece: $capturedPiece, Total: ${_blackCapturedPieces.length}',
+          );
+        } else {
+          // White just captured
+          _whiteCapturedPieces.add(capturedPiece);
+          _logger.i(
+            'White captured piece: $capturedPiece, Total: ${_whiteCapturedPieces.length}',
+          );
+        }
+      }
+
+      // Track move in algebraic notation
+      if (_game.history.isNotEmpty) {
+        String moveNotation = _getMoveNotation(move);
+        if (moveNotation.isNotEmpty) {
+          _moveHistory.add(moveNotation);
+        }
+      }
+
+      if (_localMultiplayer) {
+        // For local multiplayer, dynamically create state based on current turn
+        final currentTurn = _game.state.turn;
+
+        // Create state from the perspective of whoever's turn it is
+        final dynamicState = _game.squaresState(currentTurn);
+
+        // But we need to adjust the board orientation to match our display
+        final baseState = _game.squaresState(_player);
+
+        _state = SquaresState(
+          player: currentTurn, // Set to current turn so moves work correctly
+          state:
+              PlayState
+                  .ourTurn, // Always "our turn" since we're showing from current player's perspective
+          size: dynamicState.size,
+          board:
+              baseState
+                  .board, // Keep the board orientation consistent with display
+          moves:
+              dynamicState.moves, // Use moves from current turn's perspective
+          history: dynamicState.history,
+          hands: dynamicState.hands,
+          gates: dynamicState.gates,
+        );
+      } else {
+        // For other modes, use the standard approach
+        _state = _game.squaresState(_player);
+      }
 
       // Add increment time after a successful move
       if (_incrementalValue > 0) {
@@ -348,6 +485,50 @@ class GameProvider extends ChangeNotifier {
       notifyListeners();
     }
     return result;
+  }
+
+  // Helper method to get piece symbol from piece integer
+  String _getPieceSymbol(int piece) {
+    // Extract piece type and color from the integer
+    // This is based on the Bishop library's piece encoding
+    final pieceType = piece & 7; // Get the piece type (lower 3 bits)
+    final isWhite = (piece & 8) == 0; // Check if white (bit 3)
+
+    const pieceSymbols = ['', 'P', 'N', 'B', 'R', 'Q', 'K'];
+
+    _logger.i('Piece: $piece, Type: $pieceType, Is White: $isWhite');
+
+    if (pieceType < pieceSymbols.length) {
+      String symbol = pieceSymbols[pieceType];
+      _logger.i('Piece symbol: $symbol');
+      // Return the symbol in uppercase for white, lowercase for black
+      return isWhite ? symbol : symbol.toLowerCase();
+    }
+    return '';
+  }
+
+  // Helper method to convert move to algebraic notation
+  String _getMoveNotation(Move move) {
+    // Convert square indices to algebraic notation
+    String from = _squareToAlgebraic(move.from);
+    String to = _squareToAlgebraic(move.to);
+
+    // Add promotion piece if applicable
+    if (move is bishop.StandardMove && move.promotion != null) {
+      String promotionPiece = _getPieceSymbol(move.promotion as int);
+      return '$from$to$promotionPiece';
+    }
+
+    return '$from$to';
+  }
+
+  // Helper method to convert square index to algebraic notation
+  String _squareToAlgebraic(int square) {
+    final file = square % 8;
+    final rank = square ~/ 8;
+    final fileChar = String.fromCharCode('a'.codeUnitAt(0) + file);
+    final rankChar = (rank + 1).toString();
+    return '$fileChar$rankChar';
   }
 
   // Wait until Stockfish is ready
