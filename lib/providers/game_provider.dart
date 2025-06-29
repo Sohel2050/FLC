@@ -397,41 +397,8 @@ class GameProvider extends ChangeNotifier {
 
   // Make squares move
   Future<bool> makeSquaresMove(Move move) async {
-    // Store the piece at destination before making the move (for capture detection)
-    String? capturedPiece;
-    if (move.to < _game.board.length) {
-      int pieceAtDestination = _game.board[move.to];
-      _logger.i('Piece at destination (${move.to}): $pieceAtDestination');
-      if (pieceAtDestination != 0) {
-        // Convert piece integer to symbol using the variant's piece type system
-        capturedPiece = _getPieceSymbol(pieceAtDestination);
-        _logger.i('Captured piece: $capturedPiece at square ${move.to}');
-      }
-    }
-
-    _logger.i(
-      'Making move: ${move.from} to ${move.to}, captured: $capturedPiece',
-    );
-
     bool result = _game.makeSquaresMove(move);
     if (result) {
-      // Track captured piece
-      if (capturedPiece != null) {
-        if (_game.state.turn == Squares.white) {
-          // Black just captured (since turn switched after move)
-          _blackCapturedPieces.add(capturedPiece);
-          _logger.i(
-            'Black captured piece: $capturedPiece, Total: ${_blackCapturedPieces.length}',
-          );
-        } else {
-          // White just captured
-          _whiteCapturedPieces.add(capturedPiece);
-          _logger.i(
-            'White captured piece: $capturedPiece, Total: ${_whiteCapturedPieces.length}',
-          );
-        }
-      }
-
       // Track move in algebraic notation
       if (_game.history.isNotEmpty) {
         String moveNotation = _getMoveNotation(move);
@@ -487,36 +454,15 @@ class GameProvider extends ChangeNotifier {
     return result;
   }
 
-  // Helper method to get piece symbol from piece integer
-  String _getPieceSymbol(int piece) {
-    // Extract piece type and color from the integer
-    // This is based on the Bishop library's piece encoding
-    final pieceType = piece & 7; // Get the piece type (lower 3 bits)
-    final isWhite = (piece & 8) == 0; // Check if white (bit 3)
-
-    const pieceSymbols = ['', 'P', 'N', 'B', 'R', 'Q', 'K'];
-
-    _logger.i('Piece: $piece, Type: $pieceType, Is White: $isWhite');
-
-    if (pieceType < pieceSymbols.length) {
-      String symbol = pieceSymbols[pieceType];
-      _logger.i('Piece symbol: $symbol');
-      // Return the symbol in uppercase for white, lowercase for black
-      return isWhite ? symbol : symbol.toLowerCase();
-    }
-    return '';
-  }
-
   // Helper method to convert move to algebraic notation
   String _getMoveNotation(Move move) {
     // Convert square indices to algebraic notation
     String from = _squareToAlgebraic(move.from);
     String to = _squareToAlgebraic(move.to);
 
-    // Add promotion piece if applicable
-    if (move is bishop.StandardMove && move.promotion != null) {
-      String promotionPiece = _getPieceSymbol(move.promotion as int);
-      return '$from$to$promotionPiece';
+    // Check if this is a promotion move using the squares Move class properties
+    if (move.promo != null) {
+      return '$from$to${move.promo}';
     }
 
     return '$from$to';

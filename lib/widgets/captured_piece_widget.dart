@@ -17,6 +17,16 @@ class CapturedPiecesWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (capturedPieces.isEmpty && materialAdvantage == 0) {
+      return const SizedBox.shrink();
+    }
+
+    // Group pieces by type and count them
+    Map<String, int> pieceCount = {};
+    for (String piece in capturedPieces) {
+      pieceCount[piece] = (pieceCount[piece] ?? 0) + 1;
+    }
+
     return SizedBox(
       height: 32,
       child: Row(
@@ -27,14 +37,50 @@ class CapturedPiecesWidget extends StatelessWidget {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children:
-                    capturedPieces.map((piece) {
-                      String displayPiece =
-                          isWhite ? piece.toUpperCase() : piece.toLowerCase();
+                    pieceCount.entries.map((entry) {
+                      final pieceName = entry.key;
+                      final count = entry.value;
+
                       return Container(
-                        width: 24,
-                        height: 24,
-                        margin: const EdgeInsets.only(right: 2),
-                        child: pieceSet.piece(context, displayPiece),
+                        margin: const EdgeInsets.only(right: 4),
+                        child: Stack(
+                          children: [
+                            Container(
+                              width: 24,
+                              height: 24,
+                              child: pieceSet.piece(context, pieceName),
+                            ),
+                            if (count > 1)
+                              Positioned(
+                                right: -2,
+                                top: -2,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 16,
+                                    minHeight: 16,
+                                  ),
+                                  child: Text(
+                                    count.toString(),
+                                    style: TextStyle(
+                                      color:
+                                          Theme.of(
+                                            context,
+                                          ).colorScheme.onPrimary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                       );
                     }).toList(),
               ),
