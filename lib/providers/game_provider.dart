@@ -445,14 +445,17 @@ class GameProvider extends ChangeNotifier {
           _whitesTime += Duration(seconds: _incrementalValue);
         }
       }
+      debugPieceSymbols(); // Debugging piece symbols after the move
       // Update captured pieces after the move
-      //updateCapturedPieces();
+      updateCapturedPieces();
       _checkGameOver();
       if (!_game.gameOver) {
         _startTimer(); // Restart timer for the next player
       }
       notifyListeners();
     }
+
+    _logger.i('Move made: ${move.from} to ${move.to}, result: $result');
     return result;
   }
 
@@ -467,61 +470,109 @@ class GameProvider extends ChangeNotifier {
       return '$from$to${move.promo}';
     }
 
+    _logger.i('Move notation: $from$to');
     return '$from$to';
   }
 
-  // void updateCapturedPieces() {
-  //   // Get the initial piece counts from the starting position
-  //   final initialGame = bishop.Game(variant: bishop.Variant.standard());
-  //   final initialBoard = initialGame.board;
-  //   final variant = _game.variant;
+  void updateCapturedPieces() {
+    // Get the initial piece counts from the starting position
+    final initialGame = bishop.Game(variant: bishop.Variant.standard());
+    final initialBoard = initialGame.board;
+    final variant = _game.variant;
 
-  //   Map<String, int> initialWhite = {};
-  //   Map<String, int> initialBlack = {};
+    Map<String, int> initialWhite = {};
+    Map<String, int> initialBlack = {};
 
-  //   for (var piece in initialBoard) {
-  //     if (piece == 0) continue;
-  //     String symbol = variant.pieceSymbol(piece & 7);
-  //     int colour = (piece >> 3) & 1; // 0 = white, 1 = black in Bishop
-  //     if (colour == Squares.white) {
-  //       initialWhite[symbol] = (initialWhite[symbol] ?? 0) + 1;
-  //     } else if (colour == Squares.black) {
-  //       initialBlack[symbol] = (initialBlack[symbol] ?? 0) + 1;
-  //     }
-  //   }
+    for (var piece in initialBoard) {
+      if (piece == 0) continue;
+      String symbol = variant.pieceSymbol(piece & 7);
+      int colour = (piece >> 3) & 1; // 0 = white, 1 = black in Bishop
+      if (colour == Squares.white) {
+        initialWhite[symbol] = (initialWhite[symbol] ?? 0) + 1;
+      } else if (colour == Squares.black) {
+        initialBlack[symbol] = (initialBlack[symbol] ?? 0) + 1;
+      }
+    }
 
-  //   // Get the current piece counts
-  //   Map<String, int> currentWhite = {};
-  //   Map<String, int> currentBlack = {};
-  //   for (var piece in _game.board) {
-  //     if (piece == 0) continue;
-  //     String symbol = variant.pieceSymbol(piece & 7);
-  //     int colour = (piece >> 3) & 1; // 0 = white, 1 = black in Bishop
-  //     if (colour == Squares.white) {
-  //       currentWhite[symbol] = (currentWhite[symbol] ?? 0) + 1;
-  //     } else if (colour == Squares.black) {
-  //       currentBlack[symbol] = (currentBlack[symbol] ?? 0) + 1;
-  //     }
-  //   }
+    // Get the current piece counts
+    Map<String, int> currentWhite = {};
+    Map<String, int> currentBlack = {};
+    for (var piece in _game.board) {
+      if (piece == 0) continue;
+      String symbol = variant.pieceSymbol(piece & 7);
+      int colour = (piece >> 3) & 1; // 0 = white, 1 = black in Bishop
+      if (colour == Squares.white) {
+        currentWhite[symbol] = (currentWhite[symbol] ?? 0) + 1;
+      } else if (colour == Squares.black) {
+        currentBlack[symbol] = (currentBlack[symbol] ?? 0) + 1;
+      }
+    }
 
-  //   // Calculate captured pieces
-  //   _whiteCapturedPieces.clear();
-  //   _blackCapturedPieces.clear();
+    // Calculate captured pieces
+    _whiteCapturedPieces.clear();
+    _blackCapturedPieces.clear();
 
-  //   initialBlack.forEach((symbol, count) {
-  //     int captured = count - (currentBlack[symbol] ?? 0);
-  //     for (int i = 0; i < captured; i++) {
-  //       _whiteCapturedPieces.add(symbol.toLowerCase());
-  //     }
-  //   });
+    // Map piece symbols to proper PieceSet symbols
+    Map<String, String> symbolMapping = {
+      'K': 'K', 'k': 'k', // King
+      'Q': 'Q', 'q': 'q', // Queen
+      'R': 'R', 'r': 'r', // Rook
+      'B': 'B', 'b': 'b', // Bishop
+      'N': 'N', 'n': 'n', // Knight
+      'P': 'P', 'p': 'p', // Pawn
+    };
 
-  //   initialWhite.forEach((symbol, count) {
-  //     int captured = count - (currentWhite[symbol] ?? 0);
-  //     for (int i = 0; i < captured; i++) {
-  //       _blackCapturedPieces.add(symbol.toUpperCase());
-  //     }
-  //   });
-  // }
+    // Black pieces captured by white (white gets black pieces)
+    // Store them as lowercase (black pieces in PieceSet)
+    initialBlack.forEach((symbol, count) {
+      int captured = count - (currentBlack[symbol] ?? 0);
+      for (int i = 0; i < captured; i++) {
+        // Convert to lowercase for black pieces
+        String pieceSymbol =
+            symbolMapping[symbol.toLowerCase()] ?? symbol.toLowerCase();
+        if (pieceSymbol.isNotEmpty && pieceSymbol != '.') {
+          _whiteCapturedPieces.add(pieceSymbol);
+        }
+      }
+    });
+
+    // White pieces captured by black (black gets white pieces)
+    // Store them as uppercase (white pieces in PieceSet)
+    initialWhite.forEach((symbol, count) {
+      int captured = count - (currentWhite[symbol] ?? 0);
+      for (int i = 0; i < captured; i++) {
+        // Convert to uppercase for white pieces
+        String pieceSymbol =
+            symbolMapping[symbol.toUpperCase()] ?? symbol.toUpperCase();
+        if (pieceSymbol.isNotEmpty && pieceSymbol != '.') {
+          _blackCapturedPieces.add(pieceSymbol);
+        }
+      }
+    });
+
+    _logger.i(
+      'Captured pieces updated: '
+      'White captured: ${_whiteCapturedPieces.join(', ')}, '
+      'Black captured: ${_blackCapturedPieces.join(', ')}',
+    );
+  }
+
+  void debugPieceSymbols() {
+    final variant = _game.variant;
+
+    _logger.i('=== DEBUG: Current board piece symbols ===');
+    for (int i = 0; i < _game.board.length; i++) {
+      var piece = _game.board[i];
+      if (piece == 0) continue;
+
+      String symbol = variant.pieceSymbol(piece & 7);
+      int colour = (piece >> 3) & 1;
+      String colourName = colour == Squares.white ? 'White' : 'Black';
+
+      _logger.i('Square $i: $colourName $symbol (raw: $piece)');
+    }
+    _logger.i('=== END DEBUG ===');
+  }
 
   // Helper method to convert square index to algebraic notation
   String _squareToAlgebraic(int square) {
