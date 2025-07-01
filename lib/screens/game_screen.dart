@@ -3,6 +3,7 @@ import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
+import 'package:flutter_chess_app/widgets/captured_piece_widget.dart';
 import 'package:flutter_chess_app/widgets/confirmation_dialog.dart';
 import 'package:flutter_chess_app/widgets/game_over_dialog.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
@@ -168,8 +169,6 @@ class _GameScreenState extends State<GameScreen> {
         final bool shouldPop = await _onWillPop();
         if (shouldPop) {
           if (context.mounted) Navigator.of(context).pop();
-
-          // show game over dialog after resigning
           _handleGameOver();
         }
       },
@@ -185,20 +184,17 @@ class _GameScreenState extends State<GameScreen> {
                     : 'Online Game',
               ),
               actions: [
-                // Flip Board button
                 IconButton(
                   onPressed: gameProvider.flipTheBoard,
                   icon: const Icon(Icons.rotate_left),
                   tooltip: 'Flip Board',
                 ),
-                // Draw Offer button (only if not vs CPU)
                 if (!gameProvider.vsCPU)
                   IconButton(
                     onPressed: _showDrawOfferDialog,
                     icon: const Icon(Icons.handshake),
                     tooltip: 'Offer Draw',
                   ),
-                // Resign button
                 IconButton(
                   onPressed: _showResignDialog,
                   icon: const Icon(Icons.flag),
@@ -206,52 +202,64 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ],
             ),
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  // Opponent (CPU or Human) data and time
-                  if (gameProvider.localMultiplayer)
-                    _localMultiplayerOpponentDataAndTime(context, gameProvider)
-                  else
-                    _opponentsDataAndTime(context, gameProvider),
-
-                  Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: BoardController(
-                      state:
-                          gameProvider.flipBoard
-                              ? gameProvider.state.board.flipped()
-                              : gameProvider.state.board,
-                      playState: gameProvider.state.state,
-                      pieceSet: settingsProvider.getPieceSet(),
-                      theme: settingsProvider.boardTheme,
-                      animatePieces: settingsProvider.animatePieces,
-                      labelConfig:
-                          settingsProvider.showLabels
-                              ? LabelConfig.standard
-                              : LabelConfig.disabled,
-                      moves: gameProvider.state.moves,
-                      onMove: _onMove,
-                      onPremove: _onMove,
-                      markerTheme: MarkerTheme(
-                        empty: MarkerTheme.dot,
-                        piece: MarkerTheme.corners(),
-                      ),
-                      promotionBehaviour: PromotionBehaviour.autoPremove,
-                    ),
+            body: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                // Opponent data, time, and captured pieces
+                if (gameProvider.localMultiplayer)
+                  _localMultiplayerOpponentDataAndTime(
+                    context,
+                    gameProvider,
+                    settingsProvider,
+                  )
+                else
+                  _opponentsDataAndTime(
+                    context,
+                    gameProvider,
+                    settingsProvider,
                   ),
 
-                  // Current user data and time
-                  if (gameProvider.localMultiplayer)
-                    _localMultiplayerCurrentUserDataAndTime(
-                      context,
-                      gameProvider,
-                    )
-                  else
-                    _currentUserDataAndTime(context, gameProvider),
-                ],
-              ),
+                // Chess board
+                Padding(
+                  padding: const EdgeInsets.all(4.0),
+                  child: BoardController(
+                    state:
+                        gameProvider.flipBoard
+                            ? gameProvider.state.board.flipped()
+                            : gameProvider.state.board,
+                    playState: gameProvider.state.state,
+                    pieceSet: settingsProvider.getPieceSet(),
+                    theme: settingsProvider.boardTheme,
+                    animatePieces: settingsProvider.animatePieces,
+                    labelConfig:
+                        settingsProvider.showLabels
+                            ? LabelConfig.standard
+                            : LabelConfig.disabled,
+                    moves: gameProvider.state.moves,
+                    onMove: _onMove,
+                    onPremove: _onMove,
+                    markerTheme: MarkerTheme(
+                      empty: MarkerTheme.dot,
+                      piece: MarkerTheme.corners(),
+                    ),
+                    promotionBehaviour: PromotionBehaviour.autoPremove,
+                  ),
+                ),
+
+                // Current user data, time, and captured pieces
+                if (gameProvider.localMultiplayer)
+                  _localMultiplayerCurrentUserDataAndTime(
+                    context,
+                    gameProvider,
+                    settingsProvider,
+                  )
+                else
+                  _currentUserDataAndTime(
+                    context,
+                    gameProvider,
+                    settingsProvider,
+                  ),
+              ],
             ),
           );
         },
@@ -259,241 +267,369 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  _opponentsDataAndTime(BuildContext context, GameProvider gameProvider) {
-    // Determine opponent's color based on player's color
+  Widget _opponentsDataAndTime(
+    BuildContext context,
+    GameProvider gameProvider,
+    SettingsProvider settingsProvider,
+  ) {
     final int opponentColor =
         gameProvider.player == Squares.white ? Squares.black : Squares.white;
-
-    // Determine if it's the opponent's turn
     final bool isOpponentsTurn = gameProvider.game.state.turn == opponentColor;
+    final List<String> opponentCaptured =
+        opponentColor == Squares.white
+            ? gameProvider.whiteCapturedPieces
+            : gameProvider.blackCapturedPieces;
+    final int materialAdvantage = gameProvider.getMaterialAdvantageForPlayer(
+      opponentColor,
+    );
 
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: Row(
+      child: Column(
         children: [
-          ProfileImageWidget(
-            imageUrl: null,
-            radius: 20,
-            isEditable: false,
-            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-            placeholderIcon: gameProvider.vsCPU ? Icons.computer : Icons.person,
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              Text(
-                gameProvider.vsCPU
-                    ? 'CPU (${['', 'Easy', 'Normal', 'Hard'][gameProvider.gameLevel]})'
-                    : 'Opponent Name',
-                style: Theme.of(context).textTheme.titleMedium,
+              ProfileImageWidget(
+                imageUrl: null,
+                radius: 20,
+                isEditable: false,
+                backgroundColor:
+                    Theme.of(context).colorScheme.secondaryContainer,
+                placeholderIcon:
+                    gameProvider.vsCPU ? Icons.computer : Icons.person,
               ),
-              Text(
-                'Rating: ${gameProvider.vsCPU ? [0, 800, 1200, 1600][gameProvider.gameLevel] : 1200}',
-                style: Theme.of(context).textTheme.bodySmall,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      gameProvider.vsCPU
+                          ? 'CPU (${['', 'Easy', 'Normal', 'Hard'][gameProvider.gameLevel]})'
+                          : 'Opponent Name',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          'Rating: ${gameProvider.vsCPU ? [0, 800, 1200, 1600][gameProvider.gameLevel] : 1200}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: CapturedPiecesWidget(
+                            capturedPieces: opponentCaptured,
+                            materialAdvantage:
+                                materialAdvantage > 0 ? materialAdvantage : 0,
+                            isWhite: opponentColor == Squares.white,
+                            pieceSet: settingsProvider.getPieceSet(),
+                            isCompact: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      isOpponentsTurn
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(context).colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  gameProvider.getFormattedTime(
+                    gameProvider.player == Squares.white
+                        ? gameProvider.blacksTime
+                        : gameProvider.whitesTime,
+                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontFamily: 'monospace'),
+                ),
               ),
             ],
-          ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color:
-                  isOpponentsTurn
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : Theme.of(context).colorScheme.surfaceVariant,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              gameProvider.getFormattedTime(
-                gameProvider.player == Squares.white
-                    ? gameProvider.blacksTime
-                    : gameProvider.whitesTime,
-              ),
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontFamily: 'monospace'),
-            ),
           ),
         ],
       ),
     );
   }
 
-  Padding _currentUserDataAndTime(
+  Widget _currentUserDataAndTime(
     BuildContext context,
     GameProvider gameProvider,
+    SettingsProvider settingsProvider,
   ) {
-    // Determine if it's the current player's turn
     final bool isPlayersTurn =
         gameProvider.game.state.turn == gameProvider.player;
+    final List<String> playerCaptured =
+        gameProvider.player == Squares.white
+            ? gameProvider.whiteCapturedPieces
+            : gameProvider.blackCapturedPieces;
+    final int materialAdvantage = gameProvider.getMaterialAdvantageForPlayer(
+      gameProvider.player,
+    );
 
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: Row(
+      child: Column(
         children: [
-          ProfileImageWidget(
-            imageUrl: widget.user.photoUrl,
-            radius: 20,
-            isEditable: false,
-            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              Text(
-                widget.user.displayName,
-                style: Theme.of(context).textTheme.titleMedium,
+              ProfileImageWidget(
+                imageUrl: widget.user.photoUrl,
+                radius: 20,
+                isEditable: false,
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
               ),
-              Text(
-                'Rating: ${widget.user.classicalRating}',
-                style: Theme.of(context).textTheme.bodySmall,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.user.displayName,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          'Rating: ${widget.user.classicalRating}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: CapturedPiecesWidget(
+                            capturedPieces: playerCaptured,
+                            materialAdvantage:
+                                materialAdvantage > 0 ? materialAdvantage : 0,
+                            isWhite: gameProvider.player == Squares.white,
+                            pieceSet: settingsProvider.getPieceSet(),
+                            isCompact: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      isPlayersTurn
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(context).colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  gameProvider.getFormattedTime(
+                    gameProvider.player == Squares.white
+                        ? gameProvider.whitesTime
+                        : gameProvider.blacksTime,
+                  ),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontFamily: 'monospace',
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
               ),
             ],
-          ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color:
-                  isPlayersTurn
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : Theme.of(context).colorScheme.surfaceVariant,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              gameProvider.getFormattedTime(
-                gameProvider.player == Squares.white
-                    ? gameProvider.whitesTime
-                    : gameProvider.blacksTime,
-              ),
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontFamily: 'monospace',
-                color: Theme.of(context).colorScheme.onPrimaryContainer,
-              ),
-            ),
           ),
         ],
       ),
     );
   }
 
-  _localMultiplayerOpponentDataAndTime(
+  Widget _localMultiplayerOpponentDataAndTime(
     BuildContext context,
     GameProvider gameProvider,
+    SettingsProvider settingsProvider,
   ) {
     final bool isOpponentWhite = gameProvider.player == Squares.black;
     final bool isOpponentsTurn =
         gameProvider.game.state.turn ==
         (isOpponentWhite ? Squares.white : Squares.black);
+    final List<String> opponentCaptured =
+        isOpponentWhite
+            ? gameProvider.whiteCapturedPieces
+            : gameProvider.blackCapturedPieces;
+    final int materialAdvantage = gameProvider.getMaterialAdvantageForPlayer(
+      isOpponentWhite ? Squares.white : Squares.black,
+    );
 
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: Row(
+      child: Column(
         children: [
-          ProfileImageWidget(
-            imageUrl: null,
-            radius: 20,
-            isEditable: false,
-            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-            placeholderIcon: isOpponentWhite ? Icons.person : Icons.person,
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              Text(
-                isOpponentWhite ? 'Player 1 (White)' : 'Player 2 (Black)',
-                style: Theme.of(context).textTheme.titleMedium,
+              ProfileImageWidget(
+                imageUrl: null,
+                radius: 20,
+                isEditable: false,
+                backgroundColor:
+                    Theme.of(context).colorScheme.secondaryContainer,
+                placeholderIcon:
+                    gameProvider.vsCPU ? Icons.computer : Icons.person,
               ),
-              Text(
-                'Rating: N/A', // No rating for local multiplayer
-                style: Theme.of(context).textTheme.bodySmall,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isOpponentWhite ? 'P1 (White)' : 'P2 (Black)',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+
+                    Row(
+                      children: [
+                        Text(
+                          'Rating: ${gameProvider.vsCPU ? [0, 800, 1200, 1600][gameProvider.gameLevel] : 1200}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: CapturedPiecesWidget(
+                            capturedPieces: opponentCaptured,
+                            materialAdvantage:
+                                materialAdvantage > 0 ? materialAdvantage : 0,
+                            isWhite: isOpponentWhite,
+                            pieceSet: settingsProvider.getPieceSet(),
+                            isCompact: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      isOpponentsTurn
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(context).colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  gameProvider.getFormattedTime(
+                    gameProvider.player == Squares.white
+                        ? gameProvider.blacksTime
+                        : gameProvider.whitesTime,
+                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontFamily: 'monospace'),
+                ),
               ),
             ],
-          ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color:
-                  isOpponentsTurn
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : Theme.of(context).colorScheme.surfaceVariant,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              gameProvider.getFormattedTime(
-                isOpponentWhite
-                    ? gameProvider.whitesTime
-                    : gameProvider.blacksTime,
-              ),
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(fontFamily: 'monospace'),
-            ),
           ),
         ],
       ),
     );
   }
 
-  Padding _localMultiplayerCurrentUserDataAndTime(
+  Widget _localMultiplayerCurrentUserDataAndTime(
     BuildContext context,
     GameProvider gameProvider,
+    SettingsProvider settingsProvider,
   ) {
     final bool isPlayerWhite = gameProvider.player == Squares.white;
     final bool isPlayersTurn =
         gameProvider.game.state.turn ==
         (isPlayerWhite ? Squares.white : Squares.black);
+    final List<String> playerCaptured =
+        isPlayerWhite
+            ? gameProvider.whiteCapturedPieces
+            : gameProvider.blackCapturedPieces;
+    final int materialAdvantage = gameProvider.getMaterialAdvantageForPlayer(
+      gameProvider.player,
+    );
 
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: Row(
+      child: Column(
         children: [
-          ProfileImageWidget(
-            imageUrl: null,
-            radius: 20,
-            isEditable: false,
-            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-            placeholderIcon: isPlayerWhite ? Icons.person : Icons.person,
-          ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
             children: [
-              Text(
-                isPlayerWhite ? 'Player 1 (White)' : 'Player 2 (Black)',
-                style: Theme.of(context).textTheme.titleMedium,
+              ProfileImageWidget(
+                imageUrl: widget.user.photoUrl,
+                radius: 20,
+                isEditable: false,
+                backgroundColor: Theme.of(context).colorScheme.primaryContainer,
               ),
-              Text(
-                'Rating: N/A', // No rating for local multiplayer
-                style: Theme.of(context).textTheme.bodySmall,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.user.displayName,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          isPlayerWhite ? 'P1 (White)' : 'P2 (Black)',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: CapturedPiecesWidget(
+                            capturedPieces: playerCaptured,
+                            materialAdvantage:
+                                materialAdvantage > 0 ? materialAdvantage : 0,
+                            isWhite: gameProvider.player == Squares.white,
+                            pieceSet: settingsProvider.getPieceSet(),
+                            isCompact: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      isPlayersTurn
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(context).colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  gameProvider.getFormattedTime(
+                    gameProvider.player == Squares.white
+                        ? gameProvider.whitesTime
+                        : gameProvider.blacksTime,
+                  ),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontFamily: 'monospace',
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
+                  ),
+                ),
               ),
             ],
-          ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color:
-                  isPlayersTurn
-                      ? Theme.of(context).colorScheme.primaryContainer
-                      : Theme.of(context).colorScheme.surfaceVariant,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              gameProvider.getFormattedTime(
-                isPlayerWhite
-                    ? gameProvider.whitesTime
-                    : gameProvider.blacksTime,
-              ),
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontFamily: 'monospace',
-                color: Theme.of(context).colorScheme.onPrimaryContainer,
-              ),
-            ),
           ),
         ],
       ),
