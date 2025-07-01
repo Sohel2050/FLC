@@ -45,6 +45,38 @@ class Constants {
   static const String gameRoomsCollection = 'gameRooms';
   static const String gameHistoryCollection = 'gameHistory';
 
+  // Firestore fields
+  static const String fieldPlayer1Id = 'player1Id';
+  static const String fieldPlayer2Id = 'player2Id';
+  static const String fieldPlayer1DisplayName = 'player1DisplayName';
+  static const String fieldPlayer2DisplayName = 'player2DisplayName';
+  static const String fieldPlayer1PhotoUrl = 'player1PhotoUrl';
+  static const String fieldPlayer2PhotoUrl = 'player2PhotoUrl';
+  static const String fieldPlayer1Color = 'player1Color';
+  static const String fieldPlayer2Color = 'player2Color';
+  static const String fieldStatus = 'status';
+  static const String fieldFen = 'fen';
+  static const String fieldMoves = 'moves';
+  static const String fieldCreatedAt = 'createdAt';
+  static const String fieldLastMoveAt = 'lastMoveAt';
+  static const String fieldPlayer1Rating = 'player1Rating';
+  static const String fieldPlayer2Rating = 'player2Rating';
+  static const String fieldRatingBasedSearch = 'ratingBasedSearch';
+  static const String fieldInitialWhitesTime = 'initialWhitesTime';
+  static const String fieldInitialBlacksTime = 'initialBlacksTime';
+  static const String fieldWinnerId = 'winnerId';
+  static const String fieldDrawOfferedBy = 'drawOfferedBy';
+
+  static const String fieldGameId = 'gameId';
+  static const String fieldGameMode = 'gameMode';
+  static const String fieldDifficulty = 'difficulty';
+
+  // "waiting", "active", "completed", "aborted"
+  static const String statusWaiting = 'waiting';
+  static const String statusActive = 'active';
+  static const String statusCompleted = 'completed';
+  static const String statusAborted = 'aborted';
+
   static const List<Map<String, dynamic>> gameModes = [
     {'title': 'Classical', 'timeControl': '60 sec/move', 'icon': Icons.timer},
     {'title': 'Blitz', 'timeControl': '5 min + 3 sec', 'icon': Icons.bolt},

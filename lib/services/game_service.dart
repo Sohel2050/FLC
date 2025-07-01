@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
+import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:squares/squares.dart';
 import 'package:uuid/uuid.dart';
 import 'package:logger/logger.dart';
@@ -31,7 +32,7 @@ class GameService {
       player1DisplayName: player1DisplayName,
       player1PhotoUrl: player1PhotoUrl,
       player1Color: Squares.white,
-      status: 'waiting',
+      status: Constants.statusWaiting,
       fen:
           'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', // Initial FEN
       moves: [], // Empty list of move strings
@@ -45,7 +46,7 @@ class GameService {
 
     try {
       await _firestore
-          .collection('gameRooms')
+          .collection(Constants.gameRoomsCollection)
           .doc(gameId)
           .set(newGameRoom.toMap());
       _logger.i('Game room created: $gameId');
@@ -64,10 +65,13 @@ class GameService {
   }) async {
     try {
       Query query = _firestore
-          .collection('gameRooms')
-          .where('gameMode', isEqualTo: gameMode)
-          .where('status', isEqualTo: 'waiting')
-          .orderBy('createdAt', descending: false); // Join oldest game first
+          .collection(Constants.gameRoomsCollection)
+          .where(Constants.fieldGameMode, isEqualTo: gameMode)
+          .where(Constants.fieldStatus, isEqualTo: Constants.statusWaiting)
+          .orderBy(
+            Constants.fieldCreatedAt,
+            descending: false,
+          ); // Join oldest game first
 
       if (ratingBasedSearch) {
         // Define a rating range (e.g., +/- 200 points)
@@ -76,8 +80,14 @@ class GameService {
         final int maxRating = userRating + ratingTolerance;
 
         query = query
-            .where('player1Rating', isGreaterThanOrEqualTo: minRating)
-            .where('player1Rating', isLessThanOrEqualTo: maxRating);
+            .where(
+              Constants.fieldPlayer1Rating,
+              isGreaterThanOrEqualTo: minRating,
+            )
+            .where(
+              Constants.fieldPlayer1Rating,
+              isLessThanOrEqualTo: maxRating,
+            );
       }
 
       final QuerySnapshot snapshot = await query.get();
@@ -107,15 +117,18 @@ class GameService {
   }) async {
     try {
       // Player 2 always plays as Black when joining an existing game
-      await _firestore.collection('gameRooms').doc(gameId).update({
-        'player2Id': player2Id,
-        'player2DisplayName': player2DisplayName,
-        'player2PhotoUrl': player2PhotoUrl,
-        'player2Color': Squares.black,
-        'player2Rating': player2Rating,
-        'status': 'active',
-        'lastMoveAt': Timestamp.now(),
-      });
+      await _firestore
+          .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .update({
+            Constants.fieldPlayer2Id: player2Id,
+            Constants.fieldPlayer2DisplayName: player2DisplayName,
+            Constants.fieldPlayer2PhotoUrl: player2PhotoUrl,
+            Constants.fieldPlayer2Color: Squares.black,
+            Constants.fieldPlayer2Rating: player2Rating,
+            Constants.fieldStatus: Constants.statusActive,
+            Constants.fieldLastMoveAt: Timestamp.now(),
+          });
       _logger.i('Player $player2DisplayName joined game room: $gameId');
     } catch (e) {
       _logger.e('Error joining game room: $e');
@@ -126,7 +139,10 @@ class GameService {
   /// Updates a game room with new data.
   Future<void> updateGameRoom(String gameId, Map<String, dynamic> data) async {
     try {
-      await _firestore.collection('gameRooms').doc(gameId).update(data);
+      await _firestore
+          .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .update(data);
       _logger.i('Game room $gameId updated.');
     } catch (e) {
       _logger.e('Error updating game room $gameId: $e');
@@ -136,14 +152,16 @@ class GameService {
 
   /// Streams real-time updates for a specific game room.
   Stream<GameRoom> streamGameRoom(String gameId) {
-    return _firestore.collection('gameRooms').doc(gameId).snapshots().map((
-      snapshot,
-    ) {
-      if (!snapshot.exists) {
-        _logger.w('Game room $gameId does not exist for streaming.');
-        throw Exception('Game room does not exist');
-      }
-      return GameRoom.fromMap(snapshot.data() as Map<String, dynamic>);
-    });
+    return _firestore
+        .collection(Constants.gameRoomsCollection)
+        .doc(gameId)
+        .snapshots()
+        .map((snapshot) {
+          if (!snapshot.exists) {
+            _logger.w('Game room $gameId does not exist for streaming.');
+            throw Exception('Game room does not exist');
+          }
+          return GameRoom.fromMap(snapshot.data() as Map<String, dynamic>);
+        });
   }
 }
