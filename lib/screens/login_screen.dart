@@ -77,6 +77,22 @@ class LoginScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
 
+                  // Forgot Password Link
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () {
+                        // TODO: Implement forgot password
+                      },
+                      child: Text(
+                        'Forgot Password?',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+
                   // Login Button
                   MainAppButton(
                     text: 'Login',
