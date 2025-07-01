@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/services/captured_piece_tracker.dart';
 import 'package:flutter_chess_app/stockfish/uci_commands.dart';
 import 'package:squares/squares.dart';
 import 'package:bishop/bishop.dart' as bishop;
@@ -475,86 +476,27 @@ class GameProvider extends ChangeNotifier {
   }
 
   void updateCapturedPieces() {
-    // Get the initial piece counts from the starting position
-    final initialGame = bishop.Game(variant: bishop.Variant.standard());
-    final initialBoard = initialGame.board;
-    final variant = _game.variant;
+    try {
+      // Get current FEN from your game
+      String currentFEN = _game.fen;
 
-    Map<String, int> initialWhite = {};
-    Map<String, int> initialBlack = {};
+      Map<String, List<String>> captured =
+          CapturedPiecesTracker.getCapturedPieces(currentFEN);
 
-    for (var piece in initialBoard) {
-      if (piece == 0) continue;
-      String symbol = variant.pieceSymbol(piece & 7);
-      int colour = (piece >> 3) & 1; // 0 = white, 1 = black in Bishop
-      if (colour == Squares.white) {
-        initialWhite[symbol] = (initialWhite[symbol] ?? 0) + 1;
-      } else if (colour == Squares.black) {
-        initialBlack[symbol] = (initialBlack[symbol] ?? 0) + 1;
-      }
+      _whiteCapturedPieces = captured['whiteCaptured']!;
+      _blackCapturedPieces = captured['blackCaptured']!;
+
+      _logger.i(
+        'Captured pieces updated: '
+        'White captured: ${_whiteCapturedPieces.join(', ')}, '
+        'Black captured: ${_blackCapturedPieces.join(', ')}',
+      );
+    } catch (e) {
+      _logger.e('Error updating captured pieces: $e');
+      // Fallback to empty lists if there's an error
+      _whiteCapturedPieces.clear();
+      _blackCapturedPieces.clear();
     }
-
-    // Get the current piece counts
-    Map<String, int> currentWhite = {};
-    Map<String, int> currentBlack = {};
-    for (var piece in _game.board) {
-      if (piece == 0) continue;
-      String symbol = variant.pieceSymbol(piece & 7);
-      int colour = (piece >> 3) & 1; // 0 = white, 1 = black in Bishop
-      if (colour == Squares.white) {
-        currentWhite[symbol] = (currentWhite[symbol] ?? 0) + 1;
-      } else if (colour == Squares.black) {
-        currentBlack[symbol] = (currentBlack[symbol] ?? 0) + 1;
-      }
-    }
-
-    // Calculate captured pieces
-    _whiteCapturedPieces.clear();
-    _blackCapturedPieces.clear();
-
-    // Map piece symbols to proper PieceSet symbols
-    Map<String, String> symbolMapping = {
-      'K': 'K', 'k': 'k', // King
-      'Q': 'Q', 'q': 'q', // Queen
-      'R': 'R', 'r': 'r', // Rook
-      'B': 'B', 'b': 'b', // Bishop
-      'N': 'N', 'n': 'n', // Knight
-      'P': 'P', 'p': 'p', // Pawn
-    };
-
-    // Black pieces captured by white (white gets black pieces)
-    // Store them as lowercase (black pieces in PieceSet)
-    initialBlack.forEach((symbol, count) {
-      int captured = count - (currentBlack[symbol] ?? 0);
-      for (int i = 0; i < captured; i++) {
-        // Convert to lowercase for black pieces
-        String pieceSymbol =
-            symbolMapping[symbol.toLowerCase()] ?? symbol.toLowerCase();
-        if (pieceSymbol.isNotEmpty && pieceSymbol != '.') {
-          _whiteCapturedPieces.add(pieceSymbol);
-        }
-      }
-    });
-
-    // White pieces captured by black (black gets white pieces)
-    // Store them as uppercase (white pieces in PieceSet)
-    initialWhite.forEach((symbol, count) {
-      int captured = count - (currentWhite[symbol] ?? 0);
-      for (int i = 0; i < captured; i++) {
-        // Convert to uppercase for white pieces
-        String pieceSymbol =
-            symbolMapping[symbol.toUpperCase()] ?? symbol.toUpperCase();
-        if (pieceSymbol.isNotEmpty && pieceSymbol != '.') {
-          _blackCapturedPieces.add(pieceSymbol);
-        }
-      }
-    });
-
-    _logger.i(
-      'Captured pieces updated: '
-      'White captured: ${_whiteCapturedPieces.join(', ')}, '
-      'Black captured: ${_blackCapturedPieces.join(', ')}',
-    );
   }
 
   void debugPieceSymbols() {

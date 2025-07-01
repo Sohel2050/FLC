@@ -6,6 +6,7 @@ class CapturedPiecesWidget extends StatelessWidget {
   final int materialAdvantage;
   final bool isWhite;
   final PieceSet pieceSet;
+  final bool isCompact;
 
   const CapturedPiecesWidget({
     super.key,
@@ -13,6 +14,7 @@ class CapturedPiecesWidget extends StatelessWidget {
     required this.materialAdvantage,
     required this.isWhite,
     required this.pieceSet,
+    this.isCompact = false,
   });
 
   @override
@@ -27,43 +29,48 @@ class CapturedPiecesWidget extends StatelessWidget {
       pieceCount[piece] = (pieceCount[piece] ?? 0) + 1;
     }
 
+    final pieceSize = isCompact ? 16.0 : 24.0;
+    final containerHeight = isCompact ? 20.0 : 32.0;
+
     return SizedBox(
-      height: 32,
+      height: containerHeight,
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           // Captured pieces
-          Expanded(
+          Flexible(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 children:
                     pieceCount.entries.map((entry) {
                       final pieceName = entry.key;
                       final count = entry.value;
 
                       return Container(
-                        margin: const EdgeInsets.only(right: 4),
+                        margin: EdgeInsets.only(right: isCompact ? 2 : 4),
                         child: Stack(
                           children: [
                             SizedBox(
-                              width: 24,
-                              height: 24,
+                              width: pieceSize,
+                              height: pieceSize,
                               child: pieceSet.piece(context, pieceName),
                             ),
                             if (count > 1)
                               Positioned(
-                                right: -2,
-                                top: -2,
+                                right: -1,
+                                top: -1,
                                 child: Container(
-                                  padding: const EdgeInsets.all(2),
+                                  padding: EdgeInsets.all(isCompact ? 1 : 2),
                                   decoration: BoxDecoration(
                                     color:
                                         Theme.of(context).colorScheme.primary,
                                     shape: BoxShape.circle,
                                   ),
-                                  constraints: const BoxConstraints(
-                                    minWidth: 16,
-                                    minHeight: 16,
+                                  constraints: BoxConstraints(
+                                    minWidth: isCompact ? 12 : 16,
+                                    minHeight: isCompact ? 12 : 16,
                                   ),
                                   child: Text(
                                     count.toString(),
@@ -72,7 +79,7 @@ class CapturedPiecesWidget extends StatelessWidget {
                                           Theme.of(
                                             context,
                                           ).colorScheme.onPrimary,
-                                      fontSize: 10,
+                                      fontSize: isCompact ? 8 : 10,
                                       fontWeight: FontWeight.bold,
                                     ),
                                     textAlign: TextAlign.center,
@@ -87,21 +94,27 @@ class CapturedPiecesWidget extends StatelessWidget {
             ),
           ),
           // Material advantage
-          if (materialAdvantage > 0)
+          if (materialAdvantage > 0) ...[
+            SizedBox(width: isCompact ? 4 : 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: EdgeInsets.symmetric(
+                horizontal: isCompact ? 4 : 6,
+                vertical: isCompact ? 1 : 2,
+              ),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(isCompact ? 8 : 12),
               ),
               child: Text(
                 '+$materialAdvantage',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   fontWeight: FontWeight.bold,
+                  fontSize: isCompact ? 10 : null,
                   color: Theme.of(context).colorScheme.onPrimaryContainer,
                 ),
               ),
             ),
+          ],
         ],
       ),
     );

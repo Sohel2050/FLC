@@ -26,7 +26,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1B5E20), // Dark green for chess theme
+          seedColor: const Color(0xFF1B5E20),
           brightness: Brightness.light,
         ),
         // Custom theme adjustments

@@ -299,22 +299,38 @@ class _GameScreenState extends State<GameScreen> {
                     gameProvider.vsCPU ? Icons.computer : Icons.person,
               ),
               const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    gameProvider.vsCPU
-                        ? 'CPU (${['', 'Easy', 'Normal', 'Hard'][gameProvider.gameLevel]})'
-                        : 'Opponent Name',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  Text(
-                    'Rating: ${gameProvider.vsCPU ? [0, 800, 1200, 1600][gameProvider.gameLevel] : 1200}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      gameProvider.vsCPU
+                          ? 'CPU (${['', 'Easy', 'Normal', 'Hard'][gameProvider.gameLevel]})'
+                          : 'Opponent Name',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          'Rating: ${gameProvider.vsCPU ? [0, 800, 1200, 1600][gameProvider.gameLevel] : 1200}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: CapturedPiecesWidget(
+                            capturedPieces: opponentCaptured,
+                            materialAdvantage:
+                                materialAdvantage > 0 ? materialAdvantage : 0,
+                            isWhite: opponentColor == Squares.white,
+                            pieceSet: settingsProvider.getPieceSet(),
+                            isCompact: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -340,13 +356,6 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          CapturedPiecesWidget(
-            capturedPieces: opponentCaptured,
-            materialAdvantage: materialAdvantage > 0 ? materialAdvantage : 0,
-            isWhite: opponentColor == Squares.white,
-            pieceSet: settingsProvider.getPieceSet(),
-          ),
         ],
       ),
     );
@@ -371,13 +380,6 @@ class _GameScreenState extends State<GameScreen> {
       padding: const EdgeInsets.all(8.0),
       child: Column(
         children: [
-          CapturedPiecesWidget(
-            capturedPieces: playerCaptured,
-            materialAdvantage: materialAdvantage > 0 ? materialAdvantage : 0,
-            isWhite: gameProvider.player == Squares.white,
-            pieceSet: settingsProvider.getPieceSet(),
-          ),
-          const SizedBox(height: 4),
           Row(
             children: [
               ProfileImageWidget(
@@ -387,20 +389,36 @@ class _GameScreenState extends State<GameScreen> {
                 backgroundColor: Theme.of(context).colorScheme.primaryContainer,
               ),
               const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.user.displayName,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  Text(
-                    'Rating: ${widget.user.classicalRating}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.user.displayName,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          'Rating: ${widget.user.classicalRating}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: CapturedPiecesWidget(
+                            capturedPieces: playerCaptured,
+                            materialAdvantage:
+                                materialAdvantage > 0 ? materialAdvantage : 0,
+                            isWhite: gameProvider.player == Squares.white,
+                            pieceSet: settingsProvider.getPieceSet(),
+                            isCompact: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -461,23 +479,41 @@ class _GameScreenState extends State<GameScreen> {
                 isEditable: false,
                 backgroundColor:
                     Theme.of(context).colorScheme.secondaryContainer,
-                placeholderIcon: Icons.person,
+                placeholderIcon:
+                    gameProvider.vsCPU ? Icons.computer : Icons.person,
               ),
               const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isOpponentWhite ? 'Player 1 (White)' : 'Player 2 (Black)',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  Text(
-                    'Rating: N/A',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isOpponentWhite ? 'P1 (White)' : 'P2 (Black)',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+
+                    Row(
+                      children: [
+                        Text(
+                          'Rating: ${gameProvider.vsCPU ? [0, 800, 1200, 1600][gameProvider.gameLevel] : 1200}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: CapturedPiecesWidget(
+                            capturedPieces: opponentCaptured,
+                            materialAdvantage:
+                                materialAdvantage > 0 ? materialAdvantage : 0,
+                            isWhite: isOpponentWhite,
+                            pieceSet: settingsProvider.getPieceSet(),
+                            isCompact: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -492,9 +528,9 @@ class _GameScreenState extends State<GameScreen> {
                 ),
                 child: Text(
                   gameProvider.getFormattedTime(
-                    isOpponentWhite
-                        ? gameProvider.whitesTime
-                        : gameProvider.blacksTime,
+                    gameProvider.player == Squares.white
+                        ? gameProvider.blacksTime
+                        : gameProvider.whitesTime,
                   ),
                   style: Theme.of(
                     context,
@@ -502,13 +538,6 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 4),
-          CapturedPiecesWidget(
-            capturedPieces: opponentCaptured,
-            materialAdvantage: materialAdvantage > 0 ? materialAdvantage : 0,
-            isWhite: isOpponentWhite,
-            pieceSet: settingsProvider.getPieceSet(),
           ),
         ],
       ),
@@ -536,37 +565,46 @@ class _GameScreenState extends State<GameScreen> {
       padding: const EdgeInsets.all(8.0),
       child: Column(
         children: [
-          CapturedPiecesWidget(
-            capturedPieces: playerCaptured,
-            materialAdvantage: materialAdvantage > 0 ? materialAdvantage : 0,
-            isWhite: isPlayerWhite,
-            pieceSet: settingsProvider.getPieceSet(),
-          ),
-          const SizedBox(height: 4),
           Row(
             children: [
               ProfileImageWidget(
-                imageUrl: null,
+                imageUrl: widget.user.photoUrl,
                 radius: 20,
                 isEditable: false,
                 backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                placeholderIcon: Icons.person,
               ),
               const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isPlayerWhite ? 'Player 1 (White)' : 'Player 2 (Black)',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  Text(
-                    'Rating: N/A',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.user.displayName,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          isPlayerWhite ? 'P1 (White)' : 'P2 (Black)',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: CapturedPiecesWidget(
+                            capturedPieces: playerCaptured,
+                            materialAdvantage:
+                                materialAdvantage > 0 ? materialAdvantage : 0,
+                            isWhite: gameProvider.player == Squares.white,
+                            pieceSet: settingsProvider.getPieceSet(),
+                            isCompact: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -581,7 +619,7 @@ class _GameScreenState extends State<GameScreen> {
                 ),
                 child: Text(
                   gameProvider.getFormattedTime(
-                    isPlayerWhite
+                    gameProvider.player == Squares.white
                         ? gameProvider.whitesTime
                         : gameProvider.blacksTime,
                   ),
