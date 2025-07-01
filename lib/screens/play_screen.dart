@@ -77,11 +77,20 @@ class _PlayScreenState extends State<PlayScreen> {
 
                     if (currentUser == null || currentUser.isGuest) {
                       // Handle guest user case, maybe show a dialog to sign in
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please sign in to play online.'),
-                          backgroundColor: Colors.orange,
+                      await AnimatedDialog.show(
+                        context: context,
+                        title: 'Guest User',
+                        child: const Text(
+                          'You need to sign in to play online games. Please sign in or create an account.',
                         ),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            child: const Text('OK'),
+                          ),
+                        ],
                       );
                       return;
                     }
