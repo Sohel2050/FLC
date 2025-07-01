@@ -8,12 +8,14 @@ class SettingsProvider with ChangeNotifier {
   String _pieceSet = 'merida';
   bool _showLabels = true;
   bool _animatePieces = true;
+  bool _ratingBasedSearch = false; // New preference for online play
 
   // Getters
   BoardTheme get boardTheme => _boardTheme;
   String get pieceSet => _pieceSet;
   bool get showLabels => _showLabels;
   bool get animatePieces => _animatePieces;
+  bool get ratingBasedSearch => _ratingBasedSearch;
 
   SettingsProvider() {
     _loadPreferences();
@@ -27,6 +29,7 @@ class SettingsProvider with ChangeNotifier {
     _pieceSet = prefs.getString('pieceSet') ?? 'merida';
     _showLabels = prefs.getBool('showLabels') ?? true;
     _animatePieces = prefs.getBool('animatePieces') ?? true;
+    _ratingBasedSearch = prefs.getBool('ratingBasedSearch') ?? false;
     notifyListeners();
   }
 
@@ -37,12 +40,21 @@ class SettingsProvider with ChangeNotifier {
     await prefs.setString('pieceSet', _pieceSet);
     await prefs.setBool('showLabels', _showLabels);
     await prefs.setBool('animatePieces', _animatePieces);
+    await prefs.setBool('ratingBasedSearch', _ratingBasedSearch);
   }
 
   // Update methods
   void setBoardTheme(BoardTheme newTheme) {
     if (_boardTheme != newTheme) {
       _boardTheme = newTheme;
+      _savePreferences();
+      notifyListeners();
+    }
+  }
+
+  void setRatingBasedSearch(bool value) {
+    if (_ratingBasedSearch != value) {
+      _ratingBasedSearch = value;
       _savePreferences();
       notifyListeners();
     }

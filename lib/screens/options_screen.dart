@@ -32,6 +32,11 @@ class OptionsScreen extends StatelessWidget {
             value: settingsProvider.animatePieces,
             onChanged: (value) => settingsProvider.setAnimatePieces(value),
           ),
+          _buildToggleSwitch(
+            title: 'Rating Based Search',
+            value: settingsProvider.ratingBasedSearch,
+            onChanged: (value) => settingsProvider.setRatingBasedSearch(value),
+          ),
           const Divider(),
           _buildSectionHeader('Community & Sharing'),
           _buildListTile(

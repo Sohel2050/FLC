@@ -42,6 +42,8 @@ class Constants {
   static const String gamesCollection = 'games';
   static const String friendsCollection = 'friends';
   static const String achievementsCollection = 'achievements';
+  static const String gameRoomsCollection = 'gameRooms';
+  static const String gameHistoryCollection = 'gameHistory';
 
   static const List<Map<String, dynamic>> gameModes = [
     {'title': 'Classical', 'timeControl': '60 sec/move', 'icon': Icons.timer},

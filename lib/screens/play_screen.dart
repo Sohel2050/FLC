@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
+import 'package:flutter_chess_app/providers/settings_provoder.dart';
+import 'package:flutter_chess_app/providers/user_provider.dart'; // Import UserProvider
 import 'package:flutter_chess_app/screens/game_screen.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
@@ -66,8 +69,64 @@ class _PlayScreenState extends State<PlayScreen> {
                 MainAppButton(
                   text: 'Play Online',
                   icon: Icons.public,
-                  onPressed: () {
-                    // TODO: Implement online play
+                  onPressed: () async {
+                    final selectedMode = Constants.gameModes[_selectedGameMode];
+                    final timeControl = selectedMode[Constants.timeControl];
+                    final userProvider = context.read<UserProvider>();
+                    final currentUser = userProvider.user;
+
+                    if (currentUser == null || currentUser.isGuest) {
+                      // Handle guest user case, maybe show a dialog to sign in
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Please sign in to play online.'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                      return;
+                    }
+
+                    gameProvider.setLoading(true);
+                    LoadingDialog.show(
+                      context,
+                      message: 'Searching for opponent...',
+                      barrierDismissible: false,
+                    );
+
+                    try {
+                      await gameProvider.startOnlineGameSearch(
+                        userId: currentUser.uid!,
+                        displayName: currentUser.displayName,
+                        photoUrl: currentUser.photoUrl,
+                        userRating:
+                            currentUser
+                                .classicalRating, // Using classical rating for now
+                        gameMode: timeControl,
+                        ratingBasedSearch:
+                            context.read<SettingsProvider>().ratingBasedSearch,
+                      );
+
+                      if (context.mounted) {
+                        LoadingDialog.hide(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => GameScreen(user: widget.user),
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      gameProvider.setLoading(false);
+                      if (context.mounted) {
+                        LoadingDialog.hide(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to start online game: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
                   },
                   isFullWidth: true,
                 ),

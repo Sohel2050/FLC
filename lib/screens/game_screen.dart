@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
@@ -82,11 +84,11 @@ class _GameScreenState extends State<GameScreen> {
     } else if (_gameProvider.localMultiplayer) {
       // In local multiplayer, no external notification is needed, we just make the move
       // The makeSquaresMove already handles turn switching and timer updates
-    } else {
-      // If it's an online multiplayer game, notify the opponent about the move
-      // This would be done via a WebSocket or similar real-time communication
+    } else if (_gameProvider.isOnlineGame) {
+      // For online games, the move is handled by the GameProvider's Firestore update
+      // The opponent will receive the update via the stream
       print(
-        'Move made: ${move.from} to ${move.to} (Online Multiplayer - Placeholder)',
+        'Move made: ${move.from} to ${move.to} (Online Multiplayer - Handled by GameProvider)',
       );
     }
   }
@@ -208,6 +210,12 @@ class _GameScreenState extends State<GameScreen> {
                 // Opponent data, time, and captured pieces
                 if (gameProvider.localMultiplayer)
                   _localMultiplayerOpponentDataAndTime(
+                    context,
+                    gameProvider,
+                    settingsProvider,
+                  )
+                else if (gameProvider.isOnlineGame)
+                  _onlineOpponentDataAndTime(
                     context,
                     gameProvider,
                     settingsProvider,
@@ -361,6 +369,111 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  Widget _onlineOpponentDataAndTime(
+    BuildContext context,
+    GameProvider gameProvider,
+    SettingsProvider settingsProvider,
+  ) {
+    final GameRoom? gameRoom = gameProvider.onlineGameRoom;
+    if (gameRoom == null)
+      return Container(); // Should not happen in online game
+
+    final bool isPlayer1 = gameProvider.player == gameRoom.player1Color;
+    final String opponentDisplayName =
+        isPlayer1
+            ? (gameRoom.player2DisplayName ?? 'Opponent')
+            : gameRoom.player1DisplayName;
+    final String? opponentPhotoUrl =
+        isPlayer1 ? gameRoom.player2PhotoUrl : gameRoom.player1PhotoUrl;
+    final int opponentRating =
+        isPlayer1 ? (gameRoom.player2Rating ?? 1200) : gameRoom.player1Rating;
+    final int opponentColor =
+        isPlayer1 ? gameRoom.player2Color! : gameRoom.player1Color;
+
+    final bool isOpponentsTurn = gameProvider.game.state.turn == opponentColor;
+    final List<String> opponentCaptured =
+        opponentColor == Squares.white
+            ? gameProvider.whiteCapturedPieces
+            : gameProvider.blackCapturedPieces;
+    final int materialAdvantage = gameProvider.getMaterialAdvantageForPlayer(
+      opponentColor,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              ProfileImageWidget(
+                imageUrl: opponentPhotoUrl,
+                radius: 20,
+                isEditable: false,
+                backgroundColor:
+                    Theme.of(context).colorScheme.secondaryContainer,
+                placeholderIcon: Icons.person,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      opponentDisplayName,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          'Rating: $opponentRating',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: CapturedPiecesWidget(
+                            capturedPieces: opponentCaptured,
+                            materialAdvantage:
+                                materialAdvantage > 0 ? materialAdvantage : 0,
+                            isWhite: opponentColor == Squares.white,
+                            pieceSet: settingsProvider.getPieceSet(),
+                            isCompact: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      isOpponentsTurn
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(context).colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  gameProvider.getFormattedTime(
+                    opponentColor == Squares.white
+                        ? gameProvider.whitesTime
+                        : gameProvider.blacksTime,
+                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontFamily: 'monospace'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _currentUserDataAndTime(
     BuildContext context,
     GameProvider gameProvider,
@@ -394,13 +507,21 @@ class _GameScreenState extends State<GameScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.user.displayName,
+                      gameProvider.isOnlineGame &&
+                              gameProvider.onlineGameRoom != null
+                          ? (gameProvider.isHost
+                              ? gameProvider.onlineGameRoom!.player1DisplayName
+                              : gameProvider
+                                      .onlineGameRoom!
+                                      .player2DisplayName ??
+                                  widget.user.displayName)
+                          : widget.user.displayName,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     Row(
                       children: [
                         Text(
-                          'Rating: ${widget.user.classicalRating}',
+                          'Rating: ${gameProvider.isOnlineGame && gameProvider.onlineGameRoom != null ? (gameProvider.isHost ? gameProvider.onlineGameRoom!.player1Rating : gameProvider.onlineGameRoom!.player2Rating ?? widget.user.classicalRating) : widget.user.classicalRating}',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         const SizedBox(width: 8),
