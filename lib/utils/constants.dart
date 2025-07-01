@@ -37,6 +37,12 @@ class Constants {
   static const String gameMode = 'gameMode';
   static const String difficulty = 'difficulty';
 
+  // Database collection names
+  static const String usersCollection = 'users';
+  static const String gamesCollection = 'games';
+  static const String friendsCollection = 'friends';
+  static const String achievementsCollection = 'achievements';
+
   static const List<Map<String, dynamic>> gameModes = [
     {'title': 'Classical', 'timeControl': '60 sec/move', 'icon': Icons.timer},
     {'title': 'Blitz', 'timeControl': '5 min + 3 sec', 'icon': Icons.bolt},
