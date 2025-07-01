@@ -419,22 +419,23 @@ class GameProvider extends ChangeNotifier {
         final baseState = _game.squaresState(_player);
 
         _state = SquaresState(
-          player: currentTurn, // Set to current turn so moves work correctly
+          player: currentTurn, // We set to current turn so moves work correctly
           state:
               PlayState
-                  .ourTurn, // Always "our turn" since we're showing from current player's perspective
+                  .ourTurn, // We always "our turn" since we're showing from current player's perspective
           size: dynamicState.size,
           board:
               baseState
-                  .board, // Keep the board orientation consistent with display
+                  .board, // We keep the board orientation consistent with display
           moves:
-              dynamicState.moves, // Use moves from current turn's perspective
+              dynamicState
+                  .moves, // We use moves from current turn's perspective
           history: dynamicState.history,
           hands: dynamicState.hands,
           gates: dynamicState.gates,
         );
       } else {
-        // For other modes, use the standard approach
+        // For other modes, we use the standard approach
         _state = _game.squaresState(_player);
       }
 
