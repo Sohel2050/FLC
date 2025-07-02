@@ -67,6 +67,9 @@ class Constants {
   static const String fieldWinnerId = 'winnerId';
   static const String fieldDrawOfferedBy = 'drawOfferedBy';
 
+  static const String fieldWhitesTimeRemaining = 'whitesTimeRemaining';
+  static const String fieldBlacksTimeRemaining = 'blacksTimeRemaining';
+
   static const String fieldGameId = 'gameId';
   static const String fieldGameMode = 'gameMode';
   static const String fieldDifficulty = 'difficulty';

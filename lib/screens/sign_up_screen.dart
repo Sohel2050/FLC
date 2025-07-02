@@ -30,6 +30,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   Future<void> _signUp() async {
+    if (_isLoading) return; // Prevent multiple submissions
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
@@ -112,8 +113,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
     if (value == null || value.isEmpty) {
       return 'Password cannot be empty';
     }
-    if (value.length < 6) {
-      return 'Password must be at least 6 characters long';
+    if (value.length < 8) {
+      return 'Password must be at least 8 characters long';
     }
     return null;
   }
@@ -177,6 +178,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     const SizedBox(height: 32),
                     TextFormField(
                       controller: _nameController,
+                      textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         labelText: 'Name',
                         prefixIcon: const Icon(Icons.person_outline),
@@ -186,9 +188,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       validator: _validateName,
                     ),
+
                     const SizedBox(height: 16),
+
                     TextFormField(
                       controller: _emailController,
+                      textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         labelText: 'Email',
                         prefixIcon: const Icon(Icons.email_outlined),
@@ -199,10 +204,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       validator: _validateEmail,
                       keyboardType: TextInputType.emailAddress,
                     ),
+
                     const SizedBox(height: 16),
+
                     TextFormField(
                       controller: _passwordController,
                       obscureText: true,
+                      textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         labelText: 'Password',
                         prefixIcon: const Icon(Icons.lock_outline),
@@ -212,10 +220,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       validator: _validatePassword,
                     ),
+
                     const SizedBox(height: 16),
+
                     TextFormField(
                       controller: _confirmPasswordController,
                       obscureText: true,
+                      textInputAction: TextInputAction.done,
                       decoration: InputDecoration(
                         labelText: 'Confirm Password',
                         prefixIcon: const Icon(Icons.lock_outline),

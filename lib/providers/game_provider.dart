@@ -5,6 +5,7 @@ import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/services/captured_piece_tracker.dart';
 import 'package:flutter_chess_app/services/game_service.dart';
 import 'package:flutter_chess_app/stockfish/uci_commands.dart';
+import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:squares/squares.dart';
 import 'package:bishop/bishop.dart' as bishop;
 import 'package:square_bishop/square_bishop.dart';
@@ -430,10 +431,10 @@ class GameProvider extends ChangeNotifier {
     if (result) {
       // Track move in algebraic notation
       if (_game.history.isNotEmpty) {
-        // String moveNotation = _getMoveNotation(move);
-        // if (moveNotation.isNotEmpty) {
-        //   _moveHistory.add(moveNotation);
-        // }
+        String moveNotation = _getMoveNotation(move);
+        if (moveNotation.isNotEmpty) {
+          _moveHistory.add(moveNotation);
+        }
       }
 
       if (_localMultiplayer || _isOnlineGame) {
@@ -486,11 +487,11 @@ class GameProvider extends ChangeNotifier {
         updatedMoves.add(move.toString()); // Store move as string
 
         await _gameService.updateGameRoom(_onlineGameRoom!.gameId, {
-          'fen': _game.fen,
-          'moves': updatedMoves,
-          'lastMoveAt': Timestamp.now(),
-          'whitesTimeRemaining': _whitesTime.inMilliseconds,
-          'blacksTimeRemaining': _blacksTime.inMilliseconds,
+          Constants.fieldFen: _game.fen,
+          Constants.fieldMoves: updatedMoves,
+          Constants.fieldLastMoveAt: Timestamp.now(),
+          Constants.fieldWhitesTimeRemaining: _whitesTime.inMilliseconds,
+          Constants.fieldBlacksTimeRemaining: _blacksTime.inMilliseconds,
         });
       }
 
@@ -505,10 +506,10 @@ class GameProvider extends ChangeNotifier {
   }
 
   // Helper method to convert move to algebraic notation (for local history)
-  // String _getMoveNotation(Move move) {
-  //   // Use bishop's toAlgebraic for more complete notation
-  //   return _game.toAlgebraic(move);
-  // }
+  String _getMoveNotation(Move move) {
+    // Use bishop's toAlgebraic for more complete notation
+    return move.algebraic();
+  }
 
   // convert move string to move format
   Move _convertMoveStringToMove({required String moveString}) {
@@ -797,7 +798,7 @@ class GameProvider extends ChangeNotifier {
       for (var moveString in updatedRoom.moves) {
         final move = _convertMoveStringToMove(moveString: moveString);
         _game.makeSquaresMove(move); // Re-apply moves to update game state
-        //_moveHistory.add(_getMoveNotation(move)); // Update local move history
+        _moveHistory.add(_getMoveNotation(move)); // Update local move history
       }
 
       updateCapturedPieces(); // Update captured pieces based on new FEN
@@ -809,10 +810,10 @@ class GameProvider extends ChangeNotifier {
     }
 
     // Handle status changes (e.g., opponent joined, game ended)
-    if (updatedRoom.status == 'active' && !_game.gameOver) {
+    if (updatedRoom.status == Constants.statusActive && !_game.gameOver) {
       _startTimer(); // Ensure timer is running if game becomes active
-    } else if (updatedRoom.status == 'completed' ||
-        updatedRoom.status == 'aborted') {
+    } else if (updatedRoom.status == Constants.statusCompleted ||
+        updatedRoom.status == Constants.statusAborted) {
       _stopTimers();
       // Potentially set game result based on winnerId or status
       if (updatedRoom.winnerId != null) {
@@ -822,8 +823,7 @@ class GameProvider extends ChangeNotifier {
                 : updatedRoom.player2Color;
         _gameResultNotifier.value = WonGameResignation(winner: winnerColor!);
       } else if (updatedRoom.drawOfferedBy != null) {
-        _gameResultNotifier.value =
-            bishop.DrawnGame(); // Removed reason parameter
+        _gameResultNotifier.value = bishop.DrawnGame();
       }
       _checkGameOver();
     }

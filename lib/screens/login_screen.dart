@@ -27,6 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _login() async {
+    if (_isLoading) return; // Prevent multiple submissions
     if (_formKey.currentState!.validate()) {
       setState(() {
         _isLoading = true;
@@ -44,17 +45,21 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       } catch (e) {
         if (mounted) {
-          AnimatedDialog.show(
-            context: context,
-            title: 'Login Failed',
-            child: Text(e.toString().replaceFirst('Exception: ', '')),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('OK'),
-              ),
-            ],
-          );
+          if (e is EmailNotVerifiedException) {
+            await _showEmailVerificationDialog(e.email);
+          } else {
+            AnimatedDialog.show(
+              context: context,
+              title: 'Login Failed',
+              child: Text(e.toString().replaceFirst('Exception: ', '')),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          }
         }
       } finally {
         if (mounted) {
@@ -64,6 +69,96 @@ class _LoginScreenState extends State<LoginScreen> {
         }
       }
     }
+  }
+
+  Future<void> _showEmailVerificationDialog(String email) async {
+    bool showResendButton = false;
+
+    await AnimatedDialog.show(
+      context: context,
+      title: 'Email Verification Required',
+      child: StatefulBuilder(
+        builder: (context, setState) {
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Please verify your email address before logging in.',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Check your inbox at $email for a verification link.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (!showResendButton)
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      showResendButton = true;
+                    });
+                  },
+                  child: const Text('Didn\'t receive the email?'),
+                ),
+              if (showResendButton) ...[
+                const Divider(),
+                const SizedBox(height: 8),
+                Text(
+                  'If you didn\'t receive the verification email, you can request a new one.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+      actions: [
+        if (showResendButton)
+          TextButton(
+            onPressed: () async {
+              try {
+                await _userService.resendEmailVerification();
+                if (mounted) {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Verification email sent to $email'),
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  Navigator.of(context).pop();
+                  AnimatedDialog.show(
+                    context: context,
+                    title: 'Resend Failed',
+                    child: Text(e.toString().replaceFirst('Exception: ', '')),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('OK'),
+                      ),
+                    ],
+                  );
+                }
+              }
+            },
+            child: const Text('Resend Verification'),
+          ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('OK'),
+        ),
+      ],
+    );
   }
 
   Future<void> _forgotPassword() async {
@@ -215,6 +310,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Login Form
                     TextFormField(
                       controller: _emailController,
+                      textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         labelText: 'Email',
                         prefixIcon: const Icon(Icons.email_outlined),
@@ -229,6 +325,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextFormField(
                       controller: _passwordController,
                       obscureText: true,
+                      textInputAction: TextInputAction.done,
                       decoration: InputDecoration(
                         labelText: 'Password',
                         prefixIcon: const Icon(Icons.lock_outline),

@@ -60,8 +60,8 @@ class UserService {
 
       if (firebaseUser != null) {
         if (!firebaseUser.emailVerified) {
-          await _auth.signOut();
-          throw Exception('Please verify your email before logging in.');
+          // Don't sign out immediately, let the UI handle it
+          throw EmailNotVerifiedException(firebaseUser.email ?? 'your email');
         }
         DocumentSnapshot userDoc =
             await _firestore
@@ -104,6 +104,28 @@ class UserService {
     } catch (e) {
       logger.e('Error during sign out: $e');
       throw Exception('An unknown error occurred during sign out.');
+    }
+  }
+
+  Future<void> resendEmailVerification() async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null && !user.emailVerified) {
+        await user.sendEmailVerification();
+        logger.i('Email verification resent to: ${user.email}');
+      } else {
+        throw Exception('No user found or email already verified.');
+      }
+    } on FirebaseAuthException catch (e) {
+      logger.e(
+        'Firebase Auth Error during email verification resend: ${e.code} - ${e.message}',
+      );
+      throw Exception(e.message);
+    } catch (e) {
+      logger.e('Error during email verification resend: $e');
+      throw Exception(
+        'An unknown error occurred while resending verification email.',
+      );
     }
   }
 
@@ -178,4 +200,12 @@ class UserService {
     }
     return true;
   }
+}
+
+class EmailNotVerifiedException implements Exception {
+  final String email;
+  const EmailNotVerifiedException(this.email);
+
+  @override
+  String toString() => 'Email not verified: $email';
 }
