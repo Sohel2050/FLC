@@ -337,20 +337,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 24),
 
                     // Forgot Password Link
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: _forgotPassword,
-                        child: Text(
-                          'Forgot Password?',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
+                    if (!_isLoading)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _forgotPassword,
+                          child: Text(
+                            'Forgot Password?',
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodyMedium?.copyWith(
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
                           ),
                         ),
                       ),
-                    ),
 
                     // Login Button
                     _isLoading
@@ -364,41 +365,46 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 16),
 
                     // Guest Button
-                    MainAppButton(
-                      text: 'Play as Guest',
-                      icon: Icons.person_outline,
-                      onPressed: () {
-                        final guestUser =
-                            userService.createGuestUser(); // Create guest user
-                        // Navigate to home and replace the current screen
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(
-                            builder: (_) => HomeScreen(user: guestUser),
-                          ),
-                          (route) => false,
-                        );
-                      },
-                      isPrimary: false,
-                      isFullWidth: true,
-                    ),
+                    if (!_isLoading)
+                      MainAppButton(
+                        text: 'Play as Guest',
+                        icon: Icons.person_outline,
+                        onPressed: () {
+                          final guestUser =
+                              userService
+                                  .createGuestUser(); // Create guest user
+                          // Navigate to home and replace the current screen
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (_) => HomeScreen(user: guestUser),
+                            ),
+                            (route) => false,
+                          );
+                        },
+                        isPrimary: false,
+                        isFullWidth: true,
+                      ),
                     const SizedBox(height: 24),
 
                     // Register Link
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const SignUpScreen(),
+                    if (!_isLoading)
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const SignUpScreen(),
+                            ),
+                          );
+                        },
+                        child: Text(
+                          'Don\'t have an account? Register here',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
                           ),
-                        );
-                      },
-                      child: Text(
-                        'Don\'t have an account? Register here',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),

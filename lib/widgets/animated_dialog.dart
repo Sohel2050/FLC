@@ -107,10 +107,12 @@ class _AnimatedDialogState extends State<AnimatedDialog> {
       ),
       child: Row(
         children: [
-          Text(
-            widget.title!,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Theme.of(context).colorScheme.onSecondaryContainer,
+          FittedBox(
+            child: Text(
+              widget.title!,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSecondaryContainer,
+              ),
             ),
           ),
 
