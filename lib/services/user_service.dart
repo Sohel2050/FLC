@@ -4,6 +4,7 @@ import 'package:logger/logger.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
+import '../services/sign_in_results.dart';
 
 class UserService {
   final Logger logger = Logger();
@@ -50,7 +51,7 @@ class UserService {
     return null;
   }
 
-  Future<ChessUser?> signIn(String email, String password) async {
+  Future<SignInResult> signIn(String email, String password) async {
     try {
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
@@ -60,8 +61,7 @@ class UserService {
 
       if (firebaseUser != null) {
         if (!firebaseUser.emailVerified) {
-          // Don't sign out immediately, let the UI handle it
-          throw EmailNotVerifiedException(firebaseUser.email ?? 'your email');
+          return SignInEmailNotVerified(firebaseUser.email ?? 'your email');
         }
         DocumentSnapshot userDoc =
             await _firestore
@@ -70,7 +70,9 @@ class UserService {
                 .get();
         if (userDoc.exists) {
           logger.i('User signed in: ${firebaseUser.email}');
-          return ChessUser.fromMap(userDoc.data() as Map<String, dynamic>);
+          return SignInSuccess(
+            ChessUser.fromMap(userDoc.data() as Map<String, dynamic>),
+          );
         } else {
           // This case should ideally not happen if sign-up creates the user document
           // but as a fallback, create a basic user model
@@ -84,17 +86,17 @@ class UserService {
               .doc(firebaseUser.uid)
               .set(currentUser.toMap());
           logger.i('Created missing user document for: ${firebaseUser.email}');
-          return currentUser;
+          return SignInSuccess(currentUser);
         }
       }
     } on FirebaseAuthException catch (e) {
       logger.e('Firebase Auth Error during sign in: ${e.code} - ${e.message}');
-      throw Exception(e.message);
+      return SignInError(e.message ?? 'Authentication failed');
     } catch (e) {
       logger.e('Error during sign in: $e');
-      throw Exception('An unknown error occurred during sign in.');
+      return SignInError('An unknown error occurred during sign in.');
     }
-    return null;
+    return SignInError('Sign in failed');
   }
 
   Future<void> signOut() async {

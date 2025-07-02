@@ -4,6 +4,7 @@ import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/screens/home_screen.dart';
+import 'package:flutter_chess_app/services/sign_in_results.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
 import 'screens/login_screen.dart';
 import 'package:provider/provider.dart';
@@ -77,20 +78,28 @@ class _MyAppState extends State<MyApp> {
             // Fetch user data from Firestore and set it in UserProvider
             _userService
                 .signIn(snapshot.data!.email!, '')
-                .then((chessUser) {
-                  if (chessUser != null) {
+                .then((result) {
+                  if (result is SignInSuccess) {
                     if (context.mounted) {
                       Provider.of<UserProvider>(
                         context,
                         listen: false,
-                      ).setUser(chessUser);
+                      ).setUser(result.user);
                     }
+                  } else if (result is SignInError) {
+                    // Handle error if user data fetching fails
+                    _userService.logger.e(
+                      'Error fetching user data: ${result.message}',
+                    );
+                    // Optionally sign out the user if data cannot be fetched
+                    _userService.signOut();
                   }
                 })
                 .catchError((error) {
-                  // Handle error if user data fetching fails
-                  _userService.logger.e('Error fetching user data: $error');
-                  // Optionally sign out the user if data cannot be fetched
+                  // Handle any unexpected errors
+                  _userService.logger.e(
+                    'Unexpected error fetching user data: $error',
+                  );
                   _userService.signOut();
                 });
             return HomeScreen(

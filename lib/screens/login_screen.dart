@@ -3,7 +3,8 @@ import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/screens/sign_up_screen.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import '../widgets/play_mode_button.dart';
-import '../services/user_service.dart'; // Import UserService
+import '../services/user_service.dart';
+import '../services/sign_in_results.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -32,41 +33,39 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _isLoading = true;
       });
-      try {
-        final user = await _userService.signIn(
-          _emailController.text,
-          _passwordController.text,
-        );
-        if (mounted && user != null) {
+
+      final result = await _userService.signIn(
+        _emailController.text,
+        _passwordController.text,
+      );
+
+      if (mounted) {
+        if (result is SignInSuccess) {
           Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => HomeScreen(user: user)),
+            MaterialPageRoute(builder: (_) => HomeScreen(user: result.user)),
             (route) => false,
           );
+        } else if (result is SignInEmailNotVerified) {
+          await _showEmailVerificationDialog(result.email);
+        } else if (result is SignInError) {
+          AnimatedDialog.show(
+            context: context,
+            title: 'Login Failed',
+            child: Text(result.message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          );
         }
-      } catch (e) {
-        if (mounted) {
-          if (e is EmailNotVerifiedException) {
-            await _showEmailVerificationDialog(e.email);
-          } else {
-            AnimatedDialog.show(
-              context: context,
-              title: 'Login Failed',
-              child: Text(e.toString().replaceFirst('Exception: ', '')),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('OK'),
-                ),
-              ],
-            );
-          }
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }
