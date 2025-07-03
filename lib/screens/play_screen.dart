@@ -71,10 +71,30 @@ class _PlayScreenState extends State<PlayScreen> {
                   onPressed: () async {
                     final selectedMode = Constants.gameModes[_selectedGameMode];
                     final timeControl = selectedMode[Constants.timeControl];
+                    final title = selectedMode[Constants.title];
                     final userProvider = context.read<UserProvider>();
                     final currentUser = userProvider.user;
+                    final currentClassicalRating = currentUser!.classicalRating;
+                    final currentUserTempoRating = currentUser.tempoRating;
+                    final currentUserBlitzRating = currentUser.blitzRating;
 
-                    if (currentUser == null || currentUser.isGuest) {
+                    var userRating = currentClassicalRating;
+
+                    // Get the user rating according to the selected game mode
+                    // // Classical: use classical rating
+                    // // Blitz: use blitz rating
+                    // // Tempo: use tempo rating
+                    if (title == Constants.blitz) {
+                      userRating = currentUserBlitzRating;
+                    } else if (title == Constants.tempo) {
+                      userRating = currentUserTempoRating;
+                    } else if (title == Constants.quickBlitz) {
+                      userRating = currentUserBlitzRating;
+                    } else if (title == Constants.classical) {
+                      userRating = currentClassicalRating;
+                    }
+
+                    if (currentUser.isGuest) {
                       // Handle guest user case, maybe show a dialog to sign in
                       await AnimatedDialog.show(
                         context: context,
@@ -99,6 +119,7 @@ class _PlayScreenState extends State<PlayScreen> {
                       context,
                       message: 'Searching for opponent...',
                       barrierDismissible: false,
+                      showOnlineCount: true,
                     );
 
                     try {
@@ -106,22 +127,31 @@ class _PlayScreenState extends State<PlayScreen> {
                         userId: currentUser.uid!,
                         displayName: currentUser.displayName,
                         photoUrl: currentUser.photoUrl,
-                        userRating:
-                            currentUser
-                                .classicalRating, // Using classical rating for now
+                        userRating: userRating,
                         gameMode: timeControl,
                         ratingBasedSearch:
                             context.read<SettingsProvider>().ratingBasedSearch,
+                        context: context,
                       );
 
                       if (context.mounted) {
-                        LoadingDialog.hide(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => GameScreen(user: widget.user),
-                          ),
-                        );
+                        // Wait for game to become active before navigating
+                        await gameProvider.waitForGameToStart();
+
+                        gameProvider.setLoading(false);
+
+                        if (context.mounted) {
+                          // Hide loading dialog
+                          LoadingDialog.hide(context);
+                          // Navigate to GameScreen after game is ready
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) => GameScreen(user: widget.user),
+                            ),
+                          );
+                        }
                       }
                     } catch (e) {
                       gameProvider.setLoading(false);

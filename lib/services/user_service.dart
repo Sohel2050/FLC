@@ -19,6 +19,28 @@ class UserService {
     return ChessUser(displayName: displayName, isGuest: true);
   }
 
+  Stream<int> getOnlinePlayersCountStream() {
+    return _firestore
+        .collection(Constants.usersCollection)
+        .where(Constants.isOnline, isEqualTo: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
+  // Update user status to online
+  Future<void> updateUserStatusOnline(String uid, bool isOnline) async {
+    try {
+      await _firestore.collection(Constants.usersCollection).doc(uid).update({
+        Constants.isOnline: isOnline,
+        Constants.lastSeen: FieldValue.serverTimestamp(),
+      });
+      logger.i('User status updated to online: $isOnline for UID: $uid');
+    } catch (e) {
+      logger.e('Error updating user status to online: $e');
+      throw Exception('An unknown error occurred while updating user status.');
+    }
+  }
+
   Future<ChessUser?> signUp(String email, String password, String name) async {
     try {
       UserCredential userCredential = await _auth
@@ -63,30 +85,43 @@ class UserService {
         if (!firebaseUser.emailVerified) {
           return SignInEmailNotVerified(firebaseUser.email ?? 'your email');
         }
-        DocumentSnapshot userDoc =
+
+        try {
+          DocumentSnapshot userDoc =
+              await _firestore
+                  .collection(Constants.usersCollection)
+                  .doc(firebaseUser.uid)
+                  .get();
+
+          if (userDoc.exists) {
+            logger.i('User signed in: ${firebaseUser.email}');
+            final ChessUser chessUser = ChessUser.fromMap(
+              userDoc.data() as Map<String, dynamic>,
+            );
+
+            return SignInSuccess(chessUser);
+          } else {
+            // Create missing user document
+            ChessUser currentUser = ChessUser(
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName ?? 'User',
+            );
             await _firestore
                 .collection(Constants.usersCollection)
                 .doc(firebaseUser.uid)
-                .get();
-        if (userDoc.exists) {
-          logger.i('User signed in: ${firebaseUser.email}');
-          return SignInSuccess(
-            ChessUser.fromMap(userDoc.data() as Map<String, dynamic>),
-          );
-        } else {
-          // This case should ideally not happen if sign-up creates the user document
-          // but as a fallback, create a basic user model
-          ChessUser currentUser = ChessUser(
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            displayName: firebaseUser.displayName ?? 'User',
-          );
-          await _firestore
-              .collection(Constants.usersCollection)
-              .doc(firebaseUser.uid)
-              .set(currentUser.toMap());
-          logger.i('Created missing user document for: ${firebaseUser.email}');
-          return SignInSuccess(currentUser);
+                .set(currentUser.toMap());
+            logger.i(
+              'Created missing user document for: ${firebaseUser.email}',
+            );
+            return SignInSuccess(currentUser);
+          }
+        } on FirebaseException catch (e) {
+          if (e.code == 'permission-denied') {
+            logger.e('Permission denied accessing user document');
+            return SignInError('Permission denied. Please try again.');
+          }
+          rethrow;
         }
       }
     } on FirebaseAuthException catch (e) {

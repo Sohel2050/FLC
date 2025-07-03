@@ -1,5 +1,7 @@
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/screens/profile_screen.dart';
+import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:upgrader/upgrader.dart';
 import '../models/user_model.dart';
@@ -17,7 +19,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _selectedTab = 0;
 
   late final List<Widget> _screens;
@@ -25,11 +27,47 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+
+    WidgetsBinding.instance.addObserver(this);
+
     _screens = [
       PlayScreen(user: widget.user),
       FriendsScreen(user: widget.user),
       OptionsScreen(user: widget.user),
     ];
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    log('AppLifecycleState changed to: $state', name: 'AppLifecycle');
+
+    final userService = UserService();
+
+    switch (state) {
+      case AppLifecycleState.resumed:
+        log('App resumed - setting user online', name: 'AppLifecycle');
+        if (!widget.user.isGuest) {
+          userService.updateUserStatusOnline(widget.user.uid!, true);
+        }
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.paused:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        log('App backgrounded - setting user offline', name: 'AppLifecycle');
+        if (!widget.user.isGuest) {
+          userService.updateUserStatusOnline(widget.user.uid!, false);
+        }
+        break;
+    }
   }
 
   @override

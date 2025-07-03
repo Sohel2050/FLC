@@ -374,8 +374,9 @@ class _GameScreenState extends State<GameScreen> {
     SettingsProvider settingsProvider,
   ) {
     final GameRoom? gameRoom = gameProvider.onlineGameRoom;
-    if (gameRoom == null)
-      return Container(); // Should not happen in online game
+    if (gameRoom == null) {
+      return SizedBox(); // Should not happen in online game
+    }
 
     final bool isPlayer1 = gameProvider.player == gameRoom.player1Color;
     final String opponentDisplayName =
@@ -386,8 +387,8 @@ class _GameScreenState extends State<GameScreen> {
         isPlayer1 ? gameRoom.player2PhotoUrl : gameRoom.player1PhotoUrl;
     final int opponentRating =
         isPlayer1 ? (gameRoom.player2Rating ?? 1200) : gameRoom.player1Rating;
-    final int opponentColor =
-        isPlayer1 ? gameRoom.player2Color! : gameRoom.player1Color;
+    final int? opponentColor =
+        isPlayer1 ? gameRoom.player2Color : gameRoom.player1Color;
 
     final bool isOpponentsTurn = gameProvider.game.state.turn == opponentColor;
     final List<String> opponentCaptured =

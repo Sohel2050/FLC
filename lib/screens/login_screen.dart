@@ -75,7 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     await AnimatedDialog.show(
       context: context,
-      title: 'Email Verification Required',
+      title: 'Verify Email',
       child: StatefulBuilder(
         builder: (context, setState) {
           return Column(

@@ -6,6 +6,7 @@ import 'package:flutter_chess_app/services/captured_piece_tracker.dart';
 import 'package:flutter_chess_app/services/game_service.dart';
 import 'package:flutter_chess_app/stockfish/uci_commands.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
+import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 import 'package:squares/squares.dart';
 import 'package:bishop/bishop.dart' as bishop;
 import 'package:square_bishop/square_bishop.dart';
@@ -122,7 +123,7 @@ class GameProvider extends ChangeNotifier {
   }
 
   // Get material advantage from player's perspective
-  int getMaterialAdvantageForPlayer(int playerColor) {
+  int getMaterialAdvantageForPlayer(int? playerColor) {
     int advantage = materialAdvantage;
     return playerColor == Squares.white ? advantage : -advantage;
   }
@@ -692,19 +693,30 @@ class GameProvider extends ChangeNotifier {
     required int userRating,
     required String gameMode,
     required bool ratingBasedSearch,
+    BuildContext? context,
   }) async {
     setLoading(true);
     setIsOnlineGame(true); // Set online game mode
 
     try {
+      if (context != null) {
+        updateLoadingMessage(context, 'Searching for available games...');
+      }
+
       // Try to find an available game
       GameRoom? foundGame = await _gameService.findAvailableGame(
         gameMode: gameMode,
         userRating: userRating,
         ratingBasedSearch: ratingBasedSearch,
+        currentUserId: userId,
       );
 
       if (foundGame != null) {
+        // Update message when joining
+        if (context != null) {
+          updateLoadingMessage(context, 'Joining game...');
+        }
+
         // Join existing game
         _isHost = false;
         _onlineGameRoom = foundGame;
@@ -719,7 +731,17 @@ class GameProvider extends ChangeNotifier {
           player2Rating: userRating,
         );
         _logger.i('Joined game: ${foundGame.gameId}');
+
+        // Update message when game is ready
+        if (context != null) {
+          updateLoadingMessage(context, 'Game ready! Starting...');
+        }
       } else {
+        // Update message when creating
+        if (context != null) {
+          updateLoadingMessage(context, 'Creating new game...');
+        }
+
         // No game found, create a new one
         _isHost = true;
         _player = Squares.white; // Creating player is White
@@ -736,6 +758,11 @@ class GameProvider extends ChangeNotifier {
         );
         _gameId = _onlineGameRoom!.gameId;
         _logger.i('Created new game: ${_onlineGameRoom!.gameId}');
+
+        // Update message when waiting for opponent
+        if (context != null) {
+          updateLoadingMessage(context, 'Waiting for opponent to join...');
+        }
       }
 
       // Set up real-time listener for the game room
@@ -829,5 +856,61 @@ class GameProvider extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  /// Waits for the game to become active (opponent joined)
+  Future<void> waitForGameToStart() async {
+    // If game is already active, return immediately
+    if (_onlineGameRoom?.status == Constants.statusActive) {
+      return;
+    }
+
+    // Create a completer to wait for the game to start
+    final completer = Completer<void>();
+
+    // Listen for status changes
+    late StreamSubscription<GameRoom> subscription;
+    subscription = _gameService
+        .streamGameRoom(_gameId)
+        .listen(
+          (gameRoom) {
+            if (gameRoom.status == Constants.statusActive) {
+              subscription.cancel();
+              completer.complete();
+            } else if (gameRoom.status == Constants.statusAborted ||
+                gameRoom.status == Constants.statusCompleted) {
+              subscription.cancel();
+              completer.completeError('Game was aborted or completed');
+            }
+          },
+          onError: (error) {
+            subscription.cancel();
+            completer.completeError(error);
+          },
+        );
+
+    // Wait for the game to start with a timeout
+    await completer.future.timeout(
+      const Duration(minutes: 5), // 5 minute timeout
+      onTimeout: () {
+        subscription.cancel();
+        // delete the game room if it was created
+        if (_isHost && _onlineGameRoom != null) {
+          _gameService.deleteGameRoom(_onlineGameRoom!.gameId);
+        }
+        _logger.w('Timed out waiting for opponent to join');
+        // Show a timeout exception
+        throw TimeoutException(
+          'Timed out waiting for opponent',
+          const Duration(minutes: 5),
+        );
+      },
+    );
+  }
+
+  void updateLoadingMessage(BuildContext context, String message) {
+    if (context.mounted) {
+      LoadingDialog.updateMessage(context, message, showOnlineCount: true);
+    }
   }
 }

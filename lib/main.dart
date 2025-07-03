@@ -1,11 +1,12 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/firebase_options.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/screens/home_screen.dart';
-import 'package:flutter_chess_app/services/sign_in_results.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
+import 'package:flutter_chess_app/utils/constants.dart';
 import 'screens/login_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -74,42 +75,43 @@ class _MyAppState extends State<MyApp> {
             );
           }
           if (snapshot.hasData && snapshot.data!.emailVerified) {
-            // User is signed in and email is verified
-            // Fetch user data from Firestore and set it in UserProvider
-            _userService
-                .signIn(snapshot.data!.email!, '')
-                .then((result) {
-                  if (result is SignInSuccess) {
+            // Instead of calling signIn again, directly fetch user data
+            return FutureBuilder<DocumentSnapshot>(
+              future:
+                  FirebaseFirestore.instance
+                      .collection(Constants.usersCollection)
+                      .doc(snapshot.data!.uid)
+                      .get(),
+              builder: (context, userSnapshot) {
+                if (userSnapshot.connectionState == ConnectionState.waiting) {
+                  return const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                  final user = ChessUser.fromMap(
+                    userSnapshot.data!.data() as Map<String, dynamic>,
+                  );
+                  // Set user in provider
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (context.mounted) {
                       Provider.of<UserProvider>(
                         context,
                         listen: false,
-                      ).setUser(result.user);
+                      ).setUser(user);
                     }
-                  } else if (result is SignInError) {
-                    // Handle error if user data fetching fails
-                    _userService.logger.e(
-                      'Error fetching user data: ${result.message}',
-                    );
-                    // Optionally sign out the user if data cannot be fetched
-                    _userService.signOut();
-                  }
-                })
-                .catchError((error) {
-                  // Handle any unexpected errors
-                  _userService.logger.e(
-                    'Unexpected error fetching user data: $error',
-                  );
+                  });
+                  return HomeScreen(user: user);
+                } else {
+                  // User document doesn't exist, sign out
                   _userService.signOut();
-                });
-            return HomeScreen(
-              user:
-                  Provider.of<UserProvider>(context).user ?? ChessUser.guest(),
-            ); // Provide a fallback guest user
-          } else {
-            // User is not signed in or email not verified
-            return const LoginScreen();
+                  return const LoginScreen();
+                }
+              },
+            );
           }
+          return const LoginScreen();
         },
       ),
       debugShowCheckedModeBanner: false,

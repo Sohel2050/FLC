@@ -62,6 +62,7 @@ class GameService {
     required String gameMode,
     required int userRating,
     required bool ratingBasedSearch,
+    required String currentUserId, // Add this parameter
   }) async {
     try {
       Query query = _firestore
@@ -94,9 +95,19 @@ class GameService {
 
       if (snapshot.docs.isNotEmpty) {
         _logger.i('Found ${snapshot.docs.length} available games.');
-        return GameRoom.fromMap(
-          snapshot.docs.first.data() as Map<String, dynamic>,
+
+        // Filter out games created by the current user
+        for (final doc in snapshot.docs) {
+          final gameRoom = GameRoom.fromMap(doc.data() as Map<String, dynamic>);
+          if (gameRoom.player1Id != currentUserId) {
+            return gameRoom;
+          }
+        }
+
+        _logger.i(
+          'No available games found that are not created by current user',
         );
+        return null;
       } else {
         _logger.i('No available games found for mode: $gameMode');
         return null;
@@ -163,5 +174,20 @@ class GameService {
           }
           return GameRoom.fromMap(snapshot.data() as Map<String, dynamic>);
         });
+  }
+
+  // Deletes a game room by its ID.
+  /// This method is used when a game is completed or cancelled.
+  /// It removes the game room document from Firestore.
+  Future<void> deleteGameRoom(String gameId) async {
+    try {
+      await _firestore
+          .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .delete();
+      _logger.i('Game room deleted: $gameId');
+    } catch (e) {
+      _logger.e('Error deleting game room: $e');
+    }
   }
 }

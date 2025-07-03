@@ -140,4 +140,47 @@ class ChessUser {
       preferences: Map<String, String>.from(map[Constants.preferences] ?? {}),
     );
   }
+
+  // Copy with method to update only specific fields
+  ChessUser update({
+    String? displayName,
+    String? photoUrl,
+    int? classicalRating,
+    int? blitzRating,
+    int? tempoRating,
+    int? gamesPlayed,
+    int? gamesWon,
+    int? gamesLost,
+    int? gamesDraw,
+    List<String>? achievements,
+    List<String>? friends,
+    bool? isOnline,
+    DateTime? lastSeen,
+    bool? isGuest,
+    Map<String, int>? winStreak,
+    List<String>? savedGames,
+    Map<String, String>? preferences,
+  }) {
+    return ChessUser(
+      uid: uid,
+      email: email,
+      displayName: displayName ?? this.displayName,
+      photoUrl: photoUrl ?? this.photoUrl,
+      classicalRating: classicalRating ?? this.classicalRating,
+      blitzRating: blitzRating ?? this.blitzRating,
+      tempoRating: tempoRating ?? this.tempoRating,
+      gamesPlayed: gamesPlayed ?? this.gamesPlayed,
+      gamesWon: gamesWon ?? this.gamesWon,
+      gamesLost: gamesLost ?? this.gamesLost,
+      gamesDraw: gamesDraw ?? this.gamesDraw,
+      achievements: achievements ?? this.achievements,
+      friends: friends ?? this.friends,
+      isOnline: isOnline ?? this.isOnline,
+      lastSeen: lastSeen ?? this.lastSeen,
+      isGuest: isGuest ?? this.isGuest,
+      winStreak: winStreak ?? this.winStreak,
+      savedGames: savedGames ?? this.savedGames,
+      preferences: preferences ?? this.preferences,
+    );
+  }
 }

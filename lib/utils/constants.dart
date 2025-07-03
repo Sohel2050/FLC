@@ -80,6 +80,11 @@ class Constants {
   static const String statusCompleted = 'completed';
   static const String statusAborted = 'aborted';
 
+  static const String classical = 'Classical';
+  static const String blitz = 'Blitz';
+  static const String tempo = 'Tempo';
+  static const String quickBlitz = 'Quick Blitz';
+
   static const List<Map<String, dynamic>> gameModes = [
     {'title': 'Classical', 'timeControl': '60 sec/move', 'icon': Icons.timer},
     {'title': 'Blitz', 'timeControl': '5 min + 3 sec', 'icon': Icons.bolt},
