@@ -700,7 +700,11 @@ class GameProvider extends ChangeNotifier {
 
     try {
       if (context != null) {
-        updateLoadingMessage(context, 'Searching for available games...');
+        updateLoadingMessage(
+          context,
+          'Searching for available games...',
+          showCancelButton: true,
+        );
       }
 
       // Try to find an available game
@@ -714,7 +718,11 @@ class GameProvider extends ChangeNotifier {
       if (foundGame != null) {
         // Update message when joining
         if (context != null) {
-          updateLoadingMessage(context, 'Joining game...');
+          updateLoadingMessage(
+            context,
+            'Joining game...',
+            showCancelButton: false,
+          );
         }
 
         // Join existing game
@@ -734,12 +742,20 @@ class GameProvider extends ChangeNotifier {
 
         // Update message when game is ready
         if (context != null) {
-          updateLoadingMessage(context, 'Game ready! Starting...');
+          updateLoadingMessage(
+            context,
+            'Game ready! Starting...',
+            showCancelButton: false,
+          );
         }
       } else {
         // Update message when creating
         if (context != null) {
-          updateLoadingMessage(context, 'Creating new game...');
+          updateLoadingMessage(
+            context,
+            'Creating new game...',
+            showCancelButton: true,
+          );
         }
 
         // No game found, create a new one
@@ -761,7 +777,11 @@ class GameProvider extends ChangeNotifier {
 
         // Update message when waiting for opponent
         if (context != null) {
-          updateLoadingMessage(context, 'Waiting for opponent to join...');
+          updateLoadingMessage(
+            context,
+            'Waiting for opponent to join...',
+            showCancelButton: true,
+          );
         }
       }
 
@@ -908,9 +928,45 @@ class GameProvider extends ChangeNotifier {
     );
   }
 
-  void updateLoadingMessage(BuildContext context, String message) {
+  Future<void> cancelOnlineGameSearch() async {
+    try {
+      // Cancel the game room subscription
+      await _gameRoomSubscription?.cancel();
+      _gameRoomSubscription = null;
+
+      // If we created a game (we're the host), delete it
+      if (_isHost && _onlineGameRoom != null) {
+        await _gameService.deleteGameRoom(_onlineGameRoom!.gameId);
+        _logger.i('Deleted game room: ${_onlineGameRoom!.gameId}');
+      }
+
+      // Reset game state
+      _onlineGameRoom = null;
+      _gameId = '';
+      _isHost = false;
+      setIsOnlineGame(false);
+      setLoading(false);
+
+      notifyListeners();
+    } catch (e) {
+      _logger.e('Error canceling online game search: $e');
+      setLoading(false);
+    }
+  }
+
+  void updateLoadingMessage(
+    BuildContext context,
+    String message, {
+    bool showCancelButton = false,
+  }) {
     if (context.mounted) {
-      LoadingDialog.updateMessage(context, message, showOnlineCount: true);
+      LoadingDialog.updateMessage(
+        context,
+        message,
+        showOnlineCount: true,
+        showCancelButton: showCancelButton,
+        onCancel: showCancelButton ? () => cancelOnlineGameSearch() : null,
+      );
     }
   }
 }

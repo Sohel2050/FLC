@@ -1,4 +1,4 @@
-import 'dart:developer';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/screens/profile_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
@@ -47,13 +47,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
-    log('AppLifecycleState changed to: $state', name: 'AppLifecycle');
+    developer.log('AppLifecycleState changed to: $state', name: 'AppLifecycle');
 
     final userService = UserService();
 
     switch (state) {
       case AppLifecycleState.resumed:
-        log('App resumed - setting user online', name: 'AppLifecycle');
+        developer.log(
+          'App resumed - setting user online',
+          name: 'AppLifecycle',
+        );
         if (!widget.user.isGuest) {
           userService.updateUserStatusOnline(widget.user.uid!, true);
         }
@@ -62,7 +65,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
-        log('App backgrounded - setting user offline', name: 'AppLifecycle');
+        developer.log(
+          'App backgrounded - setting user offline',
+          name: 'AppLifecycle',
+        );
         if (!widget.user.isGuest) {
           userService.updateUserStatusOnline(widget.user.uid!, false);
         }

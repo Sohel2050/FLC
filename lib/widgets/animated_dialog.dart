@@ -26,9 +26,11 @@ class AnimatedDialog extends StatefulWidget {
     EdgeInsetsGeometry? contentPadding,
     bool scrollable = false,
     double? maxWidth,
+    bool barrierDismissible = false,
   }) {
     return showGeneralDialog<T>(
       context: context,
+      barrierDismissible: barrierDismissible,
       pageBuilder:
           (context, animation, secondaryAnimation) => AnimatedDialog(
             title: title,

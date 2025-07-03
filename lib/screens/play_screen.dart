@@ -81,9 +81,6 @@ class _PlayScreenState extends State<PlayScreen> {
                     var userRating = currentClassicalRating;
 
                     // Get the user rating according to the selected game mode
-                    // // Classical: use classical rating
-                    // // Blitz: use blitz rating
-                    // // Tempo: use tempo rating
                     if (title == Constants.blitz) {
                       userRating = currentUserBlitzRating;
                     } else if (title == Constants.tempo) {
@@ -95,7 +92,7 @@ class _PlayScreenState extends State<PlayScreen> {
                     }
 
                     if (currentUser.isGuest) {
-                      // Handle guest user case, maybe show a dialog to sign in
+                      // Handle guest user case
                       await AnimatedDialog.show(
                         context: context,
                         title: 'Guest User',
@@ -120,6 +117,8 @@ class _PlayScreenState extends State<PlayScreen> {
                       message: 'Searching for opponent...',
                       barrierDismissible: false,
                       showOnlineCount: true,
+                      showCancelButton: true,
+                      onCancel: () => gameProvider.cancelOnlineGameSearch(),
                     );
 
                     try {
