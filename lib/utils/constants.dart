@@ -70,6 +70,16 @@ class Constants {
   static const String fieldWhitesTimeRemaining = 'whitesTimeRemaining';
   static const String fieldBlacksTimeRemaining = 'blacksTimeRemaining';
 
+  // Saved Game fields
+  static const String fieldUserId = 'userId';
+  static const String fieldOpponentId = 'opponentId';
+  static const String fieldOpponentDisplayName = 'opponentDisplayName';
+  static const String fieldInitialFen = 'initialFen';
+  static const String fieldResult = 'result';
+  static const String fieldWinnerColor = 'winnerColor';
+  static const String fieldFinalWhitesTime = 'finalWhitesTime';
+  static const String fieldFinalBlacksTime = 'finalBlacksTime';
+
   static const String fieldGameId = 'gameId';
   static const String fieldGameMode = 'gameMode';
   static const String fieldDifficulty = 'difficulty';
@@ -79,6 +89,12 @@ class Constants {
   static const String statusActive = 'active';
   static const String statusCompleted = 'completed';
   static const String statusAborted = 'aborted';
+
+  // Game results
+  static const String win = 'win';
+  static const String loss = 'loss';
+  static const String draw = 'draw';
+  static const String none = 'none';
 
   static const String classical = 'Classical';
   static const String blitz = 'Blitz';

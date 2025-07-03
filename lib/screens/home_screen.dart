@@ -1,6 +1,8 @@
 import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/screens/profile_screen.dart';
+import 'package:flutter_chess_app/screens/saved_games_screen.dart';
+import 'package:flutter_chess_app/screens/statistics_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:upgrader/upgrader.dart';
@@ -126,10 +128,43 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       builder: (context) => const RulesInfoScreen(),
                     ),
                   );
-                } else {
+                } else if (value == 'stats') {
+                  if (!widget.user.isGuest) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder:
+                            (context) => StatisticsScreen(user: widget.user),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('This feature requires an account.'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                } else if (value == 'saved') {
+                  if (!widget.user.isGuest) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder:
+                            (context) => SavedGamesScreen(user: widget.user),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('This feature requires an account.'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                } else if (value == 'ranking') {
+                  // TODO: Implement Ranking Screen
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('This feature requires an account.'),
+                      content: Text('Rankings feature coming soon!'),
                       duration: Duration(seconds: 2),
                     ),
                   );

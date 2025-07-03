@@ -227,6 +227,78 @@ class UserService {
     return true;
   }
 
+  /// Updates user statistics after a game concludes.
+  Future<void> updateUserStatsAfterGame({
+    required String userId,
+    required String gameResult,
+    required String gameMode,
+    required String gameId,
+  }) async {
+    try {
+      final userDocRef = _firestore
+          .collection(Constants.usersCollection)
+          .doc(userId);
+      await _firestore.runTransaction((transaction) async {
+        final userDoc = await transaction.get(userDocRef);
+
+        if (!userDoc.exists) {
+          throw Exception('User document not found for ID: $userId');
+        }
+
+        ChessUser currentUser = ChessUser.fromMap(userDoc.data()!);
+
+        // Update game counts
+        int updatedGamesPlayed = currentUser.gamesPlayed + 1;
+        int updatedGamesWon = currentUser.gamesWon;
+        int updatedGamesLost = currentUser.gamesLost;
+        int updatedGamesDraw = currentUser.gamesDraw;
+
+        if (gameResult == Constants.win) {
+          updatedGamesWon++;
+        } else if (gameResult == Constants.loss) {
+          updatedGamesLost++;
+        } else if (gameResult == Constants.draw) {
+          updatedGamesDraw++;
+        }
+
+        // Update win streak (simple example, can be more complex)
+        Map<String, int> updatedWinStreak = Map<String, int>.from(
+          currentUser.winStreak,
+        );
+        if (gameResult == Constants.win) {
+          updatedWinStreak[gameMode] = (updatedWinStreak[gameMode] ?? 0) + 1;
+        } else {
+          updatedWinStreak[gameMode] = 0; // Reset streak on loss/draw
+        }
+
+        // Add gameId to savedGames list if not already present
+        List<String> updatedSavedGames = List<String>.from(
+          currentUser.savedGames,
+        );
+        if (!updatedSavedGames.contains(gameId)) {
+          updatedSavedGames.add(gameId);
+        }
+
+        // Create updated user object
+        ChessUser updatedUser = currentUser.copyWith(
+          gamesPlayed: updatedGamesPlayed,
+          gamesWon: updatedGamesWon,
+          gamesLost: updatedGamesLost,
+          gamesDraw: updatedGamesDraw,
+          winStreak: updatedWinStreak,
+          savedGames: updatedSavedGames,
+        );
+
+        // Update Firestore document
+        transaction.update(userDocRef, updatedUser.toMap());
+      });
+      logger.i('User stats updated for $userId after game $gameId.');
+    } catch (e) {
+      logger.e('Error updating user stats for $userId: $e');
+      throw Exception('Failed to update user statistics.');
+    }
+  }
+
   bool isValidEmail(String email) {
     if (email.isEmpty) {
       throw ArgumentError('Email cannot be empty');

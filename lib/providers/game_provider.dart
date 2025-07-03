@@ -2,8 +2,11 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
+import 'package:flutter_chess_app/models/saved_game_model.dart';
 import 'package:flutter_chess_app/services/captured_piece_tracker.dart';
 import 'package:flutter_chess_app/services/game_service.dart';
+import 'package:flutter_chess_app/services/saved_game_service.dart';
+import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/stockfish/uci_commands.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
@@ -34,7 +37,8 @@ class GameProvider extends ChangeNotifier {
   final Logger _logger = Logger();
 
   final GameService _gameService = GameService();
-  final Uuid _uuid = const Uuid();
+  final SavedGameService _savedGameService = SavedGameService();
+  final UserService _userService = UserService();
 
   bool _vsCPU = false;
   bool _localMultiplayer = false;
@@ -156,7 +160,7 @@ class GameProvider extends ChangeNotifier {
     final winner =
         _game.state.turn == Squares.white ? Squares.black : Squares.white;
     _gameResultNotifier.value = WonGameResignation(winner: winner);
-    _checkGameOver();
+    // We don't call checkGameOver here directly, as it will be called by the GameScreen's listener
     notifyListeners();
   }
 
@@ -307,7 +311,13 @@ class GameProvider extends ChangeNotifier {
           _stopTimers();
           // Use post-frame callback to avoid build-time issues
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _checkGameOver();
+            final String? userId =
+                _isOnlineGame && _onlineGameRoom != null
+                    ? (_isHost
+                        ? _onlineGameRoom!.player1Id
+                        : _onlineGameRoom!.player2Id)
+                    : null;
+            checkGameOver(userId: userId);
           });
         }
         notifyListeners();
@@ -324,7 +334,13 @@ class GameProvider extends ChangeNotifier {
           _stopTimers();
           // Use post-frame callback to avoid build-time issues
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _checkGameOver();
+            final String? userId =
+                _isOnlineGame && _onlineGameRoom != null
+                    ? (_isHost
+                        ? _onlineGameRoom!.player1Id
+                        : _onlineGameRoom!.player2Id)
+                    : null;
+            checkGameOver(userId: userId);
           });
         }
         notifyListeners();
@@ -414,15 +430,18 @@ class GameProvider extends ChangeNotifier {
   }
 
   // Check for game over conditions
-  void _checkGameOver() {
-    if (_game.gameOver) {
+  void checkGameOver({String? userId}) {
+    if (_game.gameOver || _gameResultNotifier.value != null) {
       _stopTimers();
-      _gameResultNotifier.value = _game.result;
+      if (_gameResultNotifier.value == null) {
+        _gameResultNotifier.value = _game.result;
+      }
       notifyListeners();
-    } else if (_gameResultNotifier.value != null) {
-      // Handle timeout case - game result is set but chess game doesn't know it's over
-      _stopTimers();
-      notifyListeners();
+
+      // Save game and update user stats if userId is provided and it's not a guest game
+      if (userId != null && userId.isNotEmpty) {
+        _saveCurrentGame(userId);
+      }
     }
   }
 
@@ -480,7 +499,6 @@ class GameProvider extends ChangeNotifier {
       debugPieceSymbols(); // Debugging piece symbols after the move
       // Update captured pieces after the move
       updateCapturedPieces();
-      _checkGameOver();
 
       // If online game, update Firestore
       if (_isOnlineGame && _onlineGameRoom != null) {
@@ -495,6 +513,17 @@ class GameProvider extends ChangeNotifier {
           Constants.fieldBlacksTimeRemaining: _blacksTime.inMilliseconds,
         });
       }
+
+      // Check game over after all updates, passing userId if available
+      // For online games, the userId is available from the onlineGameRoom
+      // For local games, we don't save stats, so userId is not needed
+      final String? userId =
+          _isOnlineGame && _onlineGameRoom != null
+              ? (_isHost
+                  ? _onlineGameRoom!.player1Id
+                  : _onlineGameRoom!.player2Id)
+              : null;
+      checkGameOver(userId: userId);
 
       if (!_game.gameOver) {
         _startTimer(); // Restart timer for the next player
@@ -676,7 +705,7 @@ class GameProvider extends ChangeNotifier {
 
         _logger.i('Move made: $bestMove');
 
-        _checkGameOver();
+        checkGameOver();
         if (!_game.gameOver) {
           _startTimer(); // Restart timer for the next player
         }
@@ -849,7 +878,7 @@ class GameProvider extends ChangeNotifier {
       }
 
       updateCapturedPieces(); // Update captured pieces based on new FEN
-      _checkGameOver(); // Check for game over conditions
+      checkGameOver(); // Check for game over conditions
 
       if (!_game.gameOver) {
         _startTimer(); // Restart timer for the next player
@@ -872,7 +901,7 @@ class GameProvider extends ChangeNotifier {
       } else if (updatedRoom.drawOfferedBy != null) {
         _gameResultNotifier.value = bishop.DrawnGame();
       }
-      _checkGameOver();
+      checkGameOver();
     }
 
     notifyListeners();
@@ -967,6 +996,82 @@ class GameProvider extends ChangeNotifier {
         showCancelButton: showCancelButton,
         onCancel: showCancelButton ? () => cancelOnlineGameSearch() : null,
       );
+    }
+  }
+
+  /// Saves the current game to Firestore and updates user statistics.
+  /// This method should be called when a game concludes (win, loss, draw).
+  Future<void> _saveCurrentGame(String userId) async {
+    if (_gameResultNotifier.value == null) {
+      _logger.w('Attempted to save game, but gameResult is null.');
+      return;
+    }
+
+    String result = 'unknown';
+    String winnerColor = Constants.none;
+    String opponentId = '';
+    String opponentDisplayName = 'CPU'; // Default for CPU games
+
+    if (_isOnlineGame && _onlineGameRoom != null) {
+      if (_isHost) {
+        opponentId = _onlineGameRoom!.player2Id ?? '';
+        opponentDisplayName = _onlineGameRoom!.player2DisplayName ?? 'Opponent';
+      } else {
+        opponentId = _onlineGameRoom!.player1Id;
+        opponentDisplayName = _onlineGameRoom!.player1DisplayName;
+      }
+    } else if (_vsCPU) {
+      opponentId = 'stockfish_ai'; // A placeholder ID for AI
+    } else if (_localMultiplayer) {
+      opponentId = 'local_player'; // A placeholder ID for local multiplayer
+      opponentDisplayName = 'Local Player';
+    }
+
+    if (_gameResultNotifier.value is bishop.WonGame) {
+      final winner = (_gameResultNotifier.value as bishop.WonGame).winner;
+      winnerColor = winner == Squares.white ? Constants.white : Constants.black;
+      if ((winner == Squares.white && _player == Squares.white) ||
+          (winner == Squares.black && _player == Squares.black)) {
+        result = Constants.win;
+      } else {
+        result = Constants.loss;
+      }
+    } else if (_gameResultNotifier.value is bishop.DrawnGame) {
+      result = Constants.draw;
+      winnerColor = Constants.none;
+    }
+
+    final savedGame = SavedGame(
+      gameId: _gameId.isNotEmpty ? _gameId : const Uuid().v4(),
+      userId: userId,
+      opponentId: opponentId,
+      opponentDisplayName: opponentDisplayName,
+      initialFen: _game.variant.startPosition!,
+      moves: _moveHistory,
+      result: result,
+      winnerColor: winnerColor,
+      gameMode: _selectedTimeControl,
+      initialWhitesTime: _savedWhitesTime.inMilliseconds,
+      initialBlacksTime: _savedBlacksTime.inMilliseconds,
+      finalWhitesTime: _whitesTime.inMilliseconds,
+      finalBlacksTime: _blacksTime.inMilliseconds,
+      createdAt: Timestamp.now(),
+    );
+
+    try {
+      await _savedGameService.saveGame(savedGame);
+      _logger.i('Game saved successfully to Firestore.');
+
+      // Update user statistics
+      await _userService.updateUserStatsAfterGame(
+        userId: userId,
+        gameResult: result,
+        gameMode: _selectedTimeControl,
+        gameId: savedGame.gameId,
+      );
+      _logger.i('User statistics updated successfully.');
+    } catch (e) {
+      _logger.e('Failed to save game or update user stats: $e');
     }
   }
 }

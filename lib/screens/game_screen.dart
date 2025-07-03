@@ -50,6 +50,8 @@ class _GameScreenState extends State<GameScreen> {
     final gameResult = _gameProvider.gameResult;
     if (gameResult == null) return;
 
+    final String? userId = widget.user.uid;
+
     AnimatedDialog.show(
       context: context,
       title: 'Game Over!',
@@ -70,6 +72,8 @@ class _GameScreenState extends State<GameScreen> {
           Navigator.of(context).pop();
         }
       }
+      // Ensure game over logic is fully processed, including saving
+      _gameProvider.checkGameOver(userId: userId);
     });
   }
 
