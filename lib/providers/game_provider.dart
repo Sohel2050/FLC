@@ -950,6 +950,7 @@ class GameProvider extends ChangeNotifier {
     _logger.i('Updated room FEN: ${updatedRoom.fen}');
     _logger.i('Current local FEN: ${_game.fen}');
 
+    final bool wasGameOver = isGameOver;
     _onlineGameRoom = updatedRoom;
     _gameId = updatedRoom.gameId;
 
@@ -959,6 +960,23 @@ class GameProvider extends ChangeNotifier {
     _blacksTime = Duration(milliseconds: updatedRoom.blacksTimeRemaining);
     _player1OnlineScore = updatedRoom.player1Score;
     _player2OnlineScore = updatedRoom.player2Score;
+
+    // --- Rematch Logic ---
+    // If the game was over and now it's active, it's a rematch
+    if (wasGameOver && updatedRoom.status == Constants.statusActive) {
+      _logger.i('Rematch detected! Resetting game.');
+      // Swap player color for the new game based on the updated room
+      _player =
+          updatedRoom.player1Id ==
+                  (_isHost
+                      ? _onlineGameRoom!.player1Id
+                      : _onlineGameRoom!.player2Id)
+              ? updatedRoom.player1Color
+              : updatedRoom.player2Color!;
+      resetGame(false); // false because it's a rematch, not a brand new game
+      notifyListeners();
+      return; // Exit early to avoid conflicting logic below
+    }
 
     // Only update game board if the FEN has changed (meaning a move was made by opponent)
     if (_game.fen != updatedRoom.fen) {
