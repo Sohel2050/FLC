@@ -22,8 +22,13 @@ class GameRoom {
   final bool ratingBasedSearch;
   final int initialWhitesTime; // in milliseconds
   final int initialBlacksTime; // in milliseconds
+  final int whitesTimeRemaining; // in milliseconds, updated on each move
+  final int blacksTimeRemaining; // in milliseconds, updated on each move
+  final int player1Score;
+  final int player2Score;
   final String? winnerId;
   final String? drawOfferedBy; // UID of the player who offered a draw
+  final String? rematchOfferedBy; // UID of the player who offered a rematch
 
   GameRoom({
     required this.gameId,
@@ -46,8 +51,13 @@ class GameRoom {
     required this.ratingBasedSearch,
     required this.initialWhitesTime,
     required this.initialBlacksTime,
+    required this.whitesTimeRemaining,
+    required this.blacksTimeRemaining,
+    required this.player1Score,
+    required this.player2Score,
     this.winnerId,
     this.drawOfferedBy,
+    this.rematchOfferedBy,
   });
 
   Map<String, dynamic> toMap() {
@@ -72,8 +82,13 @@ class GameRoom {
       Constants.fieldRatingBasedSearch: ratingBasedSearch,
       Constants.fieldInitialWhitesTime: initialWhitesTime,
       Constants.fieldInitialBlacksTime: initialBlacksTime,
+      Constants.fieldWhitesTimeRemaining: whitesTimeRemaining,
+      Constants.fieldBlacksTimeRemaining: blacksTimeRemaining,
+      Constants.fieldPlayer1Score: player1Score,
+      Constants.fieldPlayer2Score: player2Score,
       Constants.fieldWinnerId: winnerId,
       Constants.fieldDrawOfferedBy: drawOfferedBy,
+      Constants.fieldRematchOfferedBy: rematchOfferedBy,
     };
   }
 
@@ -99,8 +114,13 @@ class GameRoom {
       ratingBasedSearch: map[Constants.fieldRatingBasedSearch] as bool,
       initialWhitesTime: map[Constants.fieldInitialWhitesTime] as int,
       initialBlacksTime: map[Constants.fieldInitialBlacksTime] as int,
+      whitesTimeRemaining: map[Constants.fieldWhitesTimeRemaining] as int,
+      blacksTimeRemaining: map[Constants.fieldBlacksTimeRemaining] as int,
+      player1Score: map[Constants.fieldPlayer1Score] as int,
+      player2Score: map[Constants.fieldPlayer2Score] as int,
       winnerId: map[Constants.fieldWinnerId] as String?,
       drawOfferedBy: map[Constants.fieldDrawOfferedBy] as String?,
+      rematchOfferedBy: map[Constants.fieldRematchOfferedBy] as String?,
     );
   }
 
@@ -125,8 +145,13 @@ class GameRoom {
     bool? ratingBasedSearch,
     int? initialWhitesTime,
     int? initialBlacksTime,
+    int? whitesTimeRemaining,
+    int? blacksTimeRemaining,
+    int? player1Score,
+    int? player2Score,
     String? winnerId,
     String? drawOfferedBy,
+    String? rematchOfferedBy,
   }) {
     return GameRoom(
       gameId: gameId ?? this.gameId,
@@ -149,8 +174,13 @@ class GameRoom {
       ratingBasedSearch: ratingBasedSearch ?? this.ratingBasedSearch,
       initialWhitesTime: initialWhitesTime ?? this.initialWhitesTime,
       initialBlacksTime: initialBlacksTime ?? this.initialBlacksTime,
+      whitesTimeRemaining: whitesTimeRemaining ?? this.whitesTimeRemaining,
+      blacksTimeRemaining: blacksTimeRemaining ?? this.blacksTimeRemaining,
+      player1Score: player1Score ?? this.player1Score,
+      player2Score: player2Score ?? this.player2Score,
       winnerId: winnerId ?? this.winnerId,
       drawOfferedBy: drawOfferedBy ?? this.drawOfferedBy,
+      rematchOfferedBy: rematchOfferedBy ?? this.rematchOfferedBy,
     );
   }
 }

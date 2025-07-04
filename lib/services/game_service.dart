@@ -20,6 +20,8 @@ class GameService {
     required bool ratingBasedSearch,
     required int initialWhitesTime,
     required int initialBlacksTime,
+    int player1Score = 0, // Default to 0
+    int player2Score = 0, // Default to 0
   }) async {
     final String gameId = _uuid.v4();
     final Timestamp now = Timestamp.now();
@@ -42,6 +44,10 @@ class GameService {
       ratingBasedSearch: ratingBasedSearch,
       initialWhitesTime: initialWhitesTime,
       initialBlacksTime: initialBlacksTime,
+      whitesTimeRemaining: initialWhitesTime, // Set initial remaining time
+      blacksTimeRemaining: initialBlacksTime, // Set initial remaining time
+      player1Score: player1Score,
+      player2Score: player2Score,
     );
 
     try {
@@ -188,6 +194,149 @@ class GameService {
       _logger.i('Game room deleted: $gameId');
     } catch (e) {
       _logger.e('Error deleting game room: $e');
+    }
+  }
+
+  /// Resigns the game, setting the winner and updating the status to completed.
+  Future<void> resignGame(String gameId, String winnerId) async {
+    try {
+      await _firestore
+          .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .update({
+            Constants.fieldWinnerId: winnerId,
+            Constants.fieldStatus: Constants.statusCompleted,
+          });
+      _logger.i('Game $gameId resigned. Winner: $winnerId');
+    } catch (e) {
+      _logger.e('Error resigning game $gameId: $e');
+      rethrow;
+    }
+  }
+
+  /// Offers a draw in the game.
+  Future<void> offerDraw(String gameId, String offeringPlayerId) async {
+    try {
+      await _firestore
+          .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .update({Constants.fieldDrawOfferedBy: offeringPlayerId});
+      _logger.i('Draw offered in game $gameId by $offeringPlayerId');
+    } catch (e) {
+      _logger.e('Error offering draw in game $gameId: $e');
+      rethrow;
+    }
+  }
+
+  /// Handles a draw offer (accept or decline).
+  Future<void> handleDrawOffer(String gameId, bool accepted) async {
+    try {
+      if (accepted) {
+        await _firestore
+            .collection(Constants.gameRoomsCollection)
+            .doc(gameId)
+            .update({
+              Constants.fieldStatus: Constants.statusCompleted,
+              Constants.fieldDrawOfferedBy: null, // Clear the offer
+            });
+        _logger.i('Draw accepted for game $gameId');
+      } else {
+        await _firestore
+            .collection(Constants.gameRoomsCollection)
+            .doc(gameId)
+            .update({
+              Constants.fieldDrawOfferedBy: null, // Clear the offer
+            });
+        _logger.i('Draw declined for game $gameId');
+      }
+    } catch (e) {
+      _logger.e('Error handling draw offer for game $gameId: $e');
+      rethrow;
+    }
+  }
+
+  /// Offers a rematch after a game.
+  Future<void> offerRematch(String gameId, String offeringPlayerId) async {
+    try {
+      await _firestore
+          .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .update({Constants.fieldRematchOfferedBy: offeringPlayerId});
+      _logger.i('Rematch offered in game $gameId by $offeringPlayerId');
+    } catch (e) {
+      _logger.e('Error offering rematch in game $gameId: $e');
+      rethrow;
+    }
+  }
+
+  /// Handles a rematch offer (accept or decline).
+  Future<void> handleRematch(
+    String gameId,
+    bool accepted,
+    int player1Score,
+    int player2Score,
+  ) async {
+    try {
+      if (accepted) {
+        // Fetch the current game room to get initial settings
+        final doc =
+            await _firestore
+                .collection(Constants.gameRoomsCollection)
+                .doc(gameId)
+                .get();
+        if (!doc.exists) {
+          throw Exception('Game room $gameId not found for rematch');
+        }
+        final GameRoom currentRoom = GameRoom.fromMap(
+          doc.data() as Map<String, dynamic>,
+        );
+
+        // Swap colors for the rematch
+        final int newPlayer1Color =
+            currentRoom.player1Color == Squares.white
+                ? Squares.black
+                : Squares.white;
+        final int newPlayer2Color =
+            currentRoom.player2Color == Squares.white
+                ? Squares.black
+                : Squares.white;
+
+        await _firestore
+            .collection(Constants.gameRoomsCollection)
+            .doc(gameId)
+            .update({
+              Constants.fieldFen:
+                  'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', // Reset FEN
+              Constants.fieldMoves: [], // Clear moves
+              Constants.fieldStatus: Constants.statusActive, // Set to active
+              Constants.fieldLastMoveAt: Timestamp.now(),
+              Constants.fieldWinnerId: null, // Clear winner
+              Constants.fieldDrawOfferedBy: null, // Clear draw offer
+              Constants.fieldRematchOfferedBy: null, // Clear rematch offer
+              Constants.fieldPlayer1Color: newPlayer1Color, // Swap colors
+              Constants.fieldPlayer2Color: newPlayer2Color, // Swap colors
+              Constants.fieldWhitesTimeRemaining:
+                  currentRoom.initialWhitesTime, // Reset times
+              Constants.fieldBlacksTimeRemaining:
+                  currentRoom.initialBlacksTime, // Reset times
+              Constants.fieldPlayer1Score: player1Score, // Update scores
+              Constants.fieldPlayer2Score: player2Score, // Update scores
+            });
+        _logger.i(
+          'Rematch accepted for game $gameId. Game reset with swapped colors.',
+        );
+      } else {
+        await _firestore
+            .collection(Constants.gameRoomsCollection)
+            .doc(gameId)
+            .update({
+              Constants.fieldRematchOfferedBy: null, // Clear the offer
+            });
+        _logger.i('Rematch declined for game $gameId');
+      }
+    } catch (e) {
+      _logger.e('Error handling rematch offer for game $gameId: $e');
+      rethrow;
     }
   }
 }

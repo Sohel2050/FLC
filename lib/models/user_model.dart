@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 
 class ChessUser {
@@ -107,7 +108,7 @@ class ChessUser {
       Constants.achievements: achievements,
       Constants.friends: friends,
       Constants.isOnline: isOnline,
-      Constants.lastSeen: lastSeen.toIso8601String(),
+      Constants.lastSeen: lastSeen,
       Constants.isGuest: isGuest,
       Constants.winStreak: winStreak,
       Constants.savedGames: savedGames,
@@ -131,14 +132,22 @@ class ChessUser {
       achievements: List<String>.from(map[Constants.achievements] ?? []),
       friends: List<String>.from(map[Constants.friends] ?? []),
       isOnline: map[Constants.isOnline] ?? false,
-      lastSeen: DateTime.parse(
-        map[Constants.lastSeen] ?? DateTime.now().toIso8601String(),
-      ),
+      lastSeen: _convertToDateTime(map[Constants.lastSeen]),
       isGuest: map[Constants.isGuest] ?? false,
       winStreak: Map<String, int>.from(map[Constants.winStreak] ?? {}),
       savedGames: List<String>.from(map[Constants.savedGames] ?? []),
       preferences: Map<String, String>.from(map[Constants.preferences] ?? {}),
     );
+  }
+
+  static DateTime _convertToDateTime(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    } else if (value is String) {
+      return DateTime.tryParse(value) ?? DateTime.now();
+    } else {
+      return DateTime.now();
+    }
   }
 
   // Copy with method to update only specific fields

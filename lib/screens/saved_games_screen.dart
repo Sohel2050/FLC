@@ -38,7 +38,7 @@ class _SavedGamesScreenState extends State<SavedGamesScreen> {
           } else if (snapshot.hasError) {
             return Center(child: Text('Error: ${snapshot.error}'));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No saved games found.'));
+            return const Center(child: Text('You have no saved games.'));
           } else {
             final savedGames = snapshot.data!;
             return ListView.builder(

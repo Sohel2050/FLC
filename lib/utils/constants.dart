@@ -66,9 +66,12 @@ class Constants {
   static const String fieldInitialBlacksTime = 'initialBlacksTime';
   static const String fieldWinnerId = 'winnerId';
   static const String fieldDrawOfferedBy = 'drawOfferedBy';
+  static const String fieldRematchOfferedBy = 'rematchOfferedBy';
 
   static const String fieldWhitesTimeRemaining = 'whitesTimeRemaining';
   static const String fieldBlacksTimeRemaining = 'blacksTimeRemaining';
+  static const String fieldPlayer1Score = 'player1Score';
+  static const String fieldPlayer2Score = 'player2Score';
 
   // Saved Game fields
   static const String fieldUserId = 'userId';

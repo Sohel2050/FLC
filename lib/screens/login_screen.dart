@@ -73,90 +73,100 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _showEmailVerificationDialog(String email) async {
     bool showResendButton = false;
 
-    await AnimatedDialog.show(
+    await showDialog(
       context: context,
-      title: 'Verify Email',
-      child: StatefulBuilder(
-        builder: (context, setState) {
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Please verify your email address before logging in.',
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Check your inbox at $email for a verification link.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (!showResendButton)
-                TextButton(
-                  onPressed: () {
-                    setState(() {
-                      showResendButton = true;
-                    });
-                  },
-                  child: const Text('Didn\'t receive the email?'),
-                ),
-              if (showResendButton) ...[
-                const Divider(),
-                const SizedBox(height: 8),
-                Text(
-                  'If you didn\'t receive the verification email, you can request a new one.',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ],
-          );
-        },
-      ),
-      actions: [
-        if (showResendButton)
-          TextButton(
-            onPressed: () async {
-              try {
-                await _userService.resendEmailVerification();
-                if (mounted) {
-                  Navigator.of(context).pop();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Verification email sent to $email'),
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      behavior: SnackBarBehavior.floating,
+      barrierDismissible: false,
+      builder:
+          (context) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AnimatedDialog(
+                title: 'Verify Email',
+
+                actions: [
+                  if (showResendButton)
+                    TextButton(
+                      onPressed: () async {
+                        try {
+                          await _userService.resendEmailVerification();
+                          if (mounted) {
+                            Navigator.of(context).pop();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Verification email sent to $email',
+                                ),
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.primary,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            Navigator.of(context).pop();
+                            AnimatedDialog.show(
+                              context: context,
+                              title: 'Resend Failed',
+                              child: Text(
+                                e.toString().replaceFirst('Exception: ', ''),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.of(context).pop(),
+                                  child: const Text('OK'),
+                                ),
+                              ],
+                            );
+                          }
+                        }
+                      },
+                      child: const Text('Resend Verification'),
                     ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  Navigator.of(context).pop();
-                  AnimatedDialog.show(
-                    context: context,
-                    title: 'Resend Failed',
-                    child: Text(e.toString().replaceFirst('Exception: ', '')),
-                    actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('OK'),
+                  ),
+                ],
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Please verify your email address before logging in.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Check your inbox at $email for a verification link.',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (!showResendButton)
                       TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('OK'),
+                        onPressed: () {
+                          setDialogState(() {
+                            showResendButton = true;
+                          });
+                        },
+                        child: const Text('Didn\'t receive the email?'),
+                      ),
+                    if (showResendButton) ...[
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      Text(
+                        'If you didn\'t receive the verification email, you can request a new one.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ],
-                  );
-                }
-              }
+                  ],
+                ),
+              );
             },
-            child: const Text('Resend Verification'),
           ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('OK'),
-        ),
-      ],
     );
   }
 

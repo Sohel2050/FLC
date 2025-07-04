@@ -142,6 +142,10 @@ class _PlayScreenState extends State<PlayScreen> {
                         if (context.mounted) {
                           // Hide loading dialog
                           LoadingDialog.hide(context);
+                          // Lets have a small delay to ensure UI is updated
+                          await Future.delayed(
+                            const Duration(milliseconds: 500),
+                          );
                           // Navigate to GameScreen after game is ready
                           Navigator.push(
                             context,

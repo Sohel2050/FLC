@@ -66,6 +66,10 @@ class GameProvider extends ChangeNotifier {
   Duration _savedWhitesTime = Duration.zero;
   Duration _savedBlacksTime = Duration.zero;
 
+  // Online game scores
+  int _player1OnlineScore = 0;
+  int _player2OnlineScore = 0;
+
   // Captured pieces
   // These lists will hold the captured pieces for each player
   // They will be used to display captured pieces in the UI
@@ -108,6 +112,9 @@ class GameProvider extends ChangeNotifier {
   Duration get blacksTime => _blacksTime;
   Duration get savedWhitesTime => _savedWhitesTime;
   Duration get savedBlacksTime => _savedBlacksTime;
+
+  int get player1OnlineScore => _player1OnlineScore;
+  int get player2OnlineScore => _player2OnlineScore;
 
   List<String> get whiteCapturedPieces => _whiteCapturedPieces;
   List<String> get blackCapturedPieces => _blackCapturedPieces;
@@ -156,23 +163,100 @@ class GameProvider extends ChangeNotifier {
   }
 
   /// Resigns the current game, setting the game result to a win for the opponent.
-  void resignGame() {
-    final winner =
+  Future<void> resignGame() async {
+    final winnerColor =
         _game.state.turn == Squares.white ? Squares.black : Squares.white;
-    _gameResultNotifier.value = WonGameResignation(winner: winner);
-    // We don't call checkGameOver here directly, as it will be called by the GameScreen's listener
+    final winnerId =
+        _isOnlineGame && _onlineGameRoom != null
+            ? (_isHost
+                ? _onlineGameRoom!.player2Id
+                : _onlineGameRoom!.player1Id)
+            : null; // For local/CPU, winnerId is not relevant for Firestore
+
+    _gameResultNotifier.value = WonGameResignation(winner: winnerColor);
+    _stopTimers(); // Stop timers immediately on resignation
+
+    if (_isOnlineGame && _onlineGameRoom != null && winnerId != null) {
+      await _gameService.resignGame(_onlineGameRoom!.gameId, winnerId);
+    }
     notifyListeners();
   }
 
   /// Offers a draw in the current game.
-  /// This is a placeholder for future multiplayer implementation.
-  void offerDraw() {
-    // TODO: Implement draw offer logic for local multiplayer and online play
-    _logger.i('Draw offer initiated (placeholder)');
-    // For now, we can simulate a draw or do nothing
-    // _gameResultNotifier.value = bishop.DrawnGame(reason: bishop.DrawReason.agreement);
-    // _checkGameOver();
-    // notifyListeners();
+  Future<void> offerDraw() async {
+    if (!_isOnlineGame || _onlineGameRoom == null) {
+      _logger.w('Draw offer only available in online games.');
+      return;
+    }
+
+    final String offeringPlayerId =
+        _isHost ? _onlineGameRoom!.player1Id : _onlineGameRoom!.player2Id!;
+
+    await _gameService.offerDraw(_onlineGameRoom!.gameId, offeringPlayerId);
+    _logger.i('Draw offer initiated by $offeringPlayerId');
+    notifyListeners();
+  }
+
+  /// Handles a draw offer (accept or decline).
+  Future<void> handleDrawOffer(bool accepted) async {
+    if (!_isOnlineGame || _onlineGameRoom == null) {
+      _logger.w('Cannot handle draw offer: Not an online game.');
+      return;
+    }
+    await _gameService.handleDrawOffer(_onlineGameRoom!.gameId, accepted);
+    notifyListeners();
+  }
+
+  /// Offers a rematch after a game.
+  Future<void> offerRematch() async {
+    if (!_isOnlineGame || _onlineGameRoom == null) {
+      _logger.w('Rematch offer only available in online games.');
+      return;
+    }
+
+    final String offeringPlayerId =
+        _isHost ? _onlineGameRoom!.player1Id : _onlineGameRoom!.player2Id!;
+
+    await _gameService.offerRematch(_onlineGameRoom!.gameId, offeringPlayerId);
+    _logger.i('Rematch offer initiated by $offeringPlayerId');
+    notifyListeners();
+  }
+
+  /// Handles a rematch offer (accept or decline).
+  Future<void> handleRematch(bool accepted) async {
+    if (!_isOnlineGame || _onlineGameRoom == null) {
+      _logger.w('Cannot handle rematch offer: Not an online game.');
+      return;
+    }
+
+    // Determine scores to pass to the service
+    int currentP1Score = _onlineGameRoom!.player1Score;
+    int currentP2Score = _onlineGameRoom!.player2Score;
+
+    if (accepted) {
+      // Update scores based on the last game's result
+      if (_gameResultNotifier.value is bishop.WonGame) {
+        final winner = (_gameResultNotifier.value as bishop.WonGame).winner;
+        if ((winner == Squares.white &&
+                _onlineGameRoom!.player1Color == Squares.white) ||
+            (winner == Squares.black &&
+                _onlineGameRoom!.player1Color == Squares.black)) {
+          currentP1Score++;
+        } else {
+          currentP2Score++;
+        }
+      } else if (_gameResultNotifier.value is bishop.DrawnGame) {
+        // Draw, scores remain same
+      }
+    }
+
+    await _gameService.handleRematch(
+      _onlineGameRoom!.gameId,
+      accepted,
+      currentP1Score,
+      currentP2Score,
+    );
+    notifyListeners();
   }
 
   // Initialize Stockfish safely
@@ -371,14 +455,22 @@ class GameProvider extends ChangeNotifier {
     _blackCapturedPieces.clear();
     _moveHistory.clear();
 
-    // Change player color if it's a new game
-    if (isNewGame) {
-      _player = _player == Squares.white ? Squares.black : Squares.white;
-      notifyListeners();
+    // Reset scores only if it's a completely new game, not a rematch
+    if (isNewGame && !_isOnlineGame) {
+      _whitesScore = 0;
+      _blacksScore = 0;
     }
 
-    _whitesTime = _savedWhitesTime;
-    _blacksTime = _savedBlacksTime;
+    // Change player color if it's a new game (for local/CPU)
+    if (isNewGame && !_isOnlineGame) {
+      _player = _player == Squares.white ? Squares.black : Squares.white;
+    }
+
+    // For online games, times are set from the GameRoom update
+    if (!_isOnlineGame) {
+      _whitesTime = _savedWhitesTime;
+      _blacksTime = _savedBlacksTime;
+    }
 
     _game = bishop.Game(variant: bishop.Variant.standard());
 
@@ -509,8 +601,10 @@ class GameProvider extends ChangeNotifier {
           Constants.fieldFen: _game.fen,
           Constants.fieldMoves: updatedMoves,
           Constants.fieldLastMoveAt: Timestamp.now(),
-          Constants.fieldWhitesTimeRemaining: _whitesTime.inMilliseconds,
-          Constants.fieldBlacksTimeRemaining: _blacksTime.inMilliseconds,
+          Constants.fieldWhitesTimeRemaining:
+              _whitesTime.inMilliseconds, // Send current remaining time
+          Constants.fieldBlacksTimeRemaining:
+              _blacksTime.inMilliseconds, // Send current remaining time
         });
       }
 
@@ -727,6 +821,8 @@ class GameProvider extends ChangeNotifier {
     setLoading(true);
     setIsOnlineGame(true); // Set online game mode
 
+    setTimeControl(gameMode);
+
     try {
       if (context != null) {
         updateLoadingMessage(
@@ -800,6 +896,8 @@ class GameProvider extends ChangeNotifier {
           ratingBasedSearch: ratingBasedSearch,
           initialWhitesTime: _savedWhitesTime.inMilliseconds,
           initialBlacksTime: _savedBlacksTime.inMilliseconds,
+          player1Score: _player1OnlineScore, // Pass current scores
+          player2Score: _player2OnlineScore, // Pass current scores
         );
         _gameId = _onlineGameRoom!.gameId;
         _logger.i('Created new game: ${_onlineGameRoom!.gameId}');
@@ -831,6 +929,16 @@ class GameProvider extends ChangeNotifier {
       // Initialize game state based on the online game room
       _whitesTime = Duration(milliseconds: _onlineGameRoom!.initialWhitesTime);
       _blacksTime = Duration(milliseconds: _onlineGameRoom!.initialBlacksTime);
+      // Initialize game state based on the online game room
+      _whitesTime = Duration(
+        milliseconds: _onlineGameRoom!.whitesTimeRemaining,
+      ); // Use remaining time
+      _blacksTime = Duration(
+        milliseconds: _onlineGameRoom!.blacksTimeRemaining,
+      ); // Use remaining time
+      _player1OnlineScore = _onlineGameRoom!.player1Score;
+      _player2OnlineScore = _onlineGameRoom!.player2Score;
+
       _game = bishop.Game(fen: _onlineGameRoom!.fen);
       _state = _game.squaresState(_player);
 
@@ -839,8 +947,10 @@ class GameProvider extends ChangeNotifier {
         _game.makeSquaresMove(_convertMoveStringToMove(moveString: moveString));
       }
 
-      // Start timer if game is active
-      if (_onlineGameRoom!.status == 'active') {
+      // Start timer if game is active and it's our turn
+      if (_onlineGameRoom!.status == Constants.statusActive &&
+          ((_isHost && _game.state.turn == Squares.white) ||
+              (!_isHost && _game.state.turn == Squares.black))) {
         _startTimer();
       }
 
@@ -860,14 +970,17 @@ class GameProvider extends ChangeNotifier {
     _gameId = updatedRoom.gameId;
 
     // Update local game state based on Firestore updates
-    // Only update if the FEN has changed (meaning a move was made by opponent)
+    // Update local game state based on Firestore updates
+    // Always update times and scores, even if FEN hasn't changed (e.g., draw offer)
+    _whitesTime = Duration(milliseconds: updatedRoom.whitesTimeRemaining);
+    _blacksTime = Duration(milliseconds: updatedRoom.blacksTimeRemaining);
+    _player1OnlineScore = updatedRoom.player1Score;
+    _player2OnlineScore = updatedRoom.player2Score;
+
+    // Only update game board if the FEN has changed (meaning a move was made by opponent)
     if (_game.fen != updatedRoom.fen) {
       _game = bishop.Game(fen: updatedRoom.fen);
       _state = _game.squaresState(_player);
-
-      // Update local timers based on Firestore
-      _whitesTime = Duration(milliseconds: updatedRoom.initialWhitesTime);
-      _blacksTime = Duration(milliseconds: updatedRoom.initialBlacksTime);
 
       // Re-apply moves to ensure local history matches Firestore
       _moveHistory.clear();
@@ -880,18 +993,27 @@ class GameProvider extends ChangeNotifier {
       updateCapturedPieces(); // Update captured pieces based on new FEN
       checkGameOver(); // Check for game over conditions
 
-      if (!_game.gameOver) {
-        _startTimer(); // Restart timer for the next player
+      // Restart timer for the next player if game is not over and it's our turn
+      if (!_game.gameOver &&
+          ((_isHost && _game.state.turn == Squares.white) ||
+              (!_isHost && _game.state.turn == Squares.black))) {
+        _startTimer();
+      } else {
+        _stopTimers(); // Stop timers if it's not our turn or game is over
       }
     }
 
     // Handle status changes (e.g., opponent joined, game ended)
     if (updatedRoom.status == Constants.statusActive && !_game.gameOver) {
-      _startTimer(); // Ensure timer is running if game becomes active
+      // Ensure timer is running if game becomes active and it's our turn
+      if (((_isHost && _game.state.turn == Squares.white) ||
+          (!_isHost && _game.state.turn == Squares.black))) {
+        _startTimer();
+      }
     } else if (updatedRoom.status == Constants.statusCompleted ||
         updatedRoom.status == Constants.statusAborted) {
       _stopTimers();
-      // Potentially set game result based on winnerId or status
+      // Set game result based on winnerId or status
       if (updatedRoom.winnerId != null) {
         final winnerColor =
             updatedRoom.player1Id == updatedRoom.winnerId
@@ -902,6 +1024,26 @@ class GameProvider extends ChangeNotifier {
         _gameResultNotifier.value = bishop.DrawnGame();
       }
       checkGameOver();
+    }
+
+    // Handle draw offers from opponent
+    if (updatedRoom.drawOfferedBy != null &&
+        updatedRoom.drawOfferedBy !=
+            (_isHost
+                ? _onlineGameRoom!.player1Id
+                : _onlineGameRoom!.player2Id)) {
+      // Show draw offer dialog
+      // This will be handled in GameScreen, just notify listeners
+    }
+
+    // Handle rematch offers from opponent
+    if (updatedRoom.rematchOfferedBy != null &&
+        updatedRoom.rematchOfferedBy !=
+            (_isHost
+                ? _onlineGameRoom!.player1Id
+                : _onlineGameRoom!.player2Id)) {
+      // Show rematch offer dialog
+      // This will be handled in GameScreen, just notify listeners
     }
 
     notifyListeners();
@@ -943,8 +1085,10 @@ class GameProvider extends ChangeNotifier {
       const Duration(minutes: 5), // 5 minute timeout
       onTimeout: () {
         subscription.cancel();
-        // delete the game room if it was created
-        if (_isHost && _onlineGameRoom != null) {
+        // delete the game room if it was created and still waiting
+        if (_isHost &&
+            _onlineGameRoom != null &&
+            _onlineGameRoom!.status == Constants.statusWaiting) {
           _gameService.deleteGameRoom(_onlineGameRoom!.gameId);
         }
         _logger.w('Timed out waiting for opponent to join');

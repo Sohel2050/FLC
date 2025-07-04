@@ -15,7 +15,6 @@ class UserService {
     final random = Random();
     final guestId = random.nextInt(100000); // Generate a random 5-digit number
     final displayName = 'Guest$guestId';
-    logger.i('Creating guest user: $displayName');
     return ChessUser(displayName: displayName, isGuest: true);
   }
 
@@ -98,6 +97,9 @@ class UserService {
             final ChessUser chessUser = ChessUser.fromMap(
               userDoc.data() as Map<String, dynamic>,
             );
+
+            // set online status
+            await updateUserStatusOnline(chessUser.uid!, true);
 
             return SignInSuccess(chessUser);
           } else {

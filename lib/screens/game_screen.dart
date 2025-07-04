@@ -1,3 +1,4 @@
+import 'package:bishop/bishop.dart' as bishop;
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
@@ -61,9 +62,13 @@ class _GameScreenState extends State<GameScreen> {
         user: widget.user,
         playerColor: _gameProvider.player,
       ),
-    ).then((action) {
+    ).then((action) async {
       if (action == GameOverAction.rematch) {
-        _gameProvider.resetGame(true); // Rematch, flip colors
+        if (_gameProvider.isOnlineGame) {
+          await _gameProvider.offerRematch();
+        } else {
+          _gameProvider.resetGame(true); // Rematch, flip colors for local/CPU
+        }
       } else if (action == GameOverAction.newGame) {
         // Navigate back to play screen a completely new game and dispose stockfish
         // Clean up the Stockfish engine before leaving the screen.
@@ -117,7 +122,7 @@ class _GameScreenState extends State<GameScreen> {
     );
 
     if (confirmLeave == true) {
-      _gameProvider.resignGame();
+      await _gameProvider.resignGame(); // Await resignation for online games
 
       return true;
     }
@@ -138,7 +143,7 @@ class _GameScreenState extends State<GameScreen> {
     );
 
     if (confirmResign == true) {
-      _gameProvider.resignGame();
+      await _gameProvider.resignGame(); // Await resignation for online games
       // show game over dialog after resigning
       _handleGameOver();
     }
@@ -158,7 +163,51 @@ class _GameScreenState extends State<GameScreen> {
     );
 
     if (confirmDraw == true) {
-      _gameProvider.offerDraw();
+      await _gameProvider.offerDraw();
+    }
+  }
+
+  /// Shows a dialog to accept or decline a draw offer.
+  void _showAcceptDrawDialog() async {
+    final bool? acceptDraw = await AnimatedDialog.show<bool>(
+      context: context,
+      title: 'Draw Offer',
+      maxWidth: 400,
+      child: const ConfirmationDialog(
+        message: 'Your opponent has offered a draw. Do you accept?',
+        confirmButtonText: 'Accept',
+        cancelButtonText: 'Decline',
+      ),
+    );
+
+    if (acceptDraw == true) {
+      await _gameProvider.handleDrawOffer(true);
+    } else {
+      await _gameProvider.handleDrawOffer(false);
+    }
+  }
+
+  /// Shows a dialog to accept or decline a rematch offer.
+  void _showAcceptRematchDialog() async {
+    final bool? acceptRematch = await AnimatedDialog.show<bool>(
+      context: context,
+      title: 'Rematch Offer',
+      maxWidth: 400,
+      child: const ConfirmationDialog(
+        message: 'Your opponent has offered a rematch. Do you accept?',
+        confirmButtonText: 'Accept',
+        cancelButtonText: 'Decline',
+      ),
+    );
+
+    if (acceptRematch == true) {
+      await _gameProvider.handleRematch(true);
+      // After accepting rematch, reset the game locally
+      _gameProvider.resetGame(
+        false,
+      ); // Don't flip colors, as they are swapped by service
+    } else {
+      await _gameProvider.handleRematch(false);
     }
   }
 
@@ -270,6 +319,25 @@ class _GameScreenState extends State<GameScreen> {
                     gameProvider,
                     settingsProvider,
                   ),
+                // Display scores for online games
+                if (gameProvider.isOnlineGame &&
+                    gameProvider.onlineGameRoom != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Text(
+                          '${gameProvider.onlineGameRoom!.player1DisplayName}: ${gameProvider.player1OnlineScore}',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        Text(
+                          '${gameProvider.onlineGameRoom!.player2DisplayName ?? 'Opponent'}: ${gameProvider.player2OnlineScore}',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           );
@@ -370,6 +438,45 @@ class _GameScreenState extends State<GameScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Listen for draw and rematch offers
+    final gameProvider = context.watch<GameProvider>();
+    final onlineGameRoom = gameProvider.onlineGameRoom;
+
+    if (onlineGameRoom != null) {
+      // Check for draw offer
+      if (onlineGameRoom.drawOfferedBy != null &&
+          onlineGameRoom.drawOfferedBy !=
+              (gameProvider.isHost
+                  ? onlineGameRoom.player1Id
+                  : onlineGameRoom.player2Id)) {
+        // Only show if not already showing and it's our turn to respond
+        if (!(_gameProvider.gameResultNotifier.value is bishop.DrawnGame) &&
+            !(_gameProvider.gameResultNotifier.value is bishop.WonGame)) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showAcceptDrawDialog();
+          });
+        }
+      }
+
+      // Check for rematch offer
+      if (onlineGameRoom.rematchOfferedBy != null &&
+          onlineGameRoom.rematchOfferedBy !=
+              (gameProvider.isHost
+                  ? onlineGameRoom.player1Id
+                  : onlineGameRoom.player2Id)) {
+        // Only show if game is over and not already showing
+        if (gameProvider.isGameOver) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _showAcceptRematchDialog();
+          });
+        }
+      }
+    }
   }
 
   Widget _onlineOpponentDataAndTime(
