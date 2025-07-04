@@ -57,7 +57,7 @@ class GameProvider extends ChangeNotifier {
   String _gameId = '';
   String _selectedTimeControl = '';
   GameRoom? _onlineGameRoom;
-  StreamSubscription<GameRoom>? _gameRoomSubscription;
+  StreamSubscription<GameRoom>? gameRoomSubscription;
 
   Duration _whitesTime = Duration.zero;
   Duration _blacksTime = Duration.zero;
@@ -89,6 +89,7 @@ class GameProvider extends ChangeNotifier {
   SquaresState get state => _state;
   bool get aiThinking => _aiThinking;
   bool get flipBoard => _flipBoard;
+  Logger get logger => _logger;
 
   bool get vsCPU => _vsCPU;
   bool get localMultiplayer => _localMultiplayer;
@@ -119,6 +120,11 @@ class GameProvider extends ChangeNotifier {
   List<String> get whiteCapturedPieces => _whiteCapturedPieces;
   List<String> get blackCapturedPieces => _blackCapturedPieces;
   List<String> get moveHistory => _moveHistory;
+
+  GameService get gameService => _gameService;
+
+  StreamSubscription<GameRoom>? get geGgameRoomSubscription =>
+      gameRoomSubscription;
 
   bishop.GameResult? get gameResult => _gameResultNotifier.value;
   ValueNotifier<bishop.GameResult?> get gameResultNotifier =>
@@ -285,7 +291,7 @@ class GameProvider extends ChangeNotifier {
   void dispose() {
     disposeStockfish();
     _stopTimers();
-    _gameRoomSubscription?.cancel();
+    gameRoomSubscription?.cancel();
     super.dispose();
   }
 
@@ -447,8 +453,8 @@ class GameProvider extends ChangeNotifier {
   void resetGame(bool isNewGame) {
     _stopTimers();
     _gameResultNotifier.value = null;
-    _gameRoomSubscription
-        ?.cancel(); // Cancel any active online game subscription
+    // For online games, the subscription should persist to receive updates.
+    // It is cancelled in dispose() or cancelOnlineGameSearch().
 
     // Clear captured pieces and move history
     _whiteCapturedPieces.clear();
@@ -549,34 +555,28 @@ class GameProvider extends ChangeNotifier {
         }
       }
 
-      if (_localMultiplayer || _isOnlineGame) {
-        // For local multiplayer or online, dynamically create state based on current turn
+      // Update state based on game type
+      if (_localMultiplayer) {
+        // For local multiplayer, dynamically create state based on current turn
         final currentTurn = _game.state.turn;
-
-        // Create state from the perspective of whoever's turn it is
         final dynamicState = _game.squaresState(currentTurn);
-
-        // But we need to adjust the board orientation to match our display
         final baseState = _game.squaresState(_player);
 
         _state = SquaresState(
-          player: currentTurn, // We set to current turn so moves work correctly
-          state:
-              PlayState
-                  .ourTurn, // We always "our turn" since we're showing from current player's perspective
+          player: currentTurn,
+          state: PlayState.ourTurn,
           size: dynamicState.size,
-          board:
-              baseState
-                  .board, // We keep the board orientation consistent with display
-          moves:
-              dynamicState
-                  .moves, // We use moves from current turn's perspective
+          board: baseState.board,
+          moves: dynamicState.moves,
           history: dynamicState.history,
           hands: dynamicState.hands,
           gates: dynamicState.gates,
         );
+      } else if (_isOnlineGame) {
+        // For online games, update state from our player's perspective
+        _state = _game.squaresState(_player);
       } else {
-        // For other modes, we use the standard approach
+        // For other modes, use the standard approach
         _state = _game.squaresState(_player);
       }
 
@@ -588,7 +588,8 @@ class GameProvider extends ChangeNotifier {
           _whitesTime += Duration(seconds: _incrementalValue);
         }
       }
-      debugPieceSymbols(); // Debugging piece symbols after the move
+
+      //debugPieceSymbols(); // Debugging piece symbols after the move
       // Update captured pieces after the move
       updateCapturedPieces();
 
@@ -601,16 +602,18 @@ class GameProvider extends ChangeNotifier {
           Constants.fieldFen: _game.fen,
           Constants.fieldMoves: updatedMoves,
           Constants.fieldLastMoveAt: Timestamp.now(),
-          Constants.fieldWhitesTimeRemaining:
-              _whitesTime.inMilliseconds, // Send current remaining time
-          Constants.fieldBlacksTimeRemaining:
-              _blacksTime.inMilliseconds, // Send current remaining time
+          Constants.fieldWhitesTimeRemaining: _whitesTime.inMilliseconds,
+          Constants.fieldBlacksTimeRemaining: _blacksTime.inMilliseconds,
         });
+
+        _logger.i(
+          'Online game updated: ${_onlineGameRoom!.gameId}, '
+          'moves: $updatedMoves, '
+          'fen: ${_game.fen}',
+        );
       }
 
       // Check game over after all updates, passing userId if available
-      // For online games, the userId is available from the onlineGameRoom
-      // For local games, we don't save stats, so userId is not needed
       final String? userId =
           _isOnlineGame && _onlineGameRoom != null
               ? (_isHost
@@ -682,32 +685,6 @@ class GameProvider extends ChangeNotifier {
       _whiteCapturedPieces.clear();
       _blackCapturedPieces.clear();
     }
-  }
-
-  void debugPieceSymbols() {
-    final variant = _game.variant;
-
-    _logger.i('=== DEBUG: Current board piece symbols ===');
-    for (int i = 0; i < _game.board.length; i++) {
-      var piece = _game.board[i];
-      if (piece == 0) continue;
-
-      String symbol = variant.pieceSymbol(piece & 7);
-      int colour = (piece >> 3) & 1;
-      String colourName = colour == Squares.white ? 'White' : 'Black';
-
-      _logger.i('Square $i: $colourName $symbol (raw: $piece)');
-    }
-    _logger.i('=== END DEBUG ===');
-  }
-
-  // Helper method to convert square index to algebraic notation
-  String _squareToAlgebraic(int square) {
-    final file = square % 8;
-    final rank = square ~/ 8;
-    final fileChar = String.fromCharCode('a'.codeUnitAt(0) + file);
-    final rankChar = (rank + 1).toString();
-    return '$fileChar$rankChar';
   }
 
   // Wait until Stockfish is ready
@@ -913,10 +890,10 @@ class GameProvider extends ChangeNotifier {
       }
 
       // Set up real-time listener for the game room
-      _gameRoomSubscription = _gameService
+      gameRoomSubscription = _gameService
           .streamGameRoom(_gameId)
           .listen(
-            _onOnlineGameRoomUpdate,
+            onOnlineGameRoomUpdate,
             onError: (error) {
               _logger.e('Error streaming game room $_gameId: $error');
               // Handle error, e.g., show a snackbar
@@ -965,11 +942,17 @@ class GameProvider extends ChangeNotifier {
   }
 
   /// Handles updates received from the online game room stream.
-  void _onOnlineGameRoomUpdate(GameRoom updatedRoom) {
+  void onOnlineGameRoomUpdate(GameRoom updatedRoom) {
+    _logger.i('=== _onOnlineGameRoomUpdate called ===');
+    _logger.i('Updated room status: ${updatedRoom.status}');
+    _logger.i('Updated room moves count: ${updatedRoom.moves.length}');
+    _logger.i('Current local moves count: ${_moveHistory.length}');
+    _logger.i('Updated room FEN: ${updatedRoom.fen}');
+    _logger.i('Current local FEN: ${_game.fen}');
+
     _onlineGameRoom = updatedRoom;
     _gameId = updatedRoom.gameId;
 
-    // Update local game state based on Firestore updates
     // Update local game state based on Firestore updates
     // Always update times and scores, even if FEN hasn't changed (e.g., draw offer)
     _whitesTime = Duration(milliseconds: updatedRoom.whitesTimeRemaining);
@@ -979,27 +962,41 @@ class GameProvider extends ChangeNotifier {
 
     // Only update game board if the FEN has changed (meaning a move was made by opponent)
     if (_game.fen != updatedRoom.fen) {
-      _game = bishop.Game(fen: updatedRoom.fen);
-      _state = _game.squaresState(_player);
+      _logger.i('Updating game FEN from Firestore: ${updatedRoom.fen}');
+      // Check if there's a new move (opponent's move)
+      if (updatedRoom.moves.length > _moveHistory.length) {
+        // Get the latest move from the opponent
+        final latestMoveString = updatedRoom.moves.last;
+        _logger.i('Latest move from Firestore: $latestMoveString');
+        final latestMove = _convertMoveStringToMove(
+          moveString: latestMoveString,
+        );
 
-      // Re-apply moves to ensure local history matches Firestore
-      _moveHistory.clear();
-      for (var moveString in updatedRoom.moves) {
-        final move = _convertMoveStringToMove(moveString: moveString);
-        _game.makeSquaresMove(move); // Re-apply moves to update game state
-        _moveHistory.add(_getMoveNotation(move)); // Update local move history
-      }
+        _logger.i(
+          'Converted latest move: from ${latestMove.from} to ${latestMove.to}, '
+          'promo: ${latestMove.promo}, piece: ${latestMove.piece}',
+        );
 
-      updateCapturedPieces(); // Update captured pieces based on new FEN
-      checkGameOver(); // Check for game over conditions
+        // Apply only the new move to our local game
+        _game.makeSquaresMove(latestMove);
+        _state = _game.squaresState(_player);
 
-      // Restart timer for the next player if game is not over and it's our turn
-      if (!_game.gameOver &&
-          ((_isHost && _game.state.turn == Squares.white) ||
-              (!_isHost && _game.state.turn == Squares.black))) {
-        _startTimer();
-      } else {
-        _stopTimers(); // Stop timers if it's not our turn or game is over
+        // Update move history with the new move
+        _moveHistory.add(_getMoveNotation(latestMove));
+
+        // Update captured pieces and check game over
+        updateCapturedPieces();
+        checkGameOver();
+
+        // Handle timer switching
+        _stopTimers();
+
+        // Start timer for the current player if game is not over
+        if (!_game.gameOver &&
+            ((_isHost && _game.state.turn == Squares.white) ||
+                (!_isHost && _game.state.turn == Squares.black))) {
+          _startTimer();
+        }
       }
     }
 
@@ -1104,8 +1101,8 @@ class GameProvider extends ChangeNotifier {
   Future<void> cancelOnlineGameSearch() async {
     try {
       // Cancel the game room subscription
-      await _gameRoomSubscription?.cancel();
-      _gameRoomSubscription = null;
+      await gameRoomSubscription?.cancel();
+      gameRoomSubscription = null;
 
       // If we created a game (we're the host), delete it
       if (_isHost && _onlineGameRoom != null) {

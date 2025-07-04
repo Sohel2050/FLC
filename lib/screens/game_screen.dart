@@ -32,6 +32,33 @@ class _GameScreenState extends State<GameScreen> {
     // We make sure to reset the game state when entering the game screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _gameProvider.resetGame(false); // Start the game and timer
+
+      // For online games, we ensure the listener is active if it's not already
+      // This handles cases where GameProvider might be re-initialized
+      // or if the stream was somehow interrupted.
+      if (_gameProvider.isOnlineGame &&
+          _gameProvider.onlineGameRoom != null &&
+          _gameProvider.gameRoomSubscription == null) {
+        // Re-establish the subscription if it's null (e.g., provider was disposed and re-created)
+        _gameProvider.gameRoomSubscription = _gameProvider.gameService
+            .streamGameRoom(_gameProvider.onlineGameRoom!.gameId)
+            .listen(
+              _gameProvider.onOnlineGameRoomUpdate,
+              onError: (error) {
+                _gameProvider.logger.e(
+                  'Error re-streaming game room ${_gameProvider.onlineGameRoom!.gameId}: $error',
+                );
+              },
+              onDone: () {
+                _gameProvider.logger.i(
+                  'Game room ${_gameProvider.onlineGameRoom!.gameId} stream closed (re-established).',
+                );
+              },
+            );
+        _gameProvider.logger.i(
+          'Re-established game room subscription in GameScreen.initState',
+        );
+      }
     });
   }
 

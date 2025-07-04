@@ -160,7 +160,7 @@ class GameService {
           .collection(Constants.gameRoomsCollection)
           .doc(gameId)
           .update(data);
-      _logger.i('Game room $gameId updated.');
+      _logger.i('Game room $gameId updated with data: $data');
     } catch (e) {
       _logger.e('Error updating game room $gameId: $e');
       rethrow;
@@ -178,6 +178,7 @@ class GameService {
             _logger.w('Game room $gameId does not exist for streaming.');
             throw Exception('Game room does not exist');
           }
+          _logger.i('Received snapshot for game room $gameId');
           return GameRoom.fromMap(snapshot.data() as Map<String, dynamic>);
         });
   }
