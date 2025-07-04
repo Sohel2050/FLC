@@ -95,13 +95,20 @@ class _MyAppState extends State<MyApp> {
                   );
                   // Set user in provider
                   WidgetsBinding.instance.addPostFrameCallback((_) {
+                    final userService = UserService();
                     if (context.mounted) {
                       Provider.of<UserProvider>(
                         context,
                         listen: false,
                       ).setUser(user);
+
+                      // set user online status
+                      if (!user.isGuest) {
+                        userService.updateUserStatusOnline(user.uid!, true);
+                      }
                     }
                   });
+
                   return HomeScreen(user: user);
                 } else {
                   // User document doesn't exist, sign out
