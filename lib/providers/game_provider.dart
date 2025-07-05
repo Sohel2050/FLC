@@ -27,6 +27,17 @@ class WonGameResignation extends bishop.WonGame {
   const WonGameResignation({required super.winner});
 }
 
+// Custom game result for draw by agreement
+class DrawnGameAgreement extends bishop.DrawnGame {
+  const DrawnGameAgreement();
+
+  @override
+  String toString() => 'DrawnGameAgreement';
+
+  @override
+  String get readable => '${super.readable} by agreement';
+}
+
 class GameProvider extends ChangeNotifier {
   late bishop.Game _game = bishop.Game(variant: bishop.Variant.standard());
   late SquaresState _state = SquaresState.initial(0);
@@ -216,6 +227,12 @@ class GameProvider extends ChangeNotifier {
     }
     // When an offer is handled, the widget should disappear.
     _drawOfferReceived = false;
+
+    if (accepted) {
+      // Set the game result to draw by agreement
+      _gameResultNotifier.value = DrawnGameAgreement();
+    }
+
     await _gameService.handleDrawOffer(_onlineGameRoom!.gameId, accepted);
     if (!accepted) {
       // If declined, ensure the timer for the current player continues.

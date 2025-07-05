@@ -97,6 +97,8 @@ class _GameOverDialogState extends State<GameOverDialog> {
         drawType = 'Stalemate';
       } else if (widget.result is bishop.DrawnGameElimination) {
         drawType = 'by Elimination';
+      } else if (widget.result is DrawnGameAgreement) {
+        drawType = 'by Agreement';
       }
       return 'Game Drawn ($drawType)';
     }
@@ -284,11 +286,11 @@ class _GameOverDialogState extends State<GameOverDialog> {
     final onlineGameRoom = gameProvider.onlineGameRoom!;
     final bool isHost = gameProvider.isHost;
 
-    final String player1Name = onlineGameRoom.player1DisplayName;
-    final String player2Name = onlineGameRoom.player2DisplayName ?? 'Opponent';
+    // final String player1Name = onlineGameRoom.player1DisplayName;
+    // final String player2Name = onlineGameRoom.player2DisplayName ?? 'Opponent';
 
-    final int player1Score = onlineGameRoom.player1Score;
-    final int player2Score = onlineGameRoom.player2Score;
+    // final int player1Score = onlineGameRoom.player1Score;
+    // final int player2Score = onlineGameRoom.player2Score;
 
     return Column(
       children: [
