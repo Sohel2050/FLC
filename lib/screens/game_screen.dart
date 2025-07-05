@@ -119,9 +119,6 @@ class _GameScreenState extends State<GameScreen> {
     } else if (_gameProvider.isOnlineGame) {
       // For online games, the move is handled by the GameProvider's Firestore update
       // The opponent will receive the update via the stream
-      print(
-        'Move made: ${move.from} to ${move.to} (Online Multiplayer - Handled by GameProvider)',
-      );
     }
   }
 
@@ -301,25 +298,25 @@ class _GameScreenState extends State<GameScreen> {
                         gameProvider,
                         settingsProvider,
                       ),
-                    // Display scores for online games
-                    if (gameProvider.isOnlineGame &&
-                        gameProvider.onlineGameRoom != null)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            Text(
-                              '${gameProvider.onlineGameRoom!.player1DisplayName}: ${gameProvider.player1OnlineScore}',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            Text(
-                              '${gameProvider.onlineGameRoom!.player2DisplayName ?? 'Opponent'}: ${gameProvider.player2OnlineScore}',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ],
-                        ),
-                      ),
+                    // // Display scores for online games
+                    // if (gameProvider.isOnlineGame &&
+                    //     gameProvider.onlineGameRoom != null)
+                    //   Padding(
+                    //     padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    //     child: Row(
+                    //       mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    //       children: [
+                    //         Text(
+                    //           '${gameProvider.onlineGameRoom!.player1DisplayName}: ${gameProvider.player1OnlineScore}',
+                    //           style: Theme.of(context).textTheme.titleMedium,
+                    //         ),
+                    //         Text(
+                    //           '${gameProvider.onlineGameRoom!.player2DisplayName ?? 'Opponent'}: ${gameProvider.player2OnlineScore}',
+                    //           style: Theme.of(context).textTheme.titleMedium,
+                    //         ),
+                    //       ],
+                    //     ),
+                    //   ),
                   ],
                 ),
                 if (gameProvider.drawOfferReceived)

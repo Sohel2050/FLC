@@ -294,21 +294,21 @@ class _GameOverDialogState extends State<GameOverDialog> {
       children: [
         Text('Scores:', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '$player1Name: $player1Score',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(width: 20),
-            Text(
-              '$player2Name: $player2Score',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
+        // Row(
+        //   mainAxisAlignment: MainAxisAlignment.center,
+        //   children: [
+        //     Text(
+        //       '$player1Name: $player1Score',
+        //       style: Theme.of(context).textTheme.titleMedium,
+        //     ),
+        //     const SizedBox(width: 20),
+        //     Text(
+        //       '$player2Name: $player2Score',
+        //       style: Theme.of(context).textTheme.titleMedium,
+        //     ),
+        //   ],
+        // ),
+        // const SizedBox(height: 16),
         Text(
           isHost
               ? 'Your Rating: ${onlineGameRoom.player1Rating}'
