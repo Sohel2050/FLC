@@ -340,4 +340,27 @@ class GameService {
       rethrow;
     }
   }
+
+  /// Updates only the scores for a given game room.
+  Future<void> updateGameScores(
+    String gameId,
+    int player1Score,
+    int player2Score,
+  ) async {
+    try {
+      await _firestore
+          .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .update({
+            Constants.fieldPlayer1Score: player1Score,
+            Constants.fieldPlayer2Score: player2Score,
+          });
+      _logger.i(
+        'Scores updated for game $gameId: P1: $player1Score, P2: $player2Score',
+      );
+    } catch (e) {
+      _logger.e('Error updating scores for game $gameId: $e');
+      // We might not want to rethrow here to avoid crashing the app if score update fails
+    }
+  }
 }

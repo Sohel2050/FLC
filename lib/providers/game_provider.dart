@@ -60,6 +60,7 @@ class GameProvider extends ChangeNotifier {
   StreamSubscription<GameRoom>? gameRoomSubscription;
 
   bool _drawOfferReceived = false;
+  bool _scoresUpdatedForCurrentGame = false;
 
   Duration _whitesTime = Duration.zero;
   Duration _blacksTime = Duration.zero;
@@ -213,7 +214,13 @@ class GameProvider extends ChangeNotifier {
       _logger.w('Cannot handle draw offer: Not an online game.');
       return;
     }
+    // When an offer is handled, the widget should disappear.
+    _drawOfferReceived = false;
     await _gameService.handleDrawOffer(_onlineGameRoom!.gameId, accepted);
+    if (!accepted) {
+      // If declined, ensure the timer for the current player continues.
+      _startTimer();
+    }
     notifyListeners();
   }
 
@@ -239,32 +246,12 @@ class GameProvider extends ChangeNotifier {
       return;
     }
 
-    // Determine scores to pass to the service
-    int currentP1Score = _onlineGameRoom!.player1Score;
-    int currentP2Score = _onlineGameRoom!.player2Score;
-
-    if (accepted) {
-      // Update scores based on the last game's result
-      if (_gameResultNotifier.value is bishop.WonGame) {
-        final winner = (_gameResultNotifier.value as bishop.WonGame).winner;
-        if ((winner == Squares.white &&
-                _onlineGameRoom!.player1Color == Squares.white) ||
-            (winner == Squares.black &&
-                _onlineGameRoom!.player1Color == Squares.black)) {
-          currentP1Score++;
-        } else {
-          currentP2Score++;
-        }
-      } else if (_gameResultNotifier.value is bishop.DrawnGame) {
-        // Draw, scores remain same
-      }
-    }
-
+    // Scores are now updated when the game ends. We just pass the current scores.
     await _gameService.handleRematch(
       _onlineGameRoom!.gameId,
       accepted,
-      currentP1Score,
-      currentP2Score,
+      _onlineGameRoom!.player1Score,
+      _onlineGameRoom!.player2Score,
     );
     notifyListeners();
   }
@@ -455,6 +442,7 @@ class GameProvider extends ChangeNotifier {
 
   // Reset the game state
   void resetGame(bool isNewGame) {
+    _scoresUpdatedForCurrentGame = false; // Reset for the new game
     _stopTimers();
     _gameResultNotifier.value = null;
     // For online games, the subscription should persist to receive updates.
@@ -533,11 +521,17 @@ class GameProvider extends ChangeNotifier {
 
   // Check for game over conditions
   void checkGameOver({String? userId}) {
-    if (_game.gameOver || _gameResultNotifier.value != null) {
+    if (isGameOver) {
       _stopTimers();
       if (_gameResultNotifier.value == null) {
         _gameResultNotifier.value = _game.result;
       }
+
+      // Update scores for online games when the game officially ends.
+      if (_isOnlineGame && _onlineGameRoom != null) {
+        _updateOnlineScoresOnGameOver();
+      }
+
       notifyListeners();
 
       // Save game and update user stats if userId is provided and it's not a guest game
@@ -1059,14 +1053,10 @@ class GameProvider extends ChangeNotifier {
     }
 
     // Handle draw offers from opponent
-    if (updatedRoom.drawOfferedBy != null &&
+    _drawOfferReceived =
+        updatedRoom.drawOfferedBy != null &&
         updatedRoom.drawOfferedBy !=
-            (_isHost
-                ? _onlineGameRoom!.player1Id
-                : _onlineGameRoom!.player2Id)) {
-      // Show draw offer dialog
-      // This will be handled in GameScreen, just notify listeners
-    }
+            (_isHost ? _onlineGameRoom!.player1Id : _onlineGameRoom!.player2Id);
 
     // Handle rematch offers from opponent
     if (updatedRoom.rematchOfferedBy != null &&
@@ -1249,5 +1239,38 @@ class GameProvider extends ChangeNotifier {
     } catch (e) {
       _logger.e('Failed to save game or update user stats: $e');
     }
+  }
+
+  void _updateOnlineScoresOnGameOver() {
+    if (_scoresUpdatedForCurrentGame || _gameResultNotifier.value == null) {
+      return; // Ensure scores are updated only once per game
+    }
+
+    int newP1Score = _onlineGameRoom!.player1Score;
+    int newP2Score = _onlineGameRoom!.player2Score;
+
+    if (_gameResultNotifier.value is bishop.WonGame) {
+      final winner = (_gameResultNotifier.value as bishop.WonGame).winner;
+      if (winner == _onlineGameRoom!.player1Color) {
+        newP1Score++;
+      } else {
+        newP2Score++;
+      }
+    }
+    // No score change for a draw
+
+    // Update local state immediately for UI responsiveness
+    _player1OnlineScore = newP1Score;
+    _player2OnlineScore = newP2Score;
+
+    // Call the service to update Firestore
+    _gameService.updateGameScores(
+      _onlineGameRoom!.gameId,
+      newP1Score,
+      newP2Score,
+    );
+
+    _scoresUpdatedForCurrentGame = true;
+    _logger.i('Updated scores on game over: P1: $newP1Score, P2: $newP2Score');
   }
 }
