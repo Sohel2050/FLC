@@ -598,13 +598,24 @@ class GameProvider extends ChangeNotifier {
         final updatedMoves = List<String>.from(_onlineGameRoom!.moves);
         updatedMoves.add(move.toString()); // Store move as string
 
-        await _gameService.updateGameRoom(_onlineGameRoom!.gameId, {
+        final Map<String, dynamic> updateData = {
           Constants.fieldFen: _game.fen,
           Constants.fieldMoves: updatedMoves,
           Constants.fieldLastMoveAt: Timestamp.now(),
           Constants.fieldWhitesTimeRemaining: _whitesTime.inMilliseconds,
           Constants.fieldBlacksTimeRemaining: _blacksTime.inMilliseconds,
-        });
+        };
+
+        if (_game.gameOver) {
+          updateData[Constants.fieldStatus] = Constants.statusCompleted;
+          final winner = (_game.result as bishop.WonGame).winner;
+          updateData[Constants.fieldWinnerId] =
+              (winner == _onlineGameRoom!.player1Color)
+                  ? _onlineGameRoom!.player1Id
+                  : _onlineGameRoom!.player2Id;
+        }
+
+        await _gameService.updateGameRoom(_onlineGameRoom!.gameId, updateData);
 
         _logger.i(
           'Online game updated: ${_onlineGameRoom!.gameId}, '
@@ -963,7 +974,9 @@ class GameProvider extends ChangeNotifier {
 
     // --- Rematch Logic ---
     // If the game was over and now it's active, it's a rematch
-    if (wasGameOver && updatedRoom.status == Constants.statusActive) {
+    if (wasGameOver &&
+        updatedRoom.status == Constants.statusActive &&
+        updatedRoom.rematchOfferedBy == null) {
       _logger.i('Rematch detected! Resetting game.');
       // Swap player color for the new game based on the updated room
       _player =
