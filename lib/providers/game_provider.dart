@@ -59,6 +59,8 @@ class GameProvider extends ChangeNotifier {
   GameRoom? _onlineGameRoom;
   StreamSubscription<GameRoom>? gameRoomSubscription;
 
+  bool _drawOfferReceived = false;
+
   Duration _whitesTime = Duration.zero;
   Duration _blacksTime = Duration.zero;
 
@@ -122,6 +124,8 @@ class GameProvider extends ChangeNotifier {
   List<String> get moveHistory => _moveHistory;
 
   GameService get gameService => _gameService;
+
+  bool get drawOfferReceived => _drawOfferReceived;
 
   StreamSubscription<GameRoom>? get geGgameRoomSubscription =>
       gameRoomSubscription;
