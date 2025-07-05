@@ -104,6 +104,14 @@ class Constants {
   static const String tempo = 'Tempo';
   static const String quickBlitz = 'Quick Blitz';
 
+  // Map game modes to rating types
+  static const Map<String, String> gameModeToRatingType = {
+    '60 sec/move': classicalRating,
+    '5 min + 3 sec': blitzRating,
+    '20 sec/move': tempoRating,
+    '3 min': blitzRating, // Quick Blitz also uses Blitz rating
+  };
+
   static const List<Map<String, dynamic>> gameModes = [
     {'title': 'Classical', 'timeControl': '60 sec/move', 'icon': Icons.timer},
     {'title': 'Blitz', 'timeControl': '5 min + 3 sec', 'icon': Icons.bolt},

@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:flutter_chess_app/services/rating_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:logger/logger.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -235,19 +236,63 @@ class UserService {
     required String gameResult,
     required String gameMode,
     required String gameId,
+    String? opponentId, // Added for online games
   }) async {
     try {
       final userDocRef = _firestore
           .collection(Constants.usersCollection)
           .doc(userId);
+      final opponentDocRef =
+          opponentId != null && opponentId.isNotEmpty
+              ? _firestore.collection(Constants.usersCollection).doc(opponentId)
+              : null;
+
       await _firestore.runTransaction((transaction) async {
         final userDoc = await transaction.get(userDocRef);
-
         if (!userDoc.exists) {
           throw Exception('User document not found for ID: $userId');
         }
-
         ChessUser currentUser = ChessUser.fromMap(userDoc.data()!);
+
+        ChessUser? opponentUser;
+        if (opponentDocRef != null) {
+          final opponentDoc = await transaction.get(opponentDocRef);
+          if (opponentDoc.exists) {
+            opponentUser = ChessUser.fromMap(opponentDoc.data()!);
+          } else {
+            logger.w(
+              'Opponent document not found for ID: $opponentId. Skipping opponent rating update.',
+            );
+          }
+        }
+
+        // Determine outcome for the current user
+        double playerOutcome;
+        if (gameResult == Constants.win) {
+          playerOutcome = 1.0;
+        } else if (gameResult == Constants.draw) {
+          playerOutcome = 0.5;
+        } else {
+          playerOutcome = 0.0;
+        }
+
+        // Get the rating type based on game mode
+        final String ratingTypeField =
+            Constants.gameModeToRatingType[gameMode] ??
+            Constants.classicalRating;
+
+        // Get current ratings
+        int playerCurrentRating = currentUser.toMap()[ratingTypeField] ?? 1200;
+        int opponentCurrentRating =
+            opponentUser?.toMap()[ratingTypeField] ?? 1200;
+
+        // Calculate new ratings using RatingService
+        final RatingService ratingService = RatingService();
+        final Map<String, int> newRatings = ratingService.updateGameRatings(
+          player1CurrentRating: playerCurrentRating,
+          player2CurrentRating: opponentCurrentRating,
+          player1Outcome: playerOutcome,
+        );
 
         // Update game counts
         int updatedGamesPlayed = currentUser.gamesPlayed + 1;
@@ -263,7 +308,7 @@ class UserService {
           updatedGamesDraw++;
         }
 
-        // Update win streak (simple example, can be more complex)
+        // Update win streak
         Map<String, int> updatedWinStreak = Map<String, int>.from(
           currentUser.winStreak,
         );
@@ -281,7 +326,7 @@ class UserService {
           updatedSavedGames.add(gameId);
         }
 
-        // Create updated user object
+        // Create updated user object for current user
         ChessUser updatedUser = currentUser.copyWith(
           gamesPlayed: updatedGamesPlayed,
           gamesWon: updatedGamesWon,
@@ -289,10 +334,44 @@ class UserService {
           gamesDraw: updatedGamesDraw,
           winStreak: updatedWinStreak,
           savedGames: updatedSavedGames,
+          classicalRating:
+              ratingTypeField == Constants.classicalRating
+                  ? newRatings['player1Rating']
+                  : null,
+          blitzRating:
+              ratingTypeField == Constants.blitzRating
+                  ? newRatings['player1Rating']
+                  : null,
+          tempoRating:
+              ratingTypeField == Constants.tempoRating
+                  ? newRatings['player1Rating']
+                  : null,
         );
 
-        // Update Firestore document
+        // Update Firestore document for current user
         transaction.update(userDocRef, updatedUser.toMap());
+
+        // Update opponent's rating if applicable
+        if (opponentUser != null && opponentDocRef != null) {
+          ChessUser updatedOpponentUser = opponentUser.copyWith(
+            classicalRating:
+                ratingTypeField == Constants.classicalRating
+                    ? newRatings['player2Rating']
+                    : null,
+            blitzRating:
+                ratingTypeField == Constants.blitzRating
+                    ? newRatings['player2Rating']
+                    : null,
+            tempoRating:
+                ratingTypeField == Constants.tempoRating
+                    ? newRatings['player2Rating']
+                    : null,
+          );
+          transaction.update(opponentDocRef, updatedOpponentUser.toMap());
+          logger.i(
+            'Opponent stats updated for $opponentId after game $gameId.',
+          );
+        }
       });
       logger.i('User stats updated for $userId after game $gameId.');
     } catch (e) {

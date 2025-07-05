@@ -1261,6 +1261,7 @@ class GameProvider extends ChangeNotifier {
         gameResult: result,
         gameMode: _selectedTimeControl,
         gameId: savedGame.gameId,
+        opponentId: opponentId, // Pass opponentId for rating calculation
       );
       _logger.i('User statistics updated successfully.');
     } catch (e) {

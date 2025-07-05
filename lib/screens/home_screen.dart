@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/screens/profile_screen.dart';
+import 'package:flutter_chess_app/screens/rating_screen.dart';
 import 'package:flutter_chess_app/screens/saved_games_screen.dart';
 import 'package:flutter_chess_app/screens/statistics_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
@@ -150,13 +151,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     );
                   }
                 } else if (value == 'ranking') {
-                  // TODO: Implement Ranking Screen
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Rankings feature coming soon!'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
+                  if (!widget.user.isGuest) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const RatingScreen(),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('This feature requires an account.'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
                 }
               },
               itemBuilder:
