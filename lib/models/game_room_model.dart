@@ -29,7 +29,6 @@ class GameRoom {
   final String? winnerId;
   final String? drawOfferedBy; // UID of the player who offered a draw
   final String? rematchOfferedBy; // UID of the player who offered a rematch
-  final String result;
 
   GameRoom({
     required this.gameId,
@@ -59,7 +58,6 @@ class GameRoom {
     this.winnerId,
     this.drawOfferedBy,
     this.rematchOfferedBy,
-    required this.result,
   });
 
   Map<String, dynamic> toMap() {
@@ -91,7 +89,6 @@ class GameRoom {
       Constants.fieldWinnerId: winnerId,
       Constants.fieldDrawOfferedBy: drawOfferedBy,
       Constants.fieldRematchOfferedBy: rematchOfferedBy,
-      Constants.fieldResult: result,
     };
   }
 
@@ -124,7 +121,6 @@ class GameRoom {
       winnerId: map[Constants.fieldWinnerId] as String?,
       drawOfferedBy: map[Constants.fieldDrawOfferedBy] as String?,
       rematchOfferedBy: map[Constants.fieldRematchOfferedBy] as String?,
-      result: map[Constants.fieldResult] as String,
     );
   }
 
@@ -156,7 +152,6 @@ class GameRoom {
     String? winnerId,
     String? drawOfferedBy,
     String? rematchOfferedBy,
-    String? result,
   }) {
     return GameRoom(
       gameId: gameId ?? this.gameId,
@@ -186,7 +181,6 @@ class GameRoom {
       winnerId: winnerId ?? this.winnerId,
       drawOfferedBy: drawOfferedBy ?? this.drawOfferedBy,
       rematchOfferedBy: rematchOfferedBy ?? this.rematchOfferedBy,
-      result: result ?? this.result,
     );
   }
 }

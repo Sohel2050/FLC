@@ -48,7 +48,6 @@ class GameService {
       blacksTimeRemaining: initialBlacksTime, // Set initial remaining time
       player1Score: player1Score,
       player2Score: player2Score,
-      result: '',
     );
 
     try {
@@ -240,7 +239,6 @@ class GameService {
             .update({
               Constants.fieldStatus: Constants.statusCompleted,
               Constants.fieldDrawOfferedBy: null, // Clear the offer
-              Constants.fieldResult: 'draw_agreement',
             });
         // Show game over dialog
         _logger.i('Draw accepted for game $gameId');

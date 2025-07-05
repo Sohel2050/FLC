@@ -100,7 +100,6 @@ class _GameScreenState extends State<GameScreen> {
           Navigator.of(context).pop();
         }
       }
-      // The GameOverDialog now handles rematch logic internally.
       // We still need to check for game over to save the game.
       _gameProvider.checkGameOver(userId: userId);
     });
