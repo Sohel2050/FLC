@@ -1,4 +1,3 @@
-import 'package:bishop/bishop.dart' as bishop;
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
@@ -93,6 +92,10 @@ class _GameScreenState extends State<GameScreen> {
     ).then((action) {
       if (action == GameOverAction.newGame) {
         _gameProvider.disposeStockfish();
+        // For online games, reset scores to 0-0 for a new game.
+        if (_gameProvider.isOnlineGame) {
+          _gameProvider.resetGame(true);
+        }
         if (mounted) {
           Navigator.of(context).pop();
         }
@@ -188,7 +191,6 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     // Access the settings provider
@@ -242,82 +244,82 @@ class _GameScreenState extends State<GameScreen> {
                     // Opponent data, time, and captured pieces
                     if (gameProvider.localMultiplayer)
                       _localMultiplayerOpponentDataAndTime(
-                    context,
-                    gameProvider,
-                    settingsProvider,
-                  )
-                else if (gameProvider.isOnlineGame)
-                  _onlineOpponentDataAndTime(
-                    context,
-                    gameProvider,
-                    settingsProvider,
-                  )
-                else
-                  _opponentsDataAndTime(
-                    context,
-                    gameProvider,
-                    settingsProvider,
-                  ),
+                        context,
+                        gameProvider,
+                        settingsProvider,
+                      )
+                    else if (gameProvider.isOnlineGame)
+                      _onlineOpponentDataAndTime(
+                        context,
+                        gameProvider,
+                        settingsProvider,
+                      )
+                    else
+                      _opponentsDataAndTime(
+                        context,
+                        gameProvider,
+                        settingsProvider,
+                      ),
 
-                // Chess board
-                Padding(
-                  padding: const EdgeInsets.all(4.0),
-                  child: BoardController(
-                    state:
-                        gameProvider.flipBoard
-                            ? gameProvider.state.board.flipped()
-                            : gameProvider.state.board,
-                    playState: gameProvider.state.state,
-                    pieceSet: settingsProvider.getPieceSet(),
-                    theme: settingsProvider.boardTheme,
-                    animatePieces: settingsProvider.animatePieces,
-                    labelConfig:
-                        settingsProvider.showLabels
-                            ? LabelConfig.standard
-                            : LabelConfig.disabled,
-                    moves: gameProvider.state.moves,
-                    onMove: _onMove,
-                    onPremove: _onMove,
-                    markerTheme: MarkerTheme(
-                      empty: MarkerTheme.dot,
-                      piece: MarkerTheme.corners(),
+                    // Chess board
+                    Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: BoardController(
+                        state:
+                            gameProvider.flipBoard
+                                ? gameProvider.state.board.flipped()
+                                : gameProvider.state.board,
+                        playState: gameProvider.state.state,
+                        pieceSet: settingsProvider.getPieceSet(),
+                        theme: settingsProvider.boardTheme,
+                        animatePieces: settingsProvider.animatePieces,
+                        labelConfig:
+                            settingsProvider.showLabels
+                                ? LabelConfig.standard
+                                : LabelConfig.disabled,
+                        moves: gameProvider.state.moves,
+                        onMove: _onMove,
+                        onPremove: _onMove,
+                        markerTheme: MarkerTheme(
+                          empty: MarkerTheme.dot,
+                          piece: MarkerTheme.corners(),
+                        ),
+                        promotionBehaviour: PromotionBehaviour.autoPremove,
+                      ),
                     ),
-                    promotionBehaviour: PromotionBehaviour.autoPremove,
-                  ),
-                ),
 
-                // Current user data, time, and captured pieces
-                if (gameProvider.localMultiplayer)
-                  _localMultiplayerCurrentUserDataAndTime(
-                    context,
-                    gameProvider,
-                    settingsProvider,
-                  )
-                else
-                  _currentUserDataAndTime(
-                    context,
-                    gameProvider,
-                    settingsProvider,
-                  ),
-                // Display scores for online games
-                if (gameProvider.isOnlineGame &&
-                    gameProvider.onlineGameRoom != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        Text(
-                          '${gameProvider.onlineGameRoom!.player1DisplayName}: ${gameProvider.player1OnlineScore}',
-                          style: Theme.of(context).textTheme.titleMedium,
+                    // Current user data, time, and captured pieces
+                    if (gameProvider.localMultiplayer)
+                      _localMultiplayerCurrentUserDataAndTime(
+                        context,
+                        gameProvider,
+                        settingsProvider,
+                      )
+                    else
+                      _currentUserDataAndTime(
+                        context,
+                        gameProvider,
+                        settingsProvider,
+                      ),
+                    // Display scores for online games
+                    if (gameProvider.isOnlineGame &&
+                        gameProvider.onlineGameRoom != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            Text(
+                              '${gameProvider.onlineGameRoom!.player1DisplayName}: ${gameProvider.player1OnlineScore}',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            Text(
+                              '${gameProvider.onlineGameRoom!.player2DisplayName ?? 'Opponent'}: ${gameProvider.player2OnlineScore}',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ],
                         ),
-                        Text(
-                          '${gameProvider.onlineGameRoom!.player2DisplayName ?? 'Opponent'}: ${gameProvider.player2OnlineScore}',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ],
-                    ),
-                  ),
+                      ),
                   ],
                 ),
                 if (gameProvider.drawOfferReceived)
@@ -430,13 +432,6 @@ class _GameScreenState extends State<GameScreen> {
         ],
       ),
     );
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // The logic for showing the draw offer is now handled by the DrawOfferWidget
-    // and the state in GameProvider. No need for manual checks here anymore.
   }
 
   Widget _onlineOpponentDataAndTime(

@@ -246,12 +246,12 @@ class GameProvider extends ChangeNotifier {
       return;
     }
 
-    // Scores are now updated when the game ends. We just pass the current scores.
+    // Pass the most up-to-date local scores.
     await _gameService.handleRematch(
       _onlineGameRoom!.gameId,
       accepted,
-      _onlineGameRoom!.player1Score,
-      _onlineGameRoom!.player2Score,
+      _player1OnlineScore,
+      _player2OnlineScore,
     );
     notifyListeners();
   }
@@ -454,9 +454,14 @@ class GameProvider extends ChangeNotifier {
     _moveHistory.clear();
 
     // Reset scores only if it's a completely new game, not a rematch
-    if (isNewGame && !_isOnlineGame) {
-      _whitesScore = 0;
-      _blacksScore = 0;
+    if (isNewGame) {
+      if (_isOnlineGame) {
+        _player1OnlineScore = 0;
+        _player2OnlineScore = 0;
+      } else {
+        _whitesScore = 0;
+        _blacksScore = 0;
+      }
     }
 
     // Change player color if it's a new game (for local/CPU)
@@ -976,6 +981,11 @@ class GameProvider extends ChangeNotifier {
         updatedRoom.status == Constants.statusActive &&
         updatedRoom.rematchOfferedBy == null) {
       _logger.i('Rematch detected! Resetting game.');
+
+      // Explicitly reset timers for the rematch
+      _whitesTime = Duration(milliseconds: updatedRoom.initialWhitesTime);
+      _blacksTime = Duration(milliseconds: updatedRoom.initialBlacksTime);
+
       // Swap player color for the new game based on the updated room
       _player =
           updatedRoom.player1Id ==

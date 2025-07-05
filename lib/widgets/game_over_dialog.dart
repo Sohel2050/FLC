@@ -6,7 +6,6 @@ import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart' as bishop;
 import 'package:provider/provider.dart';
-import 'package:squares/squares.dart';
 
 enum GameOverAction { rematch, newGame, none }
 
@@ -29,10 +28,25 @@ class GameOverDialog extends StatefulWidget {
 class _GameOverDialogState extends State<GameOverDialog> {
   String? _rematchStatus; // e.g., 'waiting', 'rejected'
   Timer? _statusClearTimer;
+  late GameProvider _gameProvider;
+
+  void _onGameStatusChanged() {
+    if (_gameProvider.gameResult == null && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _gameProvider = context.read<GameProvider>();
+    _gameProvider.gameResultNotifier.addListener(_onGameStatusChanged);
+  }
 
   @override
   void dispose() {
     _statusClearTimer?.cancel();
+    _gameProvider.gameResultNotifier.removeListener(_onGameStatusChanged);
     super.dispose();
   }
 
