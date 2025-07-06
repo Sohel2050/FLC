@@ -91,21 +91,30 @@ class _GameScreenState extends State<GameScreen> {
         playerColor: _gameProvider.player,
       ),
     ).then((action) {
-      if (action == GameOverAction.newGame) {
-        _gameProvider.disposeStockfish();
-        // For online games, reset scores to 0-0 for a new game.
-        if (_gameProvider.isOnlineGame) {
-          _gameProvider.resetGame(true);
-        }
+      if (action == null) return; // Dialog was dismissed
 
-        // Navigate back to play screen
-        Navigator.of(context).pop();
-      } else if (action == GameOverAction.rematch) {
-        _gameProvider.resetGame(true);
+      final isOnline = _gameProvider.isOnlineGame;
+
+      switch (action) {
+        case GameOverAction.rematch:
+          // This is now handled in the dialog for local games.
+          // For online games, it's also handled in the dialog.
+          break;
+        case GameOverAction.newGame:
+          _gameProvider.disposeStockfish();
+          if (isOnline) {
+            // For online, properly leave the game room before navigating.
+            _gameProvider.cancelOnlineGameSearch();
+          }
+          // For all modes, a new game means going back to the play screen.
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
+          break;
+        case GameOverAction.none:
+          // Do nothing
+          break;
       }
-
-      // We still need to check for game over to save the game.
-      _gameProvider.checkGameOver(userId: userId);
     });
   }
 

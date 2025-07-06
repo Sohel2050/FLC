@@ -1340,9 +1340,12 @@ class GameProvider extends ChangeNotifier {
             updatedRoom.player1Id == updatedRoom.winnerId
                 ? updatedRoom.player1Color
                 : updatedRoom.player2Color;
-        _gameResultNotifier.value = WonGameResignation(winner: winnerColor!);
-      } else if (updatedRoom.drawOfferedBy != null) {
-        _gameResultNotifier.value = bishop.DrawnGame();
+        if (winnerColor != null) {
+          _gameResultNotifier.value = WonGameResignation(winner: winnerColor);
+        }
+      } else if (updatedRoom.status == Constants.statusCompleted) {
+        // If game is completed and there's no winner, it's a draw.
+        _gameResultNotifier.value = const DrawnGameAgreement();
       }
       checkGameOver();
     }

@@ -31,23 +31,15 @@ class _GameOverDialogState extends State<GameOverDialog> {
   Timer? _statusClearTimer;
   late GameProvider _gameProvider;
 
-  void _onGameStatusChanged() {
-    if (_gameProvider.gameResult == null && mounted) {
-      Navigator.of(context).pop();
-    }
-  }
-
   @override
   void initState() {
     super.initState();
     _gameProvider = context.read<GameProvider>();
-    _gameProvider.gameResultNotifier.addListener(_onGameStatusChanged);
   }
 
   @override
   void dispose() {
     _statusClearTimer?.cancel();
-    _gameProvider.gameResultNotifier.removeListener(_onGameStatusChanged);
     super.dispose();
   }
 
@@ -256,16 +248,13 @@ class _GameOverDialogState extends State<GameOverDialog> {
       children: [
         ElevatedButton(
           onPressed: () {
-            // A rematch is a new game where sides are swapped.
-            log('Rematching');
-            //gameProvider.resetGame(true);
-            Navigator.of(context).pop(GameOverAction.rematch);
+            gameProvider.resetGame(true);
+            Navigator.of(context).pop(); // Pop dialog, return no action
           },
           child: const Text('Rematch'),
         ),
         OutlinedButton(
           onPressed: () {
-            // A new game also swaps sides and resets scores.
             Navigator.of(context).pop(GameOverAction.newGame);
           },
           child: const Text('New Game'),
