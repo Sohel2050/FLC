@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'package:bishop/bishop.dart' as bishop;
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
@@ -255,13 +256,18 @@ class _GameOverDialogState extends State<GameOverDialog> {
       children: [
         ElevatedButton(
           onPressed: () {
-            gameProvider.resetGame(true); // Rematch for local/CPU
+            // A rematch is a new game where sides are swapped.
+            log('Rematching');
+            //gameProvider.resetGame(true);
             Navigator.of(context).pop(GameOverAction.rematch);
           },
           child: const Text('Rematch'),
         ),
         OutlinedButton(
-          onPressed: () => Navigator.of(context).pop(GameOverAction.newGame),
+          onPressed: () {
+            // A new game also swaps sides and resets scores.
+            Navigator.of(context).pop(GameOverAction.newGame);
+          },
           child: const Text('New Game'),
         ),
       ],

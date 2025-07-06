@@ -187,6 +187,9 @@ class _PlayScreenState extends State<PlayScreen> {
                     );
 
                     try {
+                      // Save game settings to provider
+                      await gameProvider.setVsCPU(true);
+
                       // Initialize Stockfish before showing dialog
                       await gameProvider.initializeStockfish();
 
@@ -203,8 +206,6 @@ class _PlayScreenState extends State<PlayScreen> {
                           maxWidth: 400,
                           child: CPUDifficultyDialog(
                             onConfirm: (difficulty, playerColor) {
-                              // Save game settings to provider
-                              gameProvider.setVsCPU(true);
                               gameProvider.setGameLevel(difficulty);
                               gameProvider.setPlayer(playerColor);
                               gameProvider.setTimeControl(timeControl);

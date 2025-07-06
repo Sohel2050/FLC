@@ -14,7 +14,6 @@ import 'friends_screen.dart';
 import 'options_screen.dart';
 import 'play_screen.dart';
 import 'rules_info_screen.dart';
-import 'package:provider/provider.dart';
 import 'package:flutter_chess_app/services/game_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -75,6 +74,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final _gameService = GameService();
+
     return UpgradeAlert(
       child: Scaffold(
         appBar: AppBar(
@@ -117,12 +118,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             // Game Invites Icon
             if (!widget.user.isGuest)
               StreamBuilder<List<GameRoom>>(
-                stream: context.read<GameService>().streamGameInvites(
-                  widget.user.uid!,
-                ),
+                stream: _gameService.streamGameInvites(widget.user.uid!),
                 builder: (context, snapshot) {
                   final invites = snapshot.data ?? [];
                   final hasInvites = invites.isNotEmpty;
+
+                  if (!hasInvites) {
+                    return SizedBox();
+                  }
 
                   return Stack(
                     children: [
@@ -132,7 +135,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           AnimatedDialog.show(
                             context: context,
                             title: 'Game Invites',
-                            barrierDismissible: true,
                             maxWidth: 400,
                             child: GameInvitesDialog(
                               user: widget.user,

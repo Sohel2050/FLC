@@ -32,13 +32,13 @@ class GameService {
       player1DisplayName: player1DisplayName,
       player1PhotoUrl: player1PhotoUrl,
       player1Color: Squares.white,
-      status: Constants.statusWaiting, // Waiting for friend to accept
+      status: Constants.statusWaiting,
       fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
       moves: [],
       createdAt: now,
       lastMoveAt: now,
       player1Rating: player1Rating,
-      ratingBasedSearch: false, // Not for public matchmaking
+      ratingBasedSearch: false,
       initialWhitesTime: initialWhitesTime,
       initialBlacksTime: initialBlacksTime,
       whitesTimeRemaining: initialWhitesTime,

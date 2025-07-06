@@ -97,7 +97,13 @@ class _GameScreenState extends State<GameScreen> {
         if (_gameProvider.isOnlineGame) {
           _gameProvider.resetGame(true);
         }
+
+        // Navigate back to play screen
+        Navigator.of(context).pop();
+      } else if (action == GameOverAction.rematch) {
+        _gameProvider.resetGame(true);
       }
+
       // We still need to check for game over to save the game.
       _gameProvider.checkGameOver(userId: userId);
     });
@@ -169,19 +175,37 @@ class _GameScreenState extends State<GameScreen> {
 
   /// Shows a confirmation dialog for offering a draw.
   void _showDrawOfferDialog() async {
-    final bool? confirmDraw = await AnimatedDialog.show<bool>(
-      context: context,
-      title: 'Offer Draw?',
-      maxWidth: 400,
-      child: const ConfirmationDialog(
-        message: 'Are you sure you want to offer a draw?',
-        confirmButtonText: 'Offer Draw',
-        cancelButtonText: 'Cancel',
-      ),
-    );
+    if (_gameProvider.localMultiplayer) {
+      // For local multiplayer, show a dialog to accept or reject the draw immediately.
+      final bool? acceptDraw = await AnimatedDialog.show<bool>(
+        context: context,
+        title: 'Draw Offer',
+        maxWidth: 400,
+        child: const ConfirmationDialog(
+          message: 'The opponent offers a draw. Do you accept?',
+          confirmButtonText: 'Accept',
+          cancelButtonText: 'Reject',
+        ),
+      );
+      if (acceptDraw == true) {
+        _gameProvider.endGameAsDraw();
+      }
+    } else {
+      // For online games, show a confirmation to send the draw offer.
+      final bool? confirmDraw = await AnimatedDialog.show<bool>(
+        context: context,
+        title: 'Offer Draw?',
+        maxWidth: 400,
+        child: const ConfirmationDialog(
+          message: 'Are you sure you want to offer a draw?',
+          confirmButtonText: 'Offer Draw',
+          cancelButtonText: 'Cancel',
+        ),
+      );
 
-    if (confirmDraw == true) {
-      await _gameProvider.offerDraw();
+      if (confirmDraw == true) {
+        await _gameProvider.offerDraw();
+      }
     }
   }
 

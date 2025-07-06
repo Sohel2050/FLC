@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/models/saved_game_model.dart';
-import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/services/captured_piece_tracker.dart';
 import 'package:flutter_chess_app/services/game_service.dart';
 import 'package:flutter_chess_app/services/saved_game_service.dart';
@@ -205,8 +204,22 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Ends the game as a draw. This is used for local multiplayer draw agreements.
+  void endGameAsDraw() {
+    _gameResultNotifier.value = const DrawnGameAgreement();
+    _stopTimers();
+    checkGameOver();
+    notifyListeners();
+  }
+
   /// Offers a draw in the current game.
   Future<void> offerDraw() async {
+    // For local multiplayer, the draw is handled in the UI (_showDrawOfferDialog)
+    // and calls endGameAsDraw() directly.
+    // This method is now only for online games.
+    if (_localMultiplayer) {
+      return;
+    }
     if (!_isOnlineGame || _onlineGameRoom == null) {
       _logger.w('Draw offer only available in online games.');
       return;
@@ -316,7 +329,7 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
-  void setVsCPU(bool value) {
+  Future<void> setVsCPU(bool value) async {
     _vsCPU = value;
     _isOnlineGame = false;
     _localMultiplayer = false;
@@ -482,8 +495,8 @@ class GameProvider extends ChangeNotifier {
       }
     }
 
-    // Change player color if it's a new game (for local/CPU)
-    if (isNewGame && !_isOnlineGame) {
+    // For a rematch or new game, swap sides.
+    if (isNewGame) {
       _player = _player == Squares.white ? Squares.black : Squares.white;
     }
 
