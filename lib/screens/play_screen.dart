@@ -111,7 +111,6 @@ class _PlayScreenState extends State<PlayScreen> {
                       return;
                     }
 
-                    gameProvider.setLoading(true);
                     LoadingDialog.show(
                       context,
                       message: 'Searching for opponent...',

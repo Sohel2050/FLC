@@ -973,30 +973,123 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> startOnlineGameWithRoom(GameRoom room, ChessUser user) async {
+  Future<void> createPrivateGameRoom({
+    required BuildContext context,
+    required String gameMode,
+    required String player1Id,
+    required String player2Id,
+    required String friendName,
+    required String player1DisplayName,
+    String? player1PhotoUrl,
+    required int player1Rating,
+  }) async {
     setLoading(true);
-    setIsOnlineGame(true);
-    _onlineGameRoom = room;
-    _gameId = room.gameId;
-    _isHost = room.player1Id == user.uid;
-    _player = _isHost ? room.player1Color : room.player2Color!;
+    setIsOnlineGame(true); // Set online game mode
+
+    setTimeControl(gameMode);
+
+    // Update message when creating
+    updateLoadingMessage(
+      context,
+      'Creating new game...',
+      showCancelButton: true,
+    );
+
+    _isHost = true;
+    _player = Squares.white; // Current user will be white
+
+    _onlineGameRoom = await _gameService.createPrivateGameRoom(
+      gameMode: gameMode,
+      player1Id: player1Id,
+      player2Id: player2Id,
+      player1DisplayName: player1DisplayName,
+      player1PhotoUrl: player1PhotoUrl,
+      player1Rating: player1Rating,
+      initialWhitesTime: _savedWhitesTime.inMilliseconds,
+      initialBlacksTime: _savedBlacksTime.inMilliseconds,
+    );
+    _gameId = _onlineGameRoom!.gameId;
+    _logger.i('Created new game: ${_onlineGameRoom!.gameId}');
+
+    // Update message when waiting for opponent
+    if (context != null) {
+      updateLoadingMessage(
+        context,
+        'Waiting for $friendName to join...',
+        showCancelButton: true,
+      );
+    }
 
     // Set up real-time listener for the game room
     gameRoomSubscription = _gameService
         .streamGameRoom(_gameId)
-        .listen(onOnlineGameRoomUpdate);
+        .listen(
+          onOnlineGameRoomUpdate,
+          onError: (error) {
+            _logger.e('Error streaming game room $_gameId: $error');
+            // Handle error, e.g., show a snackbar
+          },
+          onDone: () {
+            _logger.i('Game room $_gameId stream closed.');
+          },
+        );
 
-    _whitesTime = Duration(milliseconds: room.initialWhitesTime);
-    _blacksTime = Duration(milliseconds: room.initialBlacksTime);
-    _player1OnlineScore = room.player1Score;
-    _player2OnlineScore = room.player2Score;
+    // Initialize game state based on the online game room
+    _whitesTime = Duration(milliseconds: _onlineGameRoom!.initialWhitesTime);
+    _blacksTime = Duration(milliseconds: _onlineGameRoom!.initialBlacksTime);
+    // Initialize game state based on the online game room
+    _whitesTime = Duration(
+      milliseconds: _onlineGameRoom!.whitesTimeRemaining,
+    ); // Use remaining time
+    _blacksTime = Duration(
+      milliseconds: _onlineGameRoom!.blacksTimeRemaining,
+    ); // Use remaining time
+    _player1OnlineScore = _onlineGameRoom!.player1Score;
+    _player2OnlineScore = _onlineGameRoom!.player2Score;
 
-    _game = bishop.Game(fen: room.fen);
+    _game = bishop.Game(fen: _onlineGameRoom!.fen);
     _state = _game.squaresState(_player);
+
+    // Apply historical moves if any
+    for (var moveString in _onlineGameRoom!.moves) {
+      _game.makeSquaresMove(_convertMoveStringToMove(moveString: moveString));
+    }
+
+    // Start timer if game is active and it's our turn
+    if (_onlineGameRoom!.status == Constants.statusActive &&
+        ((_isHost && _game.state.turn == Squares.white) ||
+            (!_isHost && _game.state.turn == Squares.black))) {
+      _startTimer();
+    }
 
     setLoading(false);
     notifyListeners();
   }
+
+  // Future<void> startOnlineGameWithRoom(GameRoom room, ChessUser user) async {
+  //   setLoading(true);
+  //   setIsOnlineGame(true);
+  //   _onlineGameRoom = room;
+  //   _gameId = room.gameId;
+  //   _isHost = room.player1Id == user.uid;
+  //   _player = _isHost ? room.player1Color : room.player2Color!;
+
+  //   // Set up real-time listener for the game room
+  //   gameRoomSubscription = _gameService
+  //       .streamGameRoom(_gameId)
+  //       .listen(onOnlineGameRoomUpdate);
+
+  //   _whitesTime = Duration(milliseconds: room.initialWhitesTime);
+  //   _blacksTime = Duration(milliseconds: room.initialBlacksTime);
+  //   _player1OnlineScore = room.player1Score;
+  //   _player2OnlineScore = room.player2Score;
+
+  //   _game = bishop.Game(fen: room.fen);
+  //   _state = _game.squaresState(_player);
+
+  //   setLoading(false);
+  //   notifyListeners();
+  // }
 
   /// Handles updates received from the online game room stream.
   void onOnlineGameRoomUpdate(GameRoom updatedRoom) {

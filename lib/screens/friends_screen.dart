@@ -6,6 +6,7 @@ import 'package:flutter_chess_app/screens/spectator_screen.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
 import 'package:flutter_chess_app/services/game_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
+import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:provider/provider.dart';
 
@@ -295,22 +296,57 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   void _createPrivateGame(ChessUser friend, String gameMode) async {
     final gameProvider = context.read<GameProvider>();
-    final initialTime = gameProvider.savedWhitesTime.inMilliseconds;
 
-    final gameRoom = await _gameService.createPrivateGameRoom(
-      gameMode: gameMode,
-      player1Id: widget.user.uid!,
-      player2Id: friend.uid!,
-      player1DisplayName: widget.user.displayName,
-      player1PhotoUrl: widget.user.photoUrl,
-      player1Rating: widget.user.classicalRating,
-      initialWhitesTime: initialTime,
-      initialBlacksTime: initialTime,
+    gameProvider.setLoading(true);
+    LoadingDialog.show(
+      context,
+      message: 'Sending invite...',
+      barrierDismissible: false,
+      showOnlineCount: true,
+      showCancelButton: true,
+      onCancel: () => gameProvider.cancelOnlineGameSearch(),
     );
+    try {
+      await gameProvider.createPrivateGameRoom(
+        context: context,
+        gameMode: gameMode,
+        player1Id: widget.user.uid!,
+        player2Id: friend.uid!,
+        friendName: friend.displayName,
+        player1DisplayName: widget.user.displayName,
+        player1PhotoUrl: widget.user.photoUrl,
+        player1Rating: widget.user.classicalRating,
+      );
 
-    await gameProvider.startOnlineGameWithRoom(gameRoom, widget.user);
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => GameScreen(user: widget.user)),
-    );
+      // Wait for game to become active before navigating
+      await gameProvider.waitForGameToStart();
+
+      gameProvider.setLoading(false);
+
+      if (mounted) {
+        // Hide loading dialog
+        LoadingDialog.hide(context);
+        // Lets have a small delay to ensure UI is updated
+        await Future.delayed(const Duration(milliseconds: 500));
+        // Navigate to GameScreen after game is ready
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GameScreen(user: widget.user),
+          ),
+        );
+      }
+    } catch (e) {
+      gameProvider.setLoading(false);
+      if (mounted) {
+        LoadingDialog.hide(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to start online game: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }
