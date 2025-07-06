@@ -1,13 +1,15 @@
+import 'dart:async';
 import 'package:bishop/bishop.dart' as bishop;
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
-import 'package:squares/squares.dart';
-
-import '../providers/game_provider.dart' as bishop;
+import 'package:flutter_chess_app/providers/game_provider.dart';
+import 'package:flutter_chess_app/providers/game_provider.dart' as bishop;
+import 'package:provider/provider.dart';
 
 enum GameOverAction { rematch, newGame, none }
 
-class GameOverDialog extends StatelessWidget {
+class GameOverDialog extends StatefulWidget {
   final bishop.GameResult? result;
   final ChessUser user;
   final int playerColor;
@@ -19,100 +21,282 @@ class GameOverDialog extends StatelessWidget {
     required this.playerColor,
   });
 
-  String _getResultText() {
-    if (result == null) return 'Game Over';
+  @override
+  State<GameOverDialog> createState() => _GameOverDialogState();
+}
 
-    if (result is bishop.WonGame) {
-      final winner = (result as bishop.WonGame).winner;
-      final winnerColor = winner == Squares.white ? 'White' : 'Black';
-      final isPlayerWinner =
-          (winner == Squares.white && playerColor == Squares.white) ||
-          (winner == Squares.black && playerColor == Squares.black);
+class _GameOverDialogState extends State<GameOverDialog> {
+  String? _rematchStatus; // e.g., 'waiting', 'rejected'
+  Timer? _statusClearTimer;
+  late GameProvider _gameProvider;
+
+  void _onGameStatusChanged() {
+    if (_gameProvider.gameResult == null && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _gameProvider = context.read<GameProvider>();
+    _gameProvider.gameResultNotifier.addListener(_onGameStatusChanged);
+  }
+
+  @override
+  void dispose() {
+    _statusClearTimer?.cancel();
+    _gameProvider.gameResultNotifier.removeListener(_onGameStatusChanged);
+    super.dispose();
+  }
+
+  String _getResultText(BuildContext context) {
+    final gameProvider = Provider.of<GameProvider>(context, listen: false);
+    final onlineGameRoom = gameProvider.onlineGameRoom;
+
+    if (widget.result == null) return 'Game Over';
+
+    if (widget.result is bishop.WonGame) {
+      final winner = (widget.result as bishop.WonGame).winner;
+      String winnerName = '';
+      if (onlineGameRoom != null) {
+        if (onlineGameRoom.player1Color == winner) {
+          winnerName = onlineGameRoom.player1DisplayName;
+        } else if (onlineGameRoom.player2Color == winner) {
+          winnerName = onlineGameRoom.player2DisplayName ?? 'Opponent';
+        }
+      } else {
+        winnerName = (winner == widget.playerColor) ? 'You' : 'Opponent';
+      }
 
       String winType = '';
-      if (result is bishop.WonGameCheckmate) {
+      if (widget.result is bishop.WonGameCheckmate) {
         winType = 'by Checkmate';
-      } else if (result is bishop.WonGameTimeout) {
+      } else if (widget.result is bishop.WonGameTimeout) {
         winType = 'by Timeout';
-      } else if (result is bishop.WonGameResignation) {
+      } else if (widget.result is bishop.WonGameResignation) {
         winType = 'by Resignation';
-      } else if (result is bishop.WonGameElimination) {
+      } else if (widget.result is bishop.WonGameElimination) {
         winType = 'by Elimination';
-      } else if (result is bishop.WonGameStalemate) {
+      } else if (widget.result is bishop.WonGameStalemate) {
         winType = 'by Stalemate (opponent won)';
-      } else if (result is bishop.WonGameCheckLimit) {
+      } else if (widget.result is bishop.WonGameCheckLimit) {
         winType = 'by Check Limit';
       }
 
-      return isPlayerWinner
-          ? 'You Won $winType!'
-          : '$winnerColor Won $winType!';
-    } else if (result is bishop.DrawnGame) {
+      return '$winnerName Won $winType!';
+    } else if (widget.result is bishop.DrawnGame) {
       String drawType = '';
-      if (result is bishop.DrawnGameInsufficientMaterial) {
+      if (widget.result is bishop.DrawnGameInsufficientMaterial) {
         drawType = 'Insufficient Material';
-      } else if (result is bishop.DrawnGameRepetition) {
+      } else if (widget.result is bishop.DrawnGameRepetition) {
         drawType = 'Threefold Repetition';
-      } else if (result is bishop.DrawnGameLength) {
+      } else if (widget.result is bishop.DrawnGameLength) {
         drawType = '50-Move Rule';
-      } else if (result is bishop.DrawnGameStalemate) {
+      } else if (widget.result is bishop.DrawnGameStalemate) {
         drawType = 'Stalemate';
-      } else if (result is bishop.DrawnGameElimination) {
+      } else if (widget.result is bishop.DrawnGameElimination) {
         drawType = 'by Elimination';
+      } else if (widget.result is DrawnGameAgreement) {
+        drawType = 'by Agreement';
       }
       return 'Game Drawn ($drawType)';
     }
     return 'Game Over';
   }
 
+  void _showRematchStatus(String status) {
+    setState(() {
+      _rematchStatus = status;
+    });
+    _statusClearTimer?.cancel();
+    _statusClearTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _rematchStatus = null;
+        });
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          _getResultText(),
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 24),
-        // Display player data for rematch context
-        _buildPlayerData(context, user, playerColor),
-        const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
+    return Consumer<GameProvider>(
+      builder: (context, gameProvider, child) {
+        final onlineGameRoom = gameProvider.onlineGameRoom;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            ElevatedButton(
-              onPressed:
-                  () => Navigator.of(context).pop(GameOverAction.rematch),
-              child: const Text('Rematch'),
+            Text(
+              _getResultText(context),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
             ),
-            OutlinedButton(
-              onPressed:
-                  () => Navigator.of(context).pop(GameOverAction.newGame),
-              child: const Text('New Game'),
+            const SizedBox(height: 24),
+            if (onlineGameRoom != null)
+              _buildOnlinePlayerData(context, gameProvider)
+            else
+              _buildLocalPlayerData(context, widget.user),
+            const SizedBox(height: 24),
+            if (onlineGameRoom != null)
+              _buildRematchSection(context, gameProvider, onlineGameRoom)
+            else
+              _buildLocalRematchButtons(context, gameProvider),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRematchSection(
+    BuildContext context,
+    GameProvider gameProvider,
+    GameRoom onlineGameRoom,
+  ) {
+    final currentUserId = widget.user.uid;
+    final rematchOfferedBy = onlineGameRoom.rematchOfferedBy;
+
+    // Case 1: A rematch offer is active
+    if (rematchOfferedBy != null) {
+      // Subcase 1.1: The current user sent the offer
+      if (rematchOfferedBy == currentUserId) {
+        return Column(
+          children: [
+            const Text('Waiting for opponent...'),
+            const SizedBox(height: 10),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 10),
+            TextButton(
+              onPressed: () async {
+                await gameProvider.handleRematch(false);
+                _showRematchStatus('Rematch offer cancelled');
+              },
+              child: const Text('Cancel Rematch Offer'),
             ),
           ],
+        );
+      }
+      // Subcase 1.2: The opponent sent the offer
+      else {
+        return Column(
+          children: [
+            Text(
+              '${onlineGameRoom.player1Id == rematchOfferedBy ? onlineGameRoom.player1DisplayName : onlineGameRoom.player2DisplayName ?? 'Opponent'} wants a rematch!',
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                ElevatedButton(
+                  onPressed: () async {
+                    await gameProvider.handleRematch(true);
+                    if (context.mounted) {
+                      // The game will restart via provider update, close the dialog
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  child: const Text('Accept'),
+                ),
+                OutlinedButton(
+                  onPressed: () async {
+                    await gameProvider.handleRematch(false);
+                    _showRematchStatus('Rematch rejected');
+                  },
+                  child: const Text('Decline'),
+                ),
+              ],
+            ),
+          ],
+        );
+      }
+    }
+    // Case 2: No active rematch offer
+    else {
+      return Column(
+        children: [
+          if (_rematchStatus != null) ...[
+            Text(
+              _rematchStatus!,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+          ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              ElevatedButton(
+                onPressed: () async {
+                  await gameProvider.offerRematch();
+                },
+                child: const Text('Rematch'),
+              ),
+              OutlinedButton(
+                onPressed:
+                    () => Navigator.of(context).pop(GameOverAction.newGame),
+                child: const Text('New Game'),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+  }
+
+  Widget _buildLocalRematchButtons(
+    BuildContext context,
+    GameProvider gameProvider,
+  ) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        ElevatedButton(
+          onPressed: () {
+            gameProvider.resetGame(true); // Rematch for local/CPU
+            Navigator.of(context).pop(GameOverAction.rematch);
+          },
+          child: const Text('Rematch'),
+        ),
+        OutlinedButton(
+          onPressed: () => Navigator.of(context).pop(GameOverAction.newGame),
+          child: const Text('New Game'),
         ),
       ],
     );
   }
 
-  Widget _buildPlayerData(
-    BuildContext context,
-    ChessUser user,
-    int playerColor,
-  ) {
+  Widget _buildLocalPlayerData(BuildContext context, ChessUser user) {
     return Column(
       children: [
         Text(
           'Your Rating: ${user.classicalRating}',
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        // Will add more player data if needed later
       ],
+    );
+  }
+
+  Widget _buildOnlinePlayerData(
+    BuildContext context,
+    GameProvider gameProvider,
+  ) {
+    final onlineGameRoom = gameProvider.onlineGameRoom!;
+    final bool isHost = gameProvider.isHost;
+
+    // final String player1Name = onlineGameRoom.player1DisplayName;
+    // final String player2Name = onlineGameRoom.player2DisplayName ?? 'Opponent';
+
+    // final int player1Score = onlineGameRoom.player1Score;
+    // final int player2Score = onlineGameRoom.player2Score;
+
+    return Text(
+      isHost
+          ? 'Your Rating: ${onlineGameRoom.player1Rating}'
+          : 'Your Rating: ${onlineGameRoom.player2Rating ?? widget.user.classicalRating}',
+      style: Theme.of(context).textTheme.titleMedium,
     );
   }
 }

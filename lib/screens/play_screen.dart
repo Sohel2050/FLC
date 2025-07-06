@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
+import 'package:flutter_chess_app/providers/settings_provoder.dart';
+import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
@@ -66,8 +68,106 @@ class _PlayScreenState extends State<PlayScreen> {
                 MainAppButton(
                   text: 'Play Online',
                   icon: Icons.public,
-                  onPressed: () {
-                    // TODO: Implement online play
+                  onPressed: () async {
+                    final selectedMode = Constants.gameModes[_selectedGameMode];
+                    final timeControl = selectedMode[Constants.timeControl];
+                    final title = selectedMode[Constants.title];
+                    final userProvider = context.read<UserProvider>();
+                    final currentUser = userProvider.user;
+                    final currentClassicalRating = currentUser!.classicalRating;
+                    final currentUserTempoRating = currentUser.tempoRating;
+                    final currentUserBlitzRating = currentUser.blitzRating;
+
+                    var userRating = currentClassicalRating;
+
+                    // Get the user rating according to the selected game mode
+                    if (title == Constants.blitz) {
+                      userRating = currentUserBlitzRating;
+                    } else if (title == Constants.tempo) {
+                      userRating = currentUserTempoRating;
+                    } else if (title == Constants.quickBlitz) {
+                      userRating = currentUserBlitzRating;
+                    } else if (title == Constants.classical) {
+                      userRating = currentClassicalRating;
+                    }
+
+                    if (currentUser.isGuest) {
+                      // Handle guest user case
+                      await AnimatedDialog.show(
+                        context: context,
+                        title: 'Guest User',
+                        child: const Text(
+                          'You need to sign in to play online games. Please sign in or create an account.',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                            },
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      );
+                      return;
+                    }
+
+                    gameProvider.setLoading(true);
+                    LoadingDialog.show(
+                      context,
+                      message: 'Searching for opponent...',
+                      barrierDismissible: false,
+                      showOnlineCount: true,
+                      showCancelButton: true,
+                      onCancel: () => gameProvider.cancelOnlineGameSearch(),
+                    );
+
+                    try {
+                      await gameProvider.startOnlineGameSearch(
+                        userId: currentUser.uid!,
+                        displayName: currentUser.displayName,
+                        photoUrl: currentUser.photoUrl,
+                        userRating: userRating,
+                        gameMode: timeControl,
+                        ratingBasedSearch:
+                            context.read<SettingsProvider>().ratingBasedSearch,
+                        context: context,
+                      );
+
+                      if (context.mounted) {
+                        // Wait for game to become active before navigating
+                        await gameProvider.waitForGameToStart();
+
+                        gameProvider.setLoading(false);
+
+                        if (context.mounted) {
+                          // Hide loading dialog
+                          LoadingDialog.hide(context);
+                          // Lets have a small delay to ensure UI is updated
+                          await Future.delayed(
+                            const Duration(milliseconds: 500),
+                          );
+                          // Navigate to GameScreen after game is ready
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) => GameScreen(user: widget.user),
+                            ),
+                          );
+                        }
+                      }
+                    } catch (e) {
+                      gameProvider.setLoading(false);
+                      if (context.mounted) {
+                        LoadingDialog.hide(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Failed to start online game: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    }
                   },
                   isFullWidth: true,
                 ),

@@ -26,9 +26,11 @@ class AnimatedDialog extends StatefulWidget {
     EdgeInsetsGeometry? contentPadding,
     bool scrollable = false,
     double? maxWidth,
+    bool barrierDismissible = false,
   }) {
     return showGeneralDialog<T>(
       context: context,
+      barrierDismissible: barrierDismissible,
       pageBuilder:
           (context, animation, secondaryAnimation) => AnimatedDialog(
             title: title,
@@ -107,10 +109,12 @@ class _AnimatedDialogState extends State<AnimatedDialog> {
       ),
       child: Row(
         children: [
-          Text(
-            widget.title!,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: Theme.of(context).colorScheme.onSecondaryContainer,
+          FittedBox(
+            child: Text(
+              widget.title!,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Theme.of(context).colorScheme.onSecondaryContainer,
+              ),
             ),
           ),
 

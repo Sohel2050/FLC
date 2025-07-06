@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
+import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/captured_piece_widget.dart';
 import 'package:flutter_chess_app/widgets/confirmation_dialog.dart';
+import 'package:flutter_chess_app/widgets/draw_offer_widget.dart';
 import 'package:flutter_chess_app/widgets/game_over_dialog.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:provider/provider.dart';
@@ -30,6 +32,33 @@ class _GameScreenState extends State<GameScreen> {
     // We make sure to reset the game state when entering the game screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _gameProvider.resetGame(false); // Start the game and timer
+
+      // For online games, we ensure the listener is active if it's not already
+      // This handles cases where GameProvider might be re-initialized
+      // or if the stream was somehow interrupted.
+      if (_gameProvider.isOnlineGame &&
+          _gameProvider.onlineGameRoom != null &&
+          _gameProvider.gameRoomSubscription == null) {
+        // Re-establish the subscription if it's null (e.g., provider was disposed and re-created)
+        _gameProvider.gameRoomSubscription = _gameProvider.gameService
+            .streamGameRoom(_gameProvider.onlineGameRoom!.gameId)
+            .listen(
+              _gameProvider.onOnlineGameRoomUpdate,
+              onError: (error) {
+                _gameProvider.logger.e(
+                  'Error re-streaming game room ${_gameProvider.onlineGameRoom!.gameId}: $error',
+                );
+              },
+              onDone: () {
+                _gameProvider.logger.i(
+                  'Game room ${_gameProvider.onlineGameRoom!.gameId} stream closed (re-established).',
+                );
+              },
+            );
+        _gameProvider.logger.i(
+          'Re-established game room subscription in GameScreen.initState',
+        );
+      }
     });
   }
 
@@ -49,6 +78,8 @@ class _GameScreenState extends State<GameScreen> {
     final gameResult = _gameProvider.gameResult;
     if (gameResult == null) return;
 
+    final String? userId = widget.user.uid;
+
     AnimatedDialog.show(
       context: context,
       title: 'Game Over!',
@@ -59,16 +90,18 @@ class _GameScreenState extends State<GameScreen> {
         playerColor: _gameProvider.player,
       ),
     ).then((action) {
-      if (action == GameOverAction.rematch) {
-        _gameProvider.resetGame(true); // Rematch, flip colors
-      } else if (action == GameOverAction.newGame) {
-        // Navigate back to play screen a completely new game and dispose stockfish
-        // Clean up the Stockfish engine before leaving the screen.
+      if (action == GameOverAction.newGame) {
         _gameProvider.disposeStockfish();
+        // For online games, reset scores to 0-0 for a new game.
+        if (_gameProvider.isOnlineGame) {
+          _gameProvider.resetGame(true);
+        }
         if (mounted) {
           Navigator.of(context).pop();
         }
       }
+      // We still need to check for game over to save the game.
+      _gameProvider.checkGameOver(userId: userId);
     });
   }
 
@@ -82,12 +115,9 @@ class _GameScreenState extends State<GameScreen> {
     } else if (_gameProvider.localMultiplayer) {
       // In local multiplayer, no external notification is needed, we just make the move
       // The makeSquaresMove already handles turn switching and timer updates
-    } else {
-      // If it's an online multiplayer game, notify the opponent about the move
-      // This would be done via a WebSocket or similar real-time communication
-      print(
-        'Move made: ${move.from} to ${move.to} (Online Multiplayer - Placeholder)',
-      );
+    } else if (_gameProvider.isOnlineGame) {
+      // For online games, the move is handled by the GameProvider's Firestore update
+      // The opponent will receive the update via the stream
     }
   }
 
@@ -112,7 +142,7 @@ class _GameScreenState extends State<GameScreen> {
     );
 
     if (confirmLeave == true) {
-      _gameProvider.resignGame();
+      await _gameProvider.resignGame(); // Await resignation for online games
 
       return true;
     }
@@ -133,7 +163,7 @@ class _GameScreenState extends State<GameScreen> {
     );
 
     if (confirmResign == true) {
-      _gameProvider.resignGame();
+      await _gameProvider.resignGame(); // Await resignation for online games
       // show game over dialog after resigning
       _handleGameOver();
     }
@@ -153,7 +183,7 @@ class _GameScreenState extends State<GameScreen> {
     );
 
     if (confirmDraw == true) {
-      _gameProvider.offerDraw();
+      await _gameProvider.offerDraw();
     }
   }
 
@@ -202,62 +232,101 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ],
             ),
-            body: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
+            body: Stack(
               children: [
-                // Opponent data, time, and captured pieces
-                if (gameProvider.localMultiplayer)
-                  _localMultiplayerOpponentDataAndTime(
-                    context,
-                    gameProvider,
-                    settingsProvider,
-                  )
-                else
-                  _opponentsDataAndTime(
-                    context,
-                    gameProvider,
-                    settingsProvider,
-                  ),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    // Opponent data, time, and captured pieces
+                    if (gameProvider.localMultiplayer)
+                      _localMultiplayerOpponentDataAndTime(
+                        context,
+                        gameProvider,
+                        settingsProvider,
+                      )
+                    else if (gameProvider.isOnlineGame)
+                      _onlineOpponentDataAndTime(
+                        context,
+                        gameProvider,
+                        settingsProvider,
+                      )
+                    else
+                      _opponentsDataAndTime(
+                        context,
+                        gameProvider,
+                        settingsProvider,
+                      ),
 
-                // Chess board
-                Padding(
-                  padding: const EdgeInsets.all(4.0),
-                  child: BoardController(
-                    state:
-                        gameProvider.flipBoard
-                            ? gameProvider.state.board.flipped()
-                            : gameProvider.state.board,
-                    playState: gameProvider.state.state,
-                    pieceSet: settingsProvider.getPieceSet(),
-                    theme: settingsProvider.boardTheme,
-                    animatePieces: settingsProvider.animatePieces,
-                    labelConfig:
-                        settingsProvider.showLabels
-                            ? LabelConfig.standard
-                            : LabelConfig.disabled,
-                    moves: gameProvider.state.moves,
-                    onMove: _onMove,
-                    onPremove: _onMove,
-                    markerTheme: MarkerTheme(
-                      empty: MarkerTheme.dot,
-                      piece: MarkerTheme.corners(),
+                    // Chess board
+                    Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: BoardController(
+                        state:
+                            gameProvider.flipBoard
+                                ? gameProvider.state.board.flipped()
+                                : gameProvider.state.board,
+                        playState: gameProvider.state.state,
+                        pieceSet: settingsProvider.getPieceSet(),
+                        theme: settingsProvider.boardTheme,
+                        animatePieces: settingsProvider.animatePieces,
+                        labelConfig:
+                            settingsProvider.showLabels
+                                ? LabelConfig.standard
+                                : LabelConfig.disabled,
+                        moves: gameProvider.state.moves,
+                        onMove: _onMove,
+                        onPremove: _onMove,
+                        markerTheme: MarkerTheme(
+                          empty: MarkerTheme.dot,
+                          piece: MarkerTheme.corners(),
+                        ),
+                        promotionBehaviour: PromotionBehaviour.autoPremove,
+                      ),
                     ),
-                    promotionBehaviour: PromotionBehaviour.autoPremove,
-                  ),
-                ),
 
-                // Current user data, time, and captured pieces
-                if (gameProvider.localMultiplayer)
-                  _localMultiplayerCurrentUserDataAndTime(
-                    context,
-                    gameProvider,
-                    settingsProvider,
-                  )
-                else
-                  _currentUserDataAndTime(
-                    context,
-                    gameProvider,
-                    settingsProvider,
+                    // Current user data, time, and captured pieces
+                    if (gameProvider.localMultiplayer)
+                      _localMultiplayerCurrentUserDataAndTime(
+                        context,
+                        gameProvider,
+                        settingsProvider,
+                      )
+                    else
+                      _currentUserDataAndTime(
+                        context,
+                        gameProvider,
+                        settingsProvider,
+                      ),
+                    // // Display scores for online games
+                    // if (gameProvider.isOnlineGame &&
+                    //     gameProvider.onlineGameRoom != null)
+                    //   Padding(
+                    //     padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    //     child: Row(
+                    //       mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    //       children: [
+                    //         Text(
+                    //           '${gameProvider.onlineGameRoom!.player1DisplayName}: ${gameProvider.player1OnlineScore}',
+                    //           style: Theme.of(context).textTheme.titleMedium,
+                    //         ),
+                    //         Text(
+                    //           '${gameProvider.onlineGameRoom!.player2DisplayName ?? 'Opponent'}: ${gameProvider.player2OnlineScore}',
+                    //           style: Theme.of(context).textTheme.titleMedium,
+                    //         ),
+                    //       ],
+                    //     ),
+                    //   ),
+                  ],
+                ),
+                if (gameProvider.drawOfferReceived)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: DrawOfferWidget(
+                      onAccept: () => gameProvider.handleDrawOffer(true),
+                      onDecline: () => gameProvider.handleDrawOffer(false),
+                    ),
                   ),
               ],
             ),
@@ -361,6 +430,112 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  Widget _onlineOpponentDataAndTime(
+    BuildContext context,
+    GameProvider gameProvider,
+    SettingsProvider settingsProvider,
+  ) {
+    final GameRoom? gameRoom = gameProvider.onlineGameRoom;
+    if (gameRoom == null) {
+      return SizedBox(); // Should not happen in online game
+    }
+
+    final bool isPlayer1 = gameProvider.player == gameRoom.player1Color;
+    final String opponentDisplayName =
+        isPlayer1
+            ? (gameRoom.player2DisplayName ?? 'Opponent')
+            : gameRoom.player1DisplayName;
+    final String? opponentPhotoUrl =
+        isPlayer1 ? gameRoom.player2PhotoUrl : gameRoom.player1PhotoUrl;
+    final int opponentRating =
+        isPlayer1 ? (gameRoom.player2Rating ?? 1200) : gameRoom.player1Rating;
+    final int? opponentColor =
+        isPlayer1 ? gameRoom.player2Color : gameRoom.player1Color;
+
+    final bool isOpponentsTurn = gameProvider.game.state.turn == opponentColor;
+    final List<String> opponentCaptured =
+        opponentColor == Squares.white
+            ? gameProvider.whiteCapturedPieces
+            : gameProvider.blackCapturedPieces;
+    final int materialAdvantage = gameProvider.getMaterialAdvantageForPlayer(
+      opponentColor,
+    );
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              ProfileImageWidget(
+                imageUrl: opponentPhotoUrl,
+                radius: 20,
+                isEditable: false,
+                backgroundColor:
+                    Theme.of(context).colorScheme.secondaryContainer,
+                placeholderIcon: Icons.person,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      opponentDisplayName,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          'Rating: $opponentRating',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: CapturedPiecesWidget(
+                            capturedPieces: opponentCaptured,
+                            materialAdvantage:
+                                materialAdvantage > 0 ? materialAdvantage : 0,
+                            isWhite: opponentColor == Squares.white,
+                            pieceSet: settingsProvider.getPieceSet(),
+                            isCompact: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      isOpponentsTurn
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(context).colorScheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  gameProvider.getFormattedTime(
+                    opponentColor == Squares.white
+                        ? gameProvider.whitesTime
+                        : gameProvider.blacksTime,
+                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontFamily: 'monospace'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _currentUserDataAndTime(
     BuildContext context,
     GameProvider gameProvider,
@@ -394,13 +569,21 @@ class _GameScreenState extends State<GameScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.user.displayName,
+                      gameProvider.isOnlineGame &&
+                              gameProvider.onlineGameRoom != null
+                          ? (gameProvider.isHost
+                              ? gameProvider.onlineGameRoom!.player1DisplayName
+                              : gameProvider
+                                      .onlineGameRoom!
+                                      .player2DisplayName ??
+                                  widget.user.displayName)
+                          : widget.user.displayName,
                       style: Theme.of(context).textTheme.titleMedium,
                     ),
                     Row(
                       children: [
                         Text(
-                          'Rating: ${widget.user.classicalRating}',
+                          'Rating: ${gameProvider.isOnlineGame && gameProvider.onlineGameRoom != null ? (gameProvider.isHost ? gameProvider.onlineGameRoom!.player1Rating : gameProvider.onlineGameRoom!.player2Rating ?? widget.user.classicalRating) : widget.user.classicalRating}',
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                         const SizedBox(width: 8),

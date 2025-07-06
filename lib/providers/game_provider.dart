@@ -1,12 +1,21 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/models/game_room_model.dart';
+import 'package:flutter_chess_app/models/saved_game_model.dart';
 import 'package:flutter_chess_app/services/captured_piece_tracker.dart';
+import 'package:flutter_chess_app/services/game_service.dart';
+import 'package:flutter_chess_app/services/saved_game_service.dart';
+import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/stockfish/uci_commands.dart';
+import 'package:flutter_chess_app/utils/constants.dart';
+import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 import 'package:squares/squares.dart';
 import 'package:bishop/bishop.dart' as bishop;
 import 'package:square_bishop/square_bishop.dart';
 import 'package:stockfish/stockfish.dart';
 import 'package:logger/logger.dart';
+import 'package:uuid/uuid.dart';
 
 // Custom game result for timeout
 class WonGameTimeout extends bishop.WonGame {
@@ -18,6 +27,17 @@ class WonGameResignation extends bishop.WonGame {
   const WonGameResignation({required super.winner});
 }
 
+// Custom game result for draw by agreement
+class DrawnGameAgreement extends bishop.DrawnGame {
+  const DrawnGameAgreement();
+
+  @override
+  String toString() => 'DrawnGameAgreement';
+
+  @override
+  String get readable => '${super.readable} by agreement';
+}
+
 class GameProvider extends ChangeNotifier {
   late bishop.Game _game = bishop.Game(variant: bishop.Variant.standard());
   late SquaresState _state = SquaresState.initial(0);
@@ -27,8 +47,14 @@ class GameProvider extends ChangeNotifier {
   bool _stockfishInitialized = false;
   final Logger _logger = Logger();
 
+  final GameService _gameService = GameService();
+  final SavedGameService _savedGameService = SavedGameService();
+  final UserService _userService = UserService();
+
   bool _vsCPU = false;
   bool _localMultiplayer = false;
+  bool _isOnlineGame = false;
+  bool _isHost = false; // True if this player created the game room
   bool _isLoading = false;
   bool _playWhitesTimer = true;
   bool _playBlacksTimer = true;
@@ -41,6 +67,11 @@ class GameProvider extends ChangeNotifier {
   int _blacksScore = 0;
   String _gameId = '';
   String _selectedTimeControl = '';
+  GameRoom? _onlineGameRoom;
+  StreamSubscription<GameRoom>? gameRoomSubscription;
+
+  bool _drawOfferReceived = false;
+  bool _scoresUpdatedForCurrentGame = false;
 
   Duration _whitesTime = Duration.zero;
   Duration _blacksTime = Duration.zero;
@@ -48,6 +79,10 @@ class GameProvider extends ChangeNotifier {
   // saved time
   Duration _savedWhitesTime = Duration.zero;
   Duration _savedBlacksTime = Duration.zero;
+
+  // Online game scores
+  int _player1OnlineScore = 0;
+  int _player2OnlineScore = 0;
 
   // Captured pieces
   // These lists will hold the captured pieces for each player
@@ -68,9 +103,12 @@ class GameProvider extends ChangeNotifier {
   SquaresState get state => _state;
   bool get aiThinking => _aiThinking;
   bool get flipBoard => _flipBoard;
+  Logger get logger => _logger;
 
   bool get vsCPU => _vsCPU;
   bool get localMultiplayer => _localMultiplayer;
+  bool get isOnlineGame => _isOnlineGame;
+  bool get isHost => _isHost;
   bool get isLoading => _isLoading;
   bool get playWhitesTimer => _playWhitesTimer;
   bool get playBlacksTimer => _playBlacksTimer;
@@ -83,15 +121,26 @@ class GameProvider extends ChangeNotifier {
   int get blacksScore => _blacksScore;
   String get gameId => _gameId;
   String get selectedTimeControl => _selectedTimeControl;
+  GameRoom? get onlineGameRoom => _onlineGameRoom;
 
   Duration get whitesTime => _whitesTime;
   Duration get blacksTime => _blacksTime;
   Duration get savedWhitesTime => _savedWhitesTime;
   Duration get savedBlacksTime => _savedBlacksTime;
 
+  int get player1OnlineScore => _player1OnlineScore;
+  int get player2OnlineScore => _player2OnlineScore;
+
   List<String> get whiteCapturedPieces => _whiteCapturedPieces;
   List<String> get blackCapturedPieces => _blackCapturedPieces;
   List<String> get moveHistory => _moveHistory;
+
+  GameService get gameService => _gameService;
+
+  bool get drawOfferReceived => _drawOfferReceived;
+
+  StreamSubscription<GameRoom>? get geGgameRoomSubscription =>
+      gameRoomSubscription;
 
   bishop.GameResult? get gameResult => _gameResultNotifier.value;
   ValueNotifier<bishop.GameResult?> get gameResultNotifier =>
@@ -107,7 +156,7 @@ class GameProvider extends ChangeNotifier {
   }
 
   // Get material advantage from player's perspective
-  int getMaterialAdvantageForPlayer(int playerColor) {
+  int getMaterialAdvantageForPlayer(int? playerColor) {
     int advantage = materialAdvantage;
     return playerColor == Squares.white ? advantage : -advantage;
   }
@@ -136,28 +185,97 @@ class GameProvider extends ChangeNotifier {
   }
 
   /// Resigns the current game, setting the game result to a win for the opponent.
-  void resignGame() {
-    final winner =
+  Future<void> resignGame() async {
+    final winnerColor =
         _game.state.turn == Squares.white ? Squares.black : Squares.white;
-    _gameResultNotifier.value = WonGameResignation(winner: winner);
-    _checkGameOver();
+    final winnerId =
+        _isOnlineGame && _onlineGameRoom != null
+            ? (_isHost
+                ? _onlineGameRoom!.player2Id
+                : _onlineGameRoom!.player1Id)
+            : null; // For local/CPU, winnerId is not relevant for Firestore
+
+    _gameResultNotifier.value = WonGameResignation(winner: winnerColor);
+    _stopTimers(); // Stop timers immediately on resignation
+
+    if (_isOnlineGame && _onlineGameRoom != null && winnerId != null) {
+      await _gameService.resignGame(_onlineGameRoom!.gameId, winnerId);
+    }
     notifyListeners();
   }
 
   /// Offers a draw in the current game.
-  /// This is a placeholder for future multiplayer implementation.
-  void offerDraw() {
-    // TODO: Implement draw offer logic for local multiplayer and online play
-    _logger.i('Draw offer initiated (placeholder)');
-    // For now, we can simulate a draw or do nothing
-    // _gameResultNotifier.value = bishop.DrawnGame(reason: bishop.DrawReason.agreement);
-    // _checkGameOver();
-    // notifyListeners();
+  Future<void> offerDraw() async {
+    if (!_isOnlineGame || _onlineGameRoom == null) {
+      _logger.w('Draw offer only available in online games.');
+      return;
+    }
+
+    final String offeringPlayerId =
+        _isHost ? _onlineGameRoom!.player1Id : _onlineGameRoom!.player2Id!;
+
+    await _gameService.offerDraw(_onlineGameRoom!.gameId, offeringPlayerId);
+    _logger.i('Draw offer initiated by $offeringPlayerId');
+    notifyListeners();
+  }
+
+  /// Handles a draw offer (accept or decline).
+  Future<void> handleDrawOffer(bool accepted) async {
+    if (!_isOnlineGame || _onlineGameRoom == null) {
+      _logger.w('Cannot handle draw offer: Not an online game.');
+      return;
+    }
+    // When an offer is handled, the widget should disappear.
+    _drawOfferReceived = false;
+
+    if (accepted) {
+      // Set the game result to draw by agreement
+      _gameResultNotifier.value = DrawnGameAgreement();
+    }
+
+    await _gameService.handleDrawOffer(_onlineGameRoom!.gameId, accepted);
+    if (!accepted) {
+      // If declined, ensure the timer for the current player continues.
+      _startTimer();
+    }
+    notifyListeners();
+  }
+
+  /// Offers a rematch after a game.
+  Future<void> offerRematch() async {
+    if (!_isOnlineGame || _onlineGameRoom == null) {
+      _logger.w('Rematch offer only available in online games.');
+      return;
+    }
+
+    final String offeringPlayerId =
+        _isHost ? _onlineGameRoom!.player1Id : _onlineGameRoom!.player2Id!;
+
+    await _gameService.offerRematch(_onlineGameRoom!.gameId, offeringPlayerId);
+    _logger.i('Rematch offer initiated by $offeringPlayerId');
+    notifyListeners();
+  }
+
+  /// Handles a rematch offer (accept or decline).
+  Future<void> handleRematch(bool accepted) async {
+    if (!_isOnlineGame || _onlineGameRoom == null) {
+      _logger.w('Cannot handle rematch offer: Not an online game.');
+      return;
+    }
+
+    // Pass the most up-to-date local scores.
+    await _gameService.handleRematch(
+      _onlineGameRoom!.gameId,
+      accepted,
+      _player1OnlineScore,
+      _player2OnlineScore,
+    );
+    notifyListeners();
   }
 
   // Initialize Stockfish safely
   Future<void> initializeStockfish() async {
-    if (_stockfishInitialized || _localMultiplayer) return;
+    if (_stockfishInitialized || _localMultiplayer || _isOnlineGame) return;
 
     try {
       // Initialize Stockfish
@@ -181,6 +299,7 @@ class GameProvider extends ChangeNotifier {
   void dispose() {
     disposeStockfish();
     _stopTimers();
+    gameRoomSubscription?.cancel();
     super.dispose();
   }
 
@@ -198,11 +317,22 @@ class GameProvider extends ChangeNotifier {
 
   void setVsCPU(bool value) {
     _vsCPU = value;
+    _isOnlineGame = false;
+    _localMultiplayer = false;
     notifyListeners();
   }
 
   void setLocalMultiplayer(bool value) {
     _localMultiplayer = value;
+    _isOnlineGame = false; // Cannot be both local and online
+    _vsCPU = false;
+    notifyListeners();
+  }
+
+  void setIsOnlineGame(bool value) {
+    _isOnlineGame = value;
+    _localMultiplayer = false; // Cannot be both local and online
+    _vsCPU = false;
     notifyListeners();
   }
 
@@ -279,7 +409,13 @@ class GameProvider extends ChangeNotifier {
           _stopTimers();
           // Use post-frame callback to avoid build-time issues
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _checkGameOver();
+            final String? userId =
+                _isOnlineGame && _onlineGameRoom != null
+                    ? (_isHost
+                        ? _onlineGameRoom!.player1Id
+                        : _onlineGameRoom!.player2Id)
+                    : null;
+            checkGameOver(userId: userId);
           });
         }
         notifyListeners();
@@ -296,7 +432,13 @@ class GameProvider extends ChangeNotifier {
           _stopTimers();
           // Use post-frame callback to avoid build-time issues
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _checkGameOver();
+            final String? userId =
+                _isOnlineGame && _onlineGameRoom != null
+                    ? (_isHost
+                        ? _onlineGameRoom!.player1Id
+                        : _onlineGameRoom!.player2Id)
+                    : null;
+            checkGameOver(userId: userId);
           });
         }
         notifyListeners();
@@ -317,27 +459,43 @@ class GameProvider extends ChangeNotifier {
 
   // Reset the game state
   void resetGame(bool isNewGame) {
+    _scoresUpdatedForCurrentGame = false; // Reset for the new game
     _stopTimers();
     _gameResultNotifier.value = null;
+    // For online games, the subscription should persist to receive updates.
+    // It is cancelled in dispose() or cancelOnlineGameSearch().
 
     // Clear captured pieces and move history
     _whiteCapturedPieces.clear();
     _blackCapturedPieces.clear();
     _moveHistory.clear();
 
-    // Change player color if it's a new game
+    // Reset scores only if it's a completely new game, not a rematch
     if (isNewGame) {
-      _player = _player == Squares.white ? Squares.black : Squares.white;
-      notifyListeners();
+      if (_isOnlineGame) {
+        _player1OnlineScore = 0;
+        _player2OnlineScore = 0;
+      } else {
+        _whitesScore = 0;
+        _blacksScore = 0;
+      }
     }
 
-    _whitesTime = _savedWhitesTime;
-    _blacksTime = _savedBlacksTime;
+    // Change player color if it's a new game (for local/CPU)
+    if (isNewGame && !_isOnlineGame) {
+      _player = _player == Squares.white ? Squares.black : Squares.white;
+    }
+
+    // For online games, times are set from the GameRoom update
+    if (!_isOnlineGame) {
+      _whitesTime = _savedWhitesTime;
+      _blacksTime = _savedBlacksTime;
+    }
 
     _game = bishop.Game(variant: bishop.Variant.standard());
 
-    // Initialize state correctly for local multiplayer
-    if (_localMultiplayer) {
+    // Initialize state correctly for local multiplayer or online game
+    if (_localMultiplayer || _isOnlineGame) {
       // Start with white's turn
       final currentTurn = _game.state.turn; // This will be white initially
       final dynamicState = _game.squaresState(currentTurn);
@@ -384,15 +542,24 @@ class GameProvider extends ChangeNotifier {
   }
 
   // Check for game over conditions
-  void _checkGameOver() {
-    if (_game.gameOver) {
+  void checkGameOver({String? userId}) {
+    if (isGameOver) {
       _stopTimers();
-      _gameResultNotifier.value = _game.result;
+      if (_gameResultNotifier.value == null) {
+        _gameResultNotifier.value = _game.result;
+      }
+
+      // Update scores for online games when the game officially ends.
+      if (_isOnlineGame && _onlineGameRoom != null) {
+        _updateOnlineScoresOnGameOver();
+      }
+
       notifyListeners();
-    } else if (_gameResultNotifier.value != null) {
-      // Handle timeout case - game result is set but chess game doesn't know it's over
-      _stopTimers();
-      notifyListeners();
+
+      // Save game and update user stats if userId is provided and it's not a guest game
+      if (userId != null && userId.isNotEmpty) {
+        _saveCurrentGame(userId);
+      }
     }
   }
 
@@ -408,34 +575,28 @@ class GameProvider extends ChangeNotifier {
         }
       }
 
+      // Update state based on game type
       if (_localMultiplayer) {
         // For local multiplayer, dynamically create state based on current turn
         final currentTurn = _game.state.turn;
-
-        // Create state from the perspective of whoever's turn it is
         final dynamicState = _game.squaresState(currentTurn);
-
-        // But we need to adjust the board orientation to match our display
         final baseState = _game.squaresState(_player);
 
         _state = SquaresState(
-          player: currentTurn, // We set to current turn so moves work correctly
-          state:
-              PlayState
-                  .ourTurn, // We always "our turn" since we're showing from current player's perspective
+          player: currentTurn,
+          state: PlayState.ourTurn,
           size: dynamicState.size,
-          board:
-              baseState
-                  .board, // We keep the board orientation consistent with display
-          moves:
-              dynamicState
-                  .moves, // We use moves from current turn's perspective
+          board: baseState.board,
+          moves: dynamicState.moves,
           history: dynamicState.history,
           hands: dynamicState.hands,
           gates: dynamicState.gates,
         );
+      } else if (_isOnlineGame) {
+        // For online games, update state from our player's perspective
+        _state = _game.squaresState(_player);
       } else {
-        // For other modes, we use the standard approach
+        // For other modes, use the standard approach
         _state = _game.squaresState(_player);
       }
 
@@ -447,10 +608,51 @@ class GameProvider extends ChangeNotifier {
           _whitesTime += Duration(seconds: _incrementalValue);
         }
       }
-      debugPieceSymbols(); // Debugging piece symbols after the move
+
+      //debugPieceSymbols(); // Debugging piece symbols after the move
       // Update captured pieces after the move
       updateCapturedPieces();
-      _checkGameOver();
+
+      // If online game, update Firestore
+      if (_isOnlineGame && _onlineGameRoom != null) {
+        final updatedMoves = List<String>.from(_onlineGameRoom!.moves);
+        updatedMoves.add(move.toString()); // Store move as string
+
+        final Map<String, dynamic> updateData = {
+          Constants.fieldFen: _game.fen,
+          Constants.fieldMoves: updatedMoves,
+          Constants.fieldLastMoveAt: Timestamp.now(),
+          Constants.fieldWhitesTimeRemaining: _whitesTime.inMilliseconds,
+          Constants.fieldBlacksTimeRemaining: _blacksTime.inMilliseconds,
+        };
+
+        if (_game.gameOver) {
+          updateData[Constants.fieldStatus] = Constants.statusCompleted;
+          final winner = (_game.result as bishop.WonGame).winner;
+          updateData[Constants.fieldWinnerId] =
+              (winner == _onlineGameRoom!.player1Color)
+                  ? _onlineGameRoom!.player1Id
+                  : _onlineGameRoom!.player2Id;
+        }
+
+        await _gameService.updateGameRoom(_onlineGameRoom!.gameId, updateData);
+
+        _logger.i(
+          'Online game updated: ${_onlineGameRoom!.gameId}, '
+          'moves: $updatedMoves, '
+          'fen: ${_game.fen}',
+        );
+      }
+
+      // Check game over after all updates, passing userId if available
+      final String? userId =
+          _isOnlineGame && _onlineGameRoom != null
+              ? (_isHost
+                  ? _onlineGameRoom!.player1Id
+                  : _onlineGameRoom!.player2Id)
+              : null;
+      checkGameOver(userId: userId);
+
       if (!_game.gameOver) {
         _startTimer(); // Restart timer for the next player
       }
@@ -461,19 +663,35 @@ class GameProvider extends ChangeNotifier {
     return result;
   }
 
-  // Helper method to convert move to algebraic notation
+  // Helper method to convert move to algebraic notation (for local history)
   String _getMoveNotation(Move move) {
-    // Convert square indices to algebraic notation
-    String from = _squareToAlgebraic(move.from);
-    String to = _squareToAlgebraic(move.to);
+    // Use bishop's toAlgebraic for more complete notation
+    return move.algebraic();
+  }
 
-    // Check if this is a promotion move using the squares Move class properties
-    if (move.promo != null) {
-      return '$from$to${move.promo}';
+  // convert move string to move format
+  Move _convertMoveStringToMove({required String moveString}) {
+    // Split the move string intp its components
+    List<String> parts = moveString.split('-');
+
+    // Extract 'from' and 'to'
+    int from = int.parse(parts[0]);
+    int to = int.parse(parts[1].split('[')[0]);
+
+    // Extract 'promo' and 'piece' if available
+    String? promo;
+    String? piece;
+    if (moveString.contains('[')) {
+      String extras = moveString.split('[')[1].split(']')[0];
+      List<String> extraList = extras.split(',');
+      promo = extraList[0];
+      if (extraList.length > 1) {
+        piece = extraList[1];
+      }
     }
 
-    _logger.i('Move notation: $from$to');
-    return '$from$to';
+    // Create and return a new Move object
+    return Move(from: from, to: to, promo: promo, piece: piece);
   }
 
   void updateCapturedPieces() {
@@ -498,32 +716,6 @@ class GameProvider extends ChangeNotifier {
       _whiteCapturedPieces.clear();
       _blackCapturedPieces.clear();
     }
-  }
-
-  void debugPieceSymbols() {
-    final variant = _game.variant;
-
-    _logger.i('=== DEBUG: Current board piece symbols ===');
-    for (int i = 0; i < _game.board.length; i++) {
-      var piece = _game.board[i];
-      if (piece == 0) continue;
-
-      String symbol = variant.pieceSymbol(piece & 7);
-      int colour = (piece >> 3) & 1;
-      String colourName = colour == Squares.white ? 'White' : 'Black';
-
-      _logger.i('Square $i: $colourName $symbol (raw: $piece)');
-    }
-    _logger.i('=== END DEBUG ===');
-  }
-
-  // Helper method to convert square index to algebraic notation
-  String _squareToAlgebraic(int square) {
-    final file = square % 8;
-    final rank = square ~/ 8;
-    final fileChar = String.fromCharCode('a'.codeUnitAt(0) + file);
-    final rankChar = (rank + 1).toString();
-    return '$fileChar$rankChar';
   }
 
   // Wait until Stockfish is ready
@@ -615,12 +807,491 @@ class GameProvider extends ChangeNotifier {
 
         _logger.i('Move made: $bestMove');
 
-        _checkGameOver();
+        checkGameOver();
         if (!_game.gameOver) {
           _startTimer(); // Restart timer for the next player
         }
         notifyListeners();
       }
     });
+  }
+
+  /// Initiates the online game search or creation process.
+  Future<void> startOnlineGameSearch({
+    required String userId,
+    required String displayName,
+    String? photoUrl,
+    required int userRating,
+    required String gameMode,
+    required bool ratingBasedSearch,
+    BuildContext? context,
+  }) async {
+    setLoading(true);
+    setIsOnlineGame(true); // Set online game mode
+
+    setTimeControl(gameMode);
+
+    try {
+      if (context != null) {
+        updateLoadingMessage(
+          context,
+          'Searching for available games...',
+          showCancelButton: true,
+        );
+      }
+
+      // Try to find an available game
+      GameRoom? foundGame = await _gameService.findAvailableGame(
+        gameMode: gameMode,
+        userRating: userRating,
+        ratingBasedSearch: ratingBasedSearch,
+        currentUserId: userId,
+      );
+
+      if (foundGame != null) {
+        // Update message when joining
+        if (context != null) {
+          updateLoadingMessage(
+            context,
+            'Joining game...',
+            showCancelButton: false,
+          );
+        }
+
+        // Join existing game
+        _isHost = false;
+        _onlineGameRoom = foundGame;
+        _gameId = foundGame.gameId;
+        _player = Squares.black; // Joining player is Black
+
+        await _gameService.joinGameRoom(
+          gameId: foundGame.gameId,
+          player2Id: userId,
+          player2DisplayName: displayName,
+          player2PhotoUrl: photoUrl,
+          player2Rating: userRating,
+        );
+        _logger.i('Joined game: ${foundGame.gameId}');
+
+        // Update message when game is ready
+        if (context != null) {
+          updateLoadingMessage(
+            context,
+            'Game ready! Starting...',
+            showCancelButton: false,
+          );
+        }
+      } else {
+        // Update message when creating
+        if (context != null) {
+          updateLoadingMessage(
+            context,
+            'Creating new game...',
+            showCancelButton: true,
+          );
+        }
+
+        // No game found, create a new one
+        _isHost = true;
+        _player = Squares.white; // Creating player is White
+
+        _onlineGameRoom = await _gameService.createGameRoom(
+          gameMode: gameMode,
+          player1Id: userId,
+          player1DisplayName: displayName,
+          player1PhotoUrl: photoUrl,
+          player1Rating: userRating,
+          ratingBasedSearch: ratingBasedSearch,
+          initialWhitesTime: _savedWhitesTime.inMilliseconds,
+          initialBlacksTime: _savedBlacksTime.inMilliseconds,
+          player1Score: _player1OnlineScore, // Pass current scores
+          player2Score: _player2OnlineScore, // Pass current scores
+        );
+        _gameId = _onlineGameRoom!.gameId;
+        _logger.i('Created new game: ${_onlineGameRoom!.gameId}');
+
+        // Update message when waiting for opponent
+        if (context != null) {
+          updateLoadingMessage(
+            context,
+            'Waiting for opponent to join...',
+            showCancelButton: true,
+          );
+        }
+      }
+
+      // Set up real-time listener for the game room
+      gameRoomSubscription = _gameService
+          .streamGameRoom(_gameId)
+          .listen(
+            onOnlineGameRoomUpdate,
+            onError: (error) {
+              _logger.e('Error streaming game room $_gameId: $error');
+              // Handle error, e.g., show a snackbar
+            },
+            onDone: () {
+              _logger.i('Game room $_gameId stream closed.');
+            },
+          );
+
+      // Initialize game state based on the online game room
+      _whitesTime = Duration(milliseconds: _onlineGameRoom!.initialWhitesTime);
+      _blacksTime = Duration(milliseconds: _onlineGameRoom!.initialBlacksTime);
+      // Initialize game state based on the online game room
+      _whitesTime = Duration(
+        milliseconds: _onlineGameRoom!.whitesTimeRemaining,
+      ); // Use remaining time
+      _blacksTime = Duration(
+        milliseconds: _onlineGameRoom!.blacksTimeRemaining,
+      ); // Use remaining time
+      _player1OnlineScore = _onlineGameRoom!.player1Score;
+      _player2OnlineScore = _onlineGameRoom!.player2Score;
+
+      _game = bishop.Game(fen: _onlineGameRoom!.fen);
+      _state = _game.squaresState(_player);
+
+      // Apply historical moves if any
+      for (var moveString in _onlineGameRoom!.moves) {
+        _game.makeSquaresMove(_convertMoveStringToMove(moveString: moveString));
+      }
+
+      // Start timer if game is active and it's our turn
+      if (_onlineGameRoom!.status == Constants.statusActive &&
+          ((_isHost && _game.state.turn == Squares.white) ||
+              (!_isHost && _game.state.turn == Squares.black))) {
+        _startTimer();
+      }
+
+      setLoading(false);
+      notifyListeners();
+    } catch (e) {
+      _logger.e('Error during online game search/creation: $e');
+      setLoading(false);
+      // Handle error, e.g., show a snackbar
+      rethrow;
+    }
+  }
+
+  /// Handles updates received from the online game room stream.
+  void onOnlineGameRoomUpdate(GameRoom updatedRoom) {
+    final bool wasGameOver = isGameOver;
+    _onlineGameRoom = updatedRoom;
+    _gameId = updatedRoom.gameId;
+
+    // Update local game state based on Firestore updates
+    // Always update times and scores, even if FEN hasn't changed (e.g., draw offer)
+    _whitesTime = Duration(milliseconds: updatedRoom.whitesTimeRemaining);
+    _blacksTime = Duration(milliseconds: updatedRoom.blacksTimeRemaining);
+    _player1OnlineScore = updatedRoom.player1Score;
+    _player2OnlineScore = updatedRoom.player2Score;
+
+    // --- Rematch Logic ---
+    // If the game was over and now it's active, it's a rematch
+    if (wasGameOver &&
+        updatedRoom.status == Constants.statusActive &&
+        updatedRoom.rematchOfferedBy == null) {
+      _logger.i('Rematch detected! Resetting game.');
+
+      // Explicitly reset timers for the rematch
+      _whitesTime = Duration(milliseconds: updatedRoom.initialWhitesTime);
+      _blacksTime = Duration(milliseconds: updatedRoom.initialBlacksTime);
+
+      // Swap player color for the new game based on the updated room
+      _player =
+          updatedRoom.player1Id ==
+                  (_isHost
+                      ? _onlineGameRoom!.player1Id
+                      : _onlineGameRoom!.player2Id)
+              ? updatedRoom.player1Color
+              : updatedRoom.player2Color!;
+      resetGame(false); // false because it's a rematch, not a brand new game
+      notifyListeners();
+      return; // Exit early to avoid conflicting logic below
+    }
+
+    // Only update game board if the FEN has changed (meaning a move was made by opponent)
+    if (_game.fen != updatedRoom.fen) {
+      _logger.i('Updating game FEN from Firestore: ${updatedRoom.fen}');
+      // Check if there's a new move (opponent's move)
+      if (updatedRoom.moves.length > _moveHistory.length) {
+        // Get the latest move from the opponent
+        final latestMoveString = updatedRoom.moves.last;
+        _logger.i('Latest move from Firestore: $latestMoveString');
+        final latestMove = _convertMoveStringToMove(
+          moveString: latestMoveString,
+        );
+
+        _logger.i(
+          'Converted latest move: from ${latestMove.from} to ${latestMove.to}, '
+          'promo: ${latestMove.promo}, piece: ${latestMove.piece}',
+        );
+
+        // Apply only the new move to our local game
+        _game.makeSquaresMove(latestMove);
+        _state = _game.squaresState(_player);
+
+        // Update move history with the new move
+        _moveHistory.add(_getMoveNotation(latestMove));
+
+        // Update captured pieces and check game over
+        updateCapturedPieces();
+        checkGameOver();
+
+        // Handle timer switching
+        _stopTimers();
+
+        // Start timer for the current player if game is not over
+        if (!_game.gameOver &&
+            ((_isHost && _game.state.turn == Squares.white) ||
+                (!_isHost && _game.state.turn == Squares.black))) {
+          _startTimer();
+        }
+      }
+    }
+
+    // Handle status changes (e.g., opponent joined, game ended)
+    if (updatedRoom.status == Constants.statusActive && !_game.gameOver) {
+      // Ensure timer is running if game becomes active and it's our turn
+      if (((_isHost && _game.state.turn == Squares.white) ||
+          (!_isHost && _game.state.turn == Squares.black))) {
+        _startTimer();
+      }
+    } else if (updatedRoom.status == Constants.statusCompleted ||
+        updatedRoom.status == Constants.statusAborted) {
+      _stopTimers();
+      // Set game result based on winnerId or status
+      if (updatedRoom.winnerId != null) {
+        final winnerColor =
+            updatedRoom.player1Id == updatedRoom.winnerId
+                ? updatedRoom.player1Color
+                : updatedRoom.player2Color;
+        _gameResultNotifier.value = WonGameResignation(winner: winnerColor!);
+      } else if (updatedRoom.drawOfferedBy != null) {
+        _gameResultNotifier.value = bishop.DrawnGame();
+      }
+      checkGameOver();
+    }
+
+    // Handle draw offers from opponent
+    _drawOfferReceived =
+        updatedRoom.drawOfferedBy != null &&
+        updatedRoom.drawOfferedBy !=
+            (_isHost ? _onlineGameRoom!.player1Id : _onlineGameRoom!.player2Id);
+
+    // Handle rematch offers from opponent
+    if (updatedRoom.rematchOfferedBy != null &&
+        updatedRoom.rematchOfferedBy !=
+            (_isHost
+                ? _onlineGameRoom!.player1Id
+                : _onlineGameRoom!.player2Id)) {
+      // Show rematch offer dialog
+      // This will be handled in GameScreen, just notify listeners
+    }
+
+    notifyListeners();
+  }
+
+  /// Waits for the game to become active (opponent joined)
+  Future<void> waitForGameToStart() async {
+    // If game is already active, return immediately
+    if (_onlineGameRoom?.status == Constants.statusActive) {
+      return;
+    }
+
+    // Create a completer to wait for the game to start
+    final completer = Completer<void>();
+
+    // Listen for status changes
+    late StreamSubscription<GameRoom> subscription;
+    subscription = _gameService
+        .streamGameRoom(_gameId)
+        .listen(
+          (gameRoom) {
+            if (gameRoom.status == Constants.statusActive) {
+              subscription.cancel();
+              completer.complete();
+            } else if (gameRoom.status == Constants.statusAborted ||
+                gameRoom.status == Constants.statusCompleted) {
+              subscription.cancel();
+              completer.completeError('Game was aborted or completed');
+            }
+          },
+          onError: (error) {
+            subscription.cancel();
+            completer.completeError(error);
+          },
+        );
+
+    // Wait for the game to start with a timeout
+    await completer.future.timeout(
+      const Duration(minutes: 5), // 5 minute timeout
+      onTimeout: () {
+        subscription.cancel();
+        // delete the game room if it was created and still waiting
+        if (_isHost &&
+            _onlineGameRoom != null &&
+            _onlineGameRoom!.status == Constants.statusWaiting) {
+          _gameService.deleteGameRoom(_onlineGameRoom!.gameId);
+        }
+        _logger.w('Timed out waiting for opponent to join');
+        // Show a timeout exception
+        throw TimeoutException(
+          'Timed out waiting for opponent',
+          const Duration(minutes: 5),
+        );
+      },
+    );
+  }
+
+  Future<void> cancelOnlineGameSearch() async {
+    try {
+      // Cancel the game room subscription
+      await gameRoomSubscription?.cancel();
+      gameRoomSubscription = null;
+
+      // If we created a game (we're the host), delete it
+      if (_isHost && _onlineGameRoom != null) {
+        await _gameService.deleteGameRoom(_onlineGameRoom!.gameId);
+        _logger.i('Deleted game room: ${_onlineGameRoom!.gameId}');
+      }
+
+      // Reset game state
+      _onlineGameRoom = null;
+      _gameId = '';
+      _isHost = false;
+      setIsOnlineGame(false);
+      setLoading(false);
+
+      notifyListeners();
+    } catch (e) {
+      _logger.e('Error canceling online game search: $e');
+      setLoading(false);
+    }
+  }
+
+  void updateLoadingMessage(
+    BuildContext context,
+    String message, {
+    bool showCancelButton = false,
+  }) {
+    if (context.mounted) {
+      LoadingDialog.updateMessage(
+        context,
+        message,
+        showOnlineCount: true,
+        showCancelButton: showCancelButton,
+        onCancel: showCancelButton ? () => cancelOnlineGameSearch() : null,
+      );
+    }
+  }
+
+  /// Saves the current game to Firestore and updates user statistics.
+  /// This method should be called when a game concludes (win, loss, draw).
+  Future<void> _saveCurrentGame(String userId) async {
+    if (_gameResultNotifier.value == null) {
+      _logger.w('Attempted to save game, but gameResult is null.');
+      return;
+    }
+
+    String result = 'unknown';
+    String winnerColor = Constants.none;
+    String opponentId = '';
+    String opponentDisplayName = 'CPU'; // Default for CPU games
+
+    if (_isOnlineGame && _onlineGameRoom != null) {
+      if (_isHost) {
+        opponentId = _onlineGameRoom!.player2Id ?? '';
+        opponentDisplayName = _onlineGameRoom!.player2DisplayName ?? 'Opponent';
+      } else {
+        opponentId = _onlineGameRoom!.player1Id;
+        opponentDisplayName = _onlineGameRoom!.player1DisplayName;
+      }
+    } else if (_vsCPU) {
+      opponentId = 'stockfish_ai'; // A placeholder ID for AI
+    } else if (_localMultiplayer) {
+      opponentId = 'local_player'; // A placeholder ID for local multiplayer
+      opponentDisplayName = 'Local Player';
+    }
+
+    if (_gameResultNotifier.value is bishop.WonGame) {
+      final winner = (_gameResultNotifier.value as bishop.WonGame).winner;
+      winnerColor = winner == Squares.white ? Constants.white : Constants.black;
+      if ((winner == Squares.white && _player == Squares.white) ||
+          (winner == Squares.black && _player == Squares.black)) {
+        result = Constants.win;
+      } else {
+        result = Constants.loss;
+      }
+    } else if (_gameResultNotifier.value is bishop.DrawnGame) {
+      result = Constants.draw;
+      winnerColor = Constants.none;
+    }
+
+    final savedGame = SavedGame(
+      gameId: _gameId.isNotEmpty ? _gameId : const Uuid().v4(),
+      userId: userId,
+      opponentId: opponentId,
+      opponentDisplayName: opponentDisplayName,
+      initialFen: _game.variant.startPosition!,
+      moves: _moveHistory,
+      result: result,
+      winnerColor: winnerColor,
+      gameMode: _selectedTimeControl,
+      initialWhitesTime: _savedWhitesTime.inMilliseconds,
+      initialBlacksTime: _savedBlacksTime.inMilliseconds,
+      finalWhitesTime: _whitesTime.inMilliseconds,
+      finalBlacksTime: _blacksTime.inMilliseconds,
+      createdAt: Timestamp.now(),
+    );
+
+    try {
+      await _savedGameService.saveGame(savedGame);
+      _logger.i('Game saved successfully to Firestore.');
+
+      // Update user statistics
+      await _userService.updateUserStatsAfterGame(
+        userId: userId,
+        gameResult: result,
+        gameMode: _selectedTimeControl,
+        gameId: savedGame.gameId,
+        opponentId: opponentId,
+      );
+      _logger.i('User statistics updated successfully.');
+    } catch (e) {
+      _logger.e('Failed to save game or update user stats: $e');
+    }
+  }
+
+  void _updateOnlineScoresOnGameOver() {
+    if (_scoresUpdatedForCurrentGame || _gameResultNotifier.value == null) {
+      return; // Ensure scores are updated only once per game
+    }
+
+    int newP1Score = _onlineGameRoom!.player1Score;
+    int newP2Score = _onlineGameRoom!.player2Score;
+
+    if (_gameResultNotifier.value is bishop.WonGame) {
+      final winner = (_gameResultNotifier.value as bishop.WonGame).winner;
+      if (winner == _onlineGameRoom!.player1Color) {
+        newP1Score++;
+      } else {
+        newP2Score++;
+      }
+    }
+    // No score change for a draw
+
+    // Update local state immediately for UI responsiveness
+    _player1OnlineScore = newP1Score;
+    _player2OnlineScore = newP2Score;
+
+    // Call the service to update Firestore
+    _gameService.updateGameScores(
+      _onlineGameRoom!.gameId,
+      newP1Score,
+      newP2Score,
+    );
+
+    _scoresUpdatedForCurrentGame = true;
+    _logger.i('Updated scores on game over: P1: $newP1Score, P2: $newP2Score');
   }
 }
