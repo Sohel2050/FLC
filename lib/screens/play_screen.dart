@@ -81,12 +81,11 @@ class _PlayScreenState extends State<PlayScreen> {
                     var userRating = currentClassicalRating;
 
                     // Get the user rating according to the selected game mode
-                    if (title == Constants.blitz) {
+                    if (title == Constants.blitz3 ||
+                        title == Constants.blitz5) {
                       userRating = currentUserBlitzRating;
                     } else if (title == Constants.tempo) {
                       userRating = currentUserTempoRating;
-                    } else if (title == Constants.quickBlitz) {
-                      userRating = currentUserBlitzRating;
                     } else if (title == Constants.classical) {
                       userRating = currentClassicalRating;
                     }

@@ -80,6 +80,12 @@ class GameProvider extends ChangeNotifier {
   Duration _savedWhitesTime = Duration.zero;
   Duration _savedBlacksTime = Duration.zero;
 
+  // Time control variables
+  Duration? _timePerMove;
+  Duration? _bonusTime;
+  Duration? _bonusThreshold;
+  DateTime? _turnStartTime;
+
   // Online game scores
   int _player1OnlineScore = 0;
   int _player2OnlineScore = 0;
@@ -372,15 +378,30 @@ class GameProvider extends ChangeNotifier {
   }
 
   void _parseTimeControl(String timeControl) {
-    // Parse different time control formats
+    // Reset all time control variables
+    _timePerMove = null;
+    _bonusTime = null;
+    _bonusThreshold = null;
+    _incrementalValue = 0;
+
     if (timeControl.contains('sec/move')) {
       // Format: "60 sec/move"
       final seconds = int.tryParse(timeControl.split(' ')[0]) ?? 60;
-      _whitesTime = Duration(seconds: seconds);
-      _blacksTime = Duration(seconds: seconds);
-      _incrementalValue = 0;
+      _timePerMove = Duration(seconds: seconds);
+      _whitesTime = _timePerMove!;
+      _blacksTime = _timePerMove!;
+    } else if (timeControl.contains('bonus')) {
+      // Format: "3 min + 5s bonus 3s"
+      final parts = timeControl.replaceAll('s', '').split(' ');
+      final minutes = int.tryParse(parts[0]) ?? 3;
+      final bonusSeconds = int.tryParse(parts[3]) ?? 5;
+      final thresholdSeconds = int.tryParse(parts[5]) ?? 3;
+      _whitesTime = Duration(minutes: minutes);
+      _blacksTime = Duration(minutes: minutes);
+      _bonusTime = Duration(seconds: bonusSeconds);
+      _bonusThreshold = Duration(seconds: thresholdSeconds);
     } else if (timeControl.contains('min + ') && timeControl.contains('sec')) {
-      // Format: "5 min + 3 sec"
+      // Format: "5 min + 3 sec" - Legacy increment
       final parts = timeControl.split(' ');
       final minutes = int.tryParse(parts[0]) ?? 5;
       final increment = int.tryParse(parts[4]) ?? 3;
@@ -411,6 +432,16 @@ class GameProvider extends ChangeNotifier {
   // Start the timer for the current player
   void _startTimer() {
     _stopTimers(); // Stop any existing timers
+    _turnStartTime = DateTime.now();
+
+    if (_timePerMove != null) {
+      if (_game.state.turn == Squares.white) {
+        _whitesTime = _timePerMove!;
+      } else {
+        _blacksTime = _timePerMove!;
+      }
+    }
+
     if (_game.state.turn == Squares.white) {
       _playWhitesTimer = true;
       _playBlacksTimer = false;
@@ -502,8 +533,13 @@ class GameProvider extends ChangeNotifier {
 
     // For online games, times are set from the GameRoom update
     if (!_isOnlineGame) {
-      _whitesTime = _savedWhitesTime;
-      _blacksTime = _savedBlacksTime;
+      if (_timePerMove != null) {
+        _whitesTime = _timePerMove!;
+        _blacksTime = _timePerMove!;
+      } else {
+        _whitesTime = _savedWhitesTime;
+        _blacksTime = _savedBlacksTime;
+      }
     }
 
     _game = bishop.Game(variant: bishop.Variant.standard());
@@ -614,8 +650,23 @@ class GameProvider extends ChangeNotifier {
         _state = _game.squaresState(_player);
       }
 
-      // Add increment time after a successful move
-      if (_incrementalValue > 0) {
+      // Add increment/bonus time after a successful move
+      if (_timePerMove != null) {
+        // For per-move modes, the timer is reset in _startTimer for the next player
+      } else if (_bonusTime != null &&
+          _bonusThreshold != null &&
+          _turnStartTime != null) {
+        final moveDuration = DateTime.now().difference(_turnStartTime!);
+        if (moveDuration <= _bonusThreshold!) {
+          if (_game.state.turn == Squares.white) {
+            // Bonus for black who just moved
+            _blacksTime += _bonusTime!;
+          } else {
+            // Bonus for white who just moved
+            _whitesTime += _bonusTime!;
+          }
+        }
+      } else if (_incrementalValue > 0) {
         if (_game.state.turn == Squares.white) {
           _blacksTime += Duration(seconds: _incrementalValue);
         } else {
@@ -810,8 +861,23 @@ class GameProvider extends ChangeNotifier {
 
         _state = _game.squaresState(_player);
 
-        // Add increment time after a successful move
-        if (_incrementalValue > 0) {
+        // Add increment/bonus time after a successful move
+        if (_timePerMove != null) {
+          // For per-move modes, the timer is reset in _startTimer for the next player
+        } else if (_bonusTime != null &&
+            _bonusThreshold != null &&
+            _turnStartTime != null) {
+          final moveDuration = DateTime.now().difference(_turnStartTime!);
+          if (moveDuration <= _bonusThreshold!) {
+            if (_game.state.turn == Squares.white) {
+              // Bonus for black who just moved
+              _blacksTime += _bonusTime!;
+            } else {
+              // Bonus for white who just moved
+              _whitesTime += _bonusTime!;
+            }
+          }
+        } else if (_incrementalValue > 0) {
           if (_game.state.turn == Squares.white) {
             _blacksTime += Duration(seconds: _incrementalValue);
           } else {
