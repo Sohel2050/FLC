@@ -1,24 +1,13 @@
 import 'dart:math';
 import 'package:flutter_chess_app/services/rating_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
+import 'package:get_it/get_it.dart';
 import 'package:logger/logger.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:provider/provider.dart';
 import '../models/user_model.dart';
 import '../services/sign_in_results.dart';
 import '../providers/user_provider.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_chess_app/services/rating_service.dart';
-import 'package:flutter_chess_app/utils/constants.dart';
-import 'package:logger/logger.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:provider/provider.dart';
-import '../models/user_model.dart';
-import '../services/sign_in_results.dart';
-import '../providers/user_provider.dart';
-import 'package:flutter/material.dart';
 
 class UserService {
   final Logger logger = Logger();
@@ -335,8 +324,9 @@ class UserService {
         // Update Firestore document for current user
         transaction.update(userDocRef, updatedUser.toMap());
 
+        final userProvider = GetIt.instance<UserProvider>();
         // Update userProvider with the new rating
-        context.read<UserProvider>().updateUserRating(
+        userProvider.updateUserRating(
           ratingTypeField,
           newRatings['player1Rating']!,
         );

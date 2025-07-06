@@ -7,6 +7,7 @@ import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
+import 'package:get_it/get_it.dart';
 import 'screens/login_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -15,8 +16,10 @@ import 'models/user_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  setupServiceLocator();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   runApp(
     MultiProvider(
       providers: [
@@ -27,6 +30,10 @@ void main() async {
       child: const MyApp(),
     ),
   );
+}
+
+void setupServiceLocator() {
+  GetIt.instance.registerSingleton<UserProvider>(UserProvider());
 }
 
 class MyApp extends StatefulWidget {

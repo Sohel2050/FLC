@@ -292,32 +292,11 @@ class _GameOverDialogState extends State<GameOverDialog> {
     // final int player1Score = onlineGameRoom.player1Score;
     // final int player2Score = onlineGameRoom.player2Score;
 
-    return Column(
-      children: [
-        Text('Scores:', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 8),
-        // Row(
-        //   mainAxisAlignment: MainAxisAlignment.center,
-        //   children: [
-        //     Text(
-        //       '$player1Name: $player1Score',
-        //       style: Theme.of(context).textTheme.titleMedium,
-        //     ),
-        //     const SizedBox(width: 20),
-        //     Text(
-        //       '$player2Name: $player2Score',
-        //       style: Theme.of(context).textTheme.titleMedium,
-        //     ),
-        //   ],
-        // ),
-        // const SizedBox(height: 16),
-        Text(
-          isHost
-              ? 'Your Rating: ${onlineGameRoom.player1Rating}'
-              : 'Your Rating: ${onlineGameRoom.player2Rating ?? widget.user.classicalRating}',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-      ],
+    return Text(
+      isHost
+          ? 'Your Rating: ${onlineGameRoom.player1Rating}'
+          : 'Your Rating: ${onlineGameRoom.player2Rating ?? widget.user.classicalRating}',
+      style: Theme.of(context).textTheme.titleMedium,
     );
   }
 }
