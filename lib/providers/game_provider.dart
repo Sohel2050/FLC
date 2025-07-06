@@ -974,13 +974,6 @@ class GameProvider extends ChangeNotifier {
 
   /// Handles updates received from the online game room stream.
   void onOnlineGameRoomUpdate(GameRoom updatedRoom) {
-    _logger.i('=== _onOnlineGameRoomUpdate called ===');
-    _logger.i('Updated room status: ${updatedRoom.status}');
-    _logger.i('Updated room moves count: ${updatedRoom.moves.length}');
-    _logger.i('Current local moves count: ${_moveHistory.length}');
-    _logger.i('Updated room FEN: ${updatedRoom.fen}');
-    _logger.i('Current local FEN: ${_game.fen}');
-
     final bool wasGameOver = isGameOver;
     _onlineGameRoom = updatedRoom;
     _gameId = updatedRoom.gameId;
@@ -1261,7 +1254,7 @@ class GameProvider extends ChangeNotifier {
         gameResult: result,
         gameMode: _selectedTimeControl,
         gameId: savedGame.gameId,
-        opponentId: opponentId, // Pass opponentId for rating calculation
+        opponentId: opponentId,
       );
       _logger.i('User statistics updated successfully.');
     } catch (e) {

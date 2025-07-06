@@ -4,8 +4,21 @@ import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:logger/logger.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import '../models/user_model.dart';
 import '../services/sign_in_results.dart';
+import '../providers/user_provider.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/services/rating_service.dart';
+import 'package:flutter_chess_app/utils/constants.dart';
+import 'package:logger/logger.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
+import '../models/user_model.dart';
+import '../services/sign_in_results.dart';
+import '../providers/user_provider.dart';
+import 'package:flutter/material.dart';
 
 class UserService {
   final Logger logger = Logger();
@@ -34,9 +47,7 @@ class UserService {
         Constants.isOnline: isOnline,
         Constants.lastSeen: FieldValue.serverTimestamp(),
       });
-      logger.i('User status updated to online: $isOnline for UID: $uid');
     } catch (e) {
-      logger.e('Error updating user status to online: $e');
       throw Exception('An unknown error occurred while updating user status.');
     }
   }
@@ -64,10 +75,8 @@ class UserService {
         return newUser;
       }
     } on FirebaseAuthException catch (e) {
-      logger.e('Firebase Auth Error during sign up: ${e.code} - ${e.message}');
       throw Exception(e.message);
     } catch (e) {
-      logger.e('Error during sign up: $e');
       throw Exception('An unknown error occurred during sign up.');
     }
     return null;
@@ -94,7 +103,6 @@ class UserService {
                   .get();
 
           if (userDoc.exists) {
-            logger.i('User signed in: ${firebaseUser.email}');
             final ChessUser chessUser = ChessUser.fromMap(
               userDoc.data() as Map<String, dynamic>,
             );
@@ -114,21 +122,16 @@ class UserService {
                 .collection(Constants.usersCollection)
                 .doc(firebaseUser.uid)
                 .set(currentUser.toMap());
-            logger.i(
-              'Created missing user document for: ${firebaseUser.email}',
-            );
             return SignInSuccess(currentUser);
           }
         } on FirebaseException catch (e) {
           if (e.code == 'permission-denied') {
-            logger.e('Permission denied accessing user document');
             return SignInError('Permission denied. Please try again.');
           }
           rethrow;
         }
       }
     } on FirebaseAuthException catch (e) {
-      logger.e('Firebase Auth Error during sign in: ${e.code} - ${e.message}');
       return SignInError(e.message ?? 'Authentication failed');
     } catch (e) {
       logger.e('Error during sign in: $e');
@@ -140,9 +143,7 @@ class UserService {
   Future<void> signOut() async {
     try {
       await _auth.signOut();
-      logger.i('User signed out.');
     } catch (e) {
-      logger.e('Error during sign out: $e');
       throw Exception('An unknown error occurred during sign out.');
     }
   }
@@ -152,17 +153,12 @@ class UserService {
       User? user = _auth.currentUser;
       if (user != null && !user.emailVerified) {
         await user.sendEmailVerification();
-        logger.i('Email verification resent to: ${user.email}');
       } else {
         throw Exception('No user found or email already verified.');
       }
     } on FirebaseAuthException catch (e) {
-      logger.e(
-        'Firebase Auth Error during email verification resend: ${e.code} - ${e.message}',
-      );
       throw Exception(e.message);
     } catch (e) {
-      logger.e('Error during email verification resend: $e');
       throw Exception(
         'An unknown error occurred while resending verification email.',
       );
@@ -172,14 +168,9 @@ class UserService {
   Future<void> resetPassword(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email);
-      logger.i('Password reset email sent to: $email');
     } on FirebaseAuthException catch (e) {
-      logger.e(
-        'Firebase Auth Error during password reset: ${e.code} - ${e.message}',
-      );
       throw Exception(e.message);
     } catch (e) {
-      logger.e('Error during password reset: $e');
       throw Exception('An unknown error occurred during password reset.');
     }
   }
@@ -191,9 +182,7 @@ class UserService {
         throw ArgumentError('Invalid user name: ${user.displayName}');
       }
       await _firestore.collection('users').doc(user.uid).update(user.toMap());
-      logger.i('User data updated for: ${user.displayName}');
     } catch (e) {
-      logger.e('Error updating user data: $e');
       throw Exception('An unknown error occurred while updating user data.');
     }
   }
@@ -202,14 +191,9 @@ class UserService {
     try {
       await _firestore.collection(Constants.usersCollection).doc(uid).delete();
       await _auth.currentUser?.delete();
-      logger.i('User account deleted for UID: $uid');
     } on FirebaseAuthException catch (e) {
-      logger.e(
-        'Firebase Auth Error during account deletion: ${e.code} - ${e.message}',
-      );
       throw Exception(e.message);
     } catch (e) {
-      logger.e('Error during account deletion: $e');
       throw Exception('An unknown error occurred during account deletion.');
     }
   }
@@ -236,7 +220,7 @@ class UserService {
     required String gameResult,
     required String gameMode,
     required String gameId,
-    String? opponentId, // Added for online games
+    String? opponentId,
   }) async {
     try {
       final userDocRef = _firestore
@@ -350,6 +334,12 @@ class UserService {
 
         // Update Firestore document for current user
         transaction.update(userDocRef, updatedUser.toMap());
+
+        // Update userProvider with the new rating
+        context.read<UserProvider>().updateUserRating(
+          ratingTypeField,
+          newRatings['player1Rating']!,
+        );
 
         // Update opponent's rating if applicable
         if (opponentUser != null && opponentDocRef != null) {
