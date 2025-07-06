@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/screens/profile_screen.dart';
 import 'package:flutter_chess_app/screens/rating_screen.dart';
 import 'package:flutter_chess_app/screens/saved_games_screen.dart';
 import 'package:flutter_chess_app/screens/statistics_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
+import 'package:flutter_chess_app/widgets/animated_dialog.dart';
+import 'package:flutter_chess_app/widgets/game_invite_dialog.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:upgrader/upgrader.dart';
 import '../models/user_model.dart';
@@ -11,6 +14,8 @@ import 'friends_screen.dart';
 import 'options_screen.dart';
 import 'play_screen.dart';
 import 'rules_info_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_chess_app/services/game_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final ChessUser user;
@@ -109,6 +114,62 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ],
           ),
           actions: [
+            // Game Invites Icon
+            if (!widget.user.isGuest)
+              StreamBuilder<List<GameRoom>>(
+                stream: context.read<GameService>().streamGameInvites(
+                  widget.user.uid!,
+                ),
+                builder: (context, snapshot) {
+                  final invites = snapshot.data ?? [];
+                  final hasInvites = invites.isNotEmpty;
+
+                  return Stack(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.mail_outline),
+                        onPressed: () {
+                          AnimatedDialog.show(
+                            context: context,
+                            title: 'Game Invites',
+                            barrierDismissible: true,
+                            maxWidth: 400,
+                            child: GameInvitesDialog(
+                              user: widget.user,
+                              invites: invites,
+                            ),
+                          );
+                        },
+                      ),
+                      if (hasInvites)
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              '${invites.length}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
               onSelected: (value) {

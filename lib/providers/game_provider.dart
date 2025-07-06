@@ -1020,6 +1020,9 @@ class GameProvider extends ChangeNotifier {
       );
     }
 
+    // Send game notification for friends notification collection
+    _gameService.sendGameNotification(gameRoom: _onlineGameRoom!);
+
     // Set up real-time listener for the game room
     gameRoomSubscription = _gameService
         .streamGameRoom(_gameId)
@@ -1064,6 +1067,146 @@ class GameProvider extends ChangeNotifier {
 
     setLoading(false);
     notifyListeners();
+  }
+
+  Future<bool> joinPrivateGameRoom({
+    required BuildContext context,
+    required String userId,
+    required String displayName,
+    String? photoUrl,
+    required int userRating,
+    required String gameMode,
+  }) async {
+    // Set loading
+    setLoading(true);
+    setIsOnlineGame(true);
+    setTimeControl(gameMode);
+
+    try {
+      // We check if the game is still available
+      GameRoom? isAvailable = await _gameService.findAvailableGame(
+        gameMode: gameMode,
+        userRating: userRating,
+        isPrivate: true,
+        currentUserId: userId,
+      );
+
+      if (isAvailable != null) {
+        // Update message when joining
+        if (context != null) {
+          updateLoadingMessage(
+            context,
+            'Joining game...',
+            showCancelButton: false,
+          );
+        }
+
+        // Join existing game
+        _isHost = false;
+        _onlineGameRoom = isAvailable;
+        _gameId = isAvailable.gameId;
+        _player = Squares.black; // Joining player is Black
+
+        await _gameService.joinGameRoom(
+          gameId: isAvailable.gameId,
+          player2Id: userId,
+          player2DisplayName: displayName,
+          player2PhotoUrl: photoUrl,
+          player2Rating: userRating,
+        );
+
+        // Delete the notification
+        await _gameService.deleteGameNotification(userId, gameId);
+
+        _logger.i('Joined game: ${isAvailable.gameId}');
+
+        // Update message when game is ready
+        if (context != null) {
+          updateLoadingMessage(
+            context,
+            'Game ready! Starting...',
+            showCancelButton: false,
+          );
+        }
+      } else {
+        // Update message game not found and return
+        setLoading(false);
+        if (context != null) {
+          updateLoadingMessage(
+            context,
+            'Game note found...',
+            showCancelButton: false,
+          );
+        }
+
+        return false;
+      }
+
+      // Set up real-time listener for the game room
+      gameRoomSubscription = _gameService
+          .streamGameRoom(_gameId)
+          .listen(
+            onOnlineGameRoomUpdate,
+            onError: (error) {
+              _logger.e('Error streaming game room $_gameId: $error');
+              // Handle error, e.g., show a snackbar
+            },
+            onDone: () {
+              _logger.i('Game room $_gameId stream closed.');
+            },
+          );
+
+      // Initialize game state based on the online game room
+      _whitesTime = Duration(milliseconds: _onlineGameRoom!.initialWhitesTime);
+      _blacksTime = Duration(milliseconds: _onlineGameRoom!.initialBlacksTime);
+      // Initialize game state based on the online game room
+      _whitesTime = Duration(
+        milliseconds: _onlineGameRoom!.whitesTimeRemaining,
+      ); // Use remaining time
+      _blacksTime = Duration(
+        milliseconds: _onlineGameRoom!.blacksTimeRemaining,
+      ); // Use remaining time
+      _player1OnlineScore = _onlineGameRoom!.player1Score;
+      _player2OnlineScore = _onlineGameRoom!.player2Score;
+
+      _game = bishop.Game(fen: _onlineGameRoom!.fen);
+      _state = _game.squaresState(_player);
+
+      // Apply historical moves if any
+      for (var moveString in _onlineGameRoom!.moves) {
+        _game.makeSquaresMove(_convertMoveStringToMove(moveString: moveString));
+      }
+
+      // Start timer if game is active and it's our turn
+      if (_onlineGameRoom!.status == Constants.statusActive &&
+          ((_isHost && _game.state.turn == Squares.white) ||
+              (!_isHost && _game.state.turn == Squares.black))) {
+        _startTimer();
+      }
+
+      setLoading(false);
+      notifyListeners();
+
+      return true;
+    } catch (e) {
+      _logger.e('Error during online game joining: $e');
+      setLoading(false);
+      // Handle error, e.g., show a snackbar
+      rethrow;
+      return false;
+    }
+  }
+
+  Future<void> declineGameInvite(String gameId, String userId) async {
+    try {
+      // Delete the game room and notification
+      await _gameService.declineGameInvite(gameId, userId);
+
+      notifyListeners();
+    } catch (e) {
+      _logger.e('Error declining game invite: $e');
+      rethrow;
+    }
   }
 
   // Future<void> startOnlineGameWithRoom(GameRoom room, ChessUser user) async {
@@ -1230,9 +1373,12 @@ class GameProvider extends ChangeNotifier {
               subscription.cancel();
               completer.complete();
             } else if (gameRoom.status == Constants.statusAborted ||
-                gameRoom.status == Constants.statusCompleted) {
+                gameRoom.status == Constants.statusCompleted ||
+                gameRoom.status == Constants.statusDeclined) {
               subscription.cancel();
-              completer.completeError('Game was aborted or completed');
+              completer.completeError(
+                'Game was aborted, declined or completed',
+              );
             }
           },
           onError: (error) {
@@ -1262,7 +1408,7 @@ class GameProvider extends ChangeNotifier {
     );
   }
 
-  Future<void> cancelOnlineGameSearch() async {
+  Future<void> cancelOnlineGameSearch({bool isFriend = false}) async {
     try {
       // Cancel the game room subscription
       await gameRoomSubscription?.cancel();
@@ -1271,6 +1417,13 @@ class GameProvider extends ChangeNotifier {
       // If we created a game (we're the host), delete it
       if (_isHost && _onlineGameRoom != null) {
         await _gameService.deleteGameRoom(_onlineGameRoom!.gameId);
+        // If it was a friend invite we also need to delete the notification
+        if (isFriend) {
+          await _gameService.deleteGameNotification(
+            _onlineGameRoom!.player2Id!,
+            _onlineGameRoom!.gameId,
+          );
+        }
         _logger.i('Deleted game room: ${_onlineGameRoom!.gameId}');
       }
 

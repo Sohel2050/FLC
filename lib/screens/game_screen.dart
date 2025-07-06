@@ -208,8 +208,8 @@ class _GameScreenState extends State<GameScreen> {
                 gameProvider.vsCPU
                     ? 'VS CPU'
                     : gameProvider.localMultiplayer
-                    ? 'Local Multiplayer'
-                    : 'Online Game',
+                    ? 'Local'
+                    : 'Online',
               ),
               actions: [
                 IconButton(

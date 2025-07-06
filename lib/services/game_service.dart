@@ -45,8 +45,8 @@ class GameService {
       blacksTimeRemaining: initialBlacksTime,
       player1Score: 0,
       player2Score: 0,
-      isPrivate: true, // Mark as private
-      spectatorLink: 'https://yourdomain.com/spectate?gameId=$gameId',
+      isPrivate: true,
+      spectatorLink: null,
     );
 
     try {
@@ -101,7 +101,7 @@ class GameService {
       player1Score: player1Score,
       player2Score: player2Score,
       isPrivate: false,
-      spectatorLink: 'https://yourdomain.com/spectate?gameId=$gameId',
+      spectatorLink: null,
     );
 
     try {
@@ -117,11 +117,27 @@ class GameService {
     }
   }
 
+  // Send game notification to friends notification collection
+  Future<void> sendGameNotification({required GameRoom gameRoom}) async {
+    try {
+      await _firestore
+          .collection(Constants.notificationsCollection)
+          .doc(gameRoom.player2Id)
+          .collection(Constants.invitesCollection)
+          .doc(gameRoom.gameId)
+          .set(gameRoom.toMap());
+      _logger.i('Game notification sent to ${gameRoom.player2Id}');
+    } catch (e) {
+      _logger.e('Error sending game notification: $e');
+    }
+  }
+
   /// Finds an available game room based on game mode and rating.
   Future<GameRoom?> findAvailableGame({
     required String gameMode,
     required int userRating,
-    required bool ratingBasedSearch,
+    bool ratingBasedSearch = false,
+    bool isPrivate = false,
     required String currentUserId, // Add this parameter
   }) async {
     _logger.i('Finding available game for mode: $gameMode');
@@ -133,7 +149,7 @@ class GameService {
           .where(Constants.fieldStatus, isEqualTo: Constants.statusWaiting)
           .where(
             Constants.fieldIsPrivate,
-            isEqualTo: false,
+            isEqualTo: isPrivate,
           ) // Exclude private games
           .orderBy(
             Constants.fieldCreatedAt,
@@ -243,6 +259,36 @@ class GameService {
         });
   }
 
+  Stream<List<GameRoom>> streamGameInvites(String userId) {
+    return _firestore
+        .collection(Constants.notificationsCollection)
+        .doc(userId)
+        .collection(Constants.invitesCollection)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => GameRoom.fromMap(doc.data())).toList(),
+        );
+  }
+
+  Future<void> declineGameInvite(String gameId, String userId) async {
+    try {
+      // Delete the game room
+      await _firestore
+          .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .update({Constants.fieldStatus: Constants.statusDeclined});
+
+      // Delete the notification
+      await deleteGameNotification(userId, gameId);
+
+      _logger.i('Game invite declined: $gameId');
+    } catch (e) {
+      _logger.e('Error declining game invite: $e');
+      rethrow;
+    }
+  }
+
   // Deletes a game room by its ID.
   /// This method is used when a game is completed or cancelled.
   /// It removes the game room document from Firestore.
@@ -250,6 +296,22 @@ class GameService {
     try {
       await _firestore
           .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .delete();
+      _logger.i('Game room deleted: $gameId');
+    } catch (e) {
+      _logger.e('Error deleting game room: $e');
+    }
+  }
+
+  // Delete a game notification
+  /// This is used when the game has started or canclled
+  Future<void> deleteGameNotification(String userId, String gameId) async {
+    try {
+      await _firestore
+          .collection(Constants.notificationsCollection)
+          .doc(userId)
+          .collection(Constants.invitesCollection)
           .doc(gameId)
           .delete();
       _logger.i('Game room deleted: $gameId');

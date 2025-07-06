@@ -304,7 +304,7 @@ class _FriendsScreenState extends State<FriendsScreen>
       barrierDismissible: false,
       showOnlineCount: true,
       showCancelButton: true,
-      onCancel: () => gameProvider.cancelOnlineGameSearch(),
+      onCancel: () => gameProvider.cancelOnlineGameSearch(isFriend: true),
     );
     try {
       await gameProvider.createPrivateGameRoom(

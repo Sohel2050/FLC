@@ -46,6 +46,8 @@ class Constants {
   static const String achievementsCollection = 'achievements';
   static const String gameRoomsCollection = 'gameRooms';
   static const String gameHistoryCollection = 'gameHistory';
+  static const String notificationsCollection = 'notifications';
+  static const String invitesCollection = 'invites';
 
   // Firestore fields
   static const String fieldPlayer1Id = 'player1Id';
@@ -96,6 +98,7 @@ class Constants {
   static const String statusActive = 'active';
   static const String statusCompleted = 'completed';
   static const String statusAborted = 'aborted';
+  static const String statusDeclined = 'declined';
 
   // Game results
   static const String win = 'win';
