@@ -109,30 +109,30 @@ class _FriendsScreenState extends State<FriendsScreen>
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (friend.isOnline)
-                    IconButton(
-                      icon: const Icon(Icons.tv),
-                      onPressed: () async {
-                        final game = await _gameService.getCurrentGameForUser(
-                          friend.uid!,
-                        );
-                        if (game != null) {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder:
-                                  (context) =>
-                                      SpectatorScreen(gameId: game.gameId),
-                            ),
-                          );
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Friend is not in a game.'),
-                            ),
-                          );
-                        }
-                      },
-                    ),
+                  // if (friend.isOnline)
+                  //   IconButton(
+                  //     icon: const Icon(Icons.tv),
+                  //     onPressed: () async {
+                  //       final game = await _gameService.getCurrentGameForUser(
+                  //         friend.uid!,
+                  //       );
+                  //       if (game != null) {
+                  //         Navigator.of(context).push(
+                  //           MaterialPageRoute(
+                  //             builder:
+                  //                 (context) =>
+                  //                     SpectatorScreen(gameId: game.gameId),
+                  //           ),
+                  //         );
+                  //       } else {
+                  //         ScaffoldMessenger.of(context).showSnackBar(
+                  //           const SnackBar(
+                  //             content: Text('Friend is not in a game.'),
+                  //           ),
+                  //         );
+                  //       }
+                  //     },
+                  //   ),
                   IconButton(
                     icon: const Icon(Icons.videogame_asset),
                     onPressed: () => _showInviteDialog(friend),
