@@ -124,6 +124,8 @@ class GameService {
     required bool ratingBasedSearch,
     required String currentUserId, // Add this parameter
   }) async {
+    _logger.i('Finding available game for mode: $gameMode');
+
     try {
       Query query = _firestore
           .collection(Constants.gameRoomsCollection)

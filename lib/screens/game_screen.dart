@@ -97,9 +97,6 @@ class _GameScreenState extends State<GameScreen> {
         if (_gameProvider.isOnlineGame) {
           _gameProvider.resetGame(true);
         }
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
       }
       // We still need to check for game over to save the game.
       _gameProvider.checkGameOver(userId: userId);
