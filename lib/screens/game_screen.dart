@@ -10,6 +10,7 @@ import 'package:flutter_chess_app/widgets/draw_offer_widget.dart';
 import 'package:flutter_chess_app/widgets/game_over_dialog.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:squares/squares.dart';
 
 class GameScreen extends StatefulWidget {
@@ -230,6 +231,19 @@ class _GameScreenState extends State<GameScreen> {
                   icon: const Icon(Icons.flag),
                   tooltip: 'Resign',
                 ),
+                if (gameProvider.isOnlineGame)
+                  IconButton(
+                    onPressed: () {
+                      final gameRoom = gameProvider.onlineGameRoom;
+                      if (gameRoom != null && gameRoom.spectatorLink != null) {
+                        Share.share(
+                          'Watch my chess game: ${gameRoom.spectatorLink}',
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.share),
+                    tooltip: 'Share Spectator Link',
+                  ),
               ],
             ),
             body: Stack(

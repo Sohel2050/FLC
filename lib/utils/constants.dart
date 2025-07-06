@@ -14,6 +14,8 @@ class Constants {
   static const String gamesDraw = 'gamesDraw';
   static const String achievements = 'achievements';
   static const String friends = 'friends';
+  static const String friendRequestsSent = 'friendRequestsSent';
+  static const String friendRequestsReceived = 'friendRequestsReceived';
   static const String isOnline = 'isOnline';
   static const String lastSeen = 'lastSeen';
   static const String isGuest = 'isGuest';
@@ -72,6 +74,8 @@ class Constants {
   static const String fieldBlacksTimeRemaining = 'blacksTimeRemaining';
   static const String fieldPlayer1Score = 'player1Score';
   static const String fieldPlayer2Score = 'player2Score';
+  static const String fieldIsPrivate = 'isPrivate';
+  static const String fieldSpectatorLink = 'spectatorLink';
 
   // Saved Game fields
   static const String fieldUserId = 'userId';

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/saved_game_model.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
+import 'package:flutter_chess_app/services/friend_service.dart';
 import 'package:flutter_chess_app/services/saved_game_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:intl/intl.dart';
@@ -16,6 +17,7 @@ class SavedGamesScreen extends StatefulWidget {
 
 class _SavedGamesScreenState extends State<SavedGamesScreen> {
   final SavedGameService _savedGameService = SavedGameService();
+  final FriendService _friendService = FriendService();
   late Future<List<SavedGame>> _savedGamesFuture;
 
   @override
@@ -64,7 +66,29 @@ class _SavedGamesScreenState extends State<SavedGamesScreen> {
                         ),
                       ],
                     ),
-                    trailing: _buildResultIcon(game.result),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (game.opponentId.isNotEmpty &&
+                            game.opponentId != 'stockfish_ai' &&
+                            game.opponentId != 'local_player')
+                          IconButton(
+                            icon: const Icon(Icons.person_add),
+                            onPressed: () {
+                              _friendService.sendFriendRequest(
+                                currentUserId: widget.user.uid!,
+                                friendUserId: game.opponentId,
+                              );
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Friend request sent!'),
+                                ),
+                              );
+                            },
+                          ),
+                        _buildResultIcon(game.result),
+                      ],
+                    ),
                     onTap: () {
                       // TODO: Implement replay functionality
                       ScaffoldMessenger.of(context).showSnackBar(

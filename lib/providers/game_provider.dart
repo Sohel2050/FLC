@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/models/saved_game_model.dart';
+import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/services/captured_piece_tracker.dart';
 import 'package:flutter_chess_app/services/game_service.dart';
 import 'package:flutter_chess_app/services/saved_game_service.dart';
@@ -970,6 +971,31 @@ class GameProvider extends ChangeNotifier {
       // Handle error, e.g., show a snackbar
       rethrow;
     }
+  }
+
+  Future<void> startOnlineGameWithRoom(GameRoom room, ChessUser user) async {
+    setLoading(true);
+    setIsOnlineGame(true);
+    _onlineGameRoom = room;
+    _gameId = room.gameId;
+    _isHost = room.player1Id == user.uid;
+    _player = _isHost ? room.player1Color : room.player2Color!;
+
+    // Set up real-time listener for the game room
+    gameRoomSubscription = _gameService
+        .streamGameRoom(_gameId)
+        .listen(onOnlineGameRoomUpdate);
+
+    _whitesTime = Duration(milliseconds: room.initialWhitesTime);
+    _blacksTime = Duration(milliseconds: room.initialBlacksTime);
+    _player1OnlineScore = room.player1Score;
+    _player2OnlineScore = room.player2Score;
+
+    _game = bishop.Game(fen: room.fen);
+    _state = _game.squaresState(_player);
+
+    setLoading(false);
+    notifyListeners();
   }
 
   /// Handles updates received from the online game room stream.

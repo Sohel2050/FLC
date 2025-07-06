@@ -10,6 +10,58 @@ class GameService {
   final Logger _logger = Logger();
   final Uuid _uuid = const Uuid();
 
+  /// Creates a private game room for a friend challenge.
+  Future<GameRoom> createPrivateGameRoom({
+    required String gameMode,
+    required String player1Id,
+    required String player2Id,
+    required String player1DisplayName,
+    String? player1PhotoUrl,
+    required int player1Rating,
+    required int initialWhitesTime,
+    required int initialBlacksTime,
+  }) async {
+    final String gameId = _uuid.v4();
+    final Timestamp now = Timestamp.now();
+
+    final GameRoom newGameRoom = GameRoom(
+      gameId: gameId,
+      gameMode: gameMode,
+      player1Id: player1Id,
+      player2Id: player2Id, // Invited friend
+      player1DisplayName: player1DisplayName,
+      player1PhotoUrl: player1PhotoUrl,
+      player1Color: Squares.white,
+      status: Constants.statusWaiting, // Waiting for friend to accept
+      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      moves: [],
+      createdAt: now,
+      lastMoveAt: now,
+      player1Rating: player1Rating,
+      ratingBasedSearch: false, // Not for public matchmaking
+      initialWhitesTime: initialWhitesTime,
+      initialBlacksTime: initialBlacksTime,
+      whitesTimeRemaining: initialWhitesTime,
+      blacksTimeRemaining: initialBlacksTime,
+      player1Score: 0,
+      player2Score: 0,
+      isPrivate: true, // Mark as private
+      spectatorLink: 'https://yourdomain.com/spectate?gameId=$gameId',
+    );
+
+    try {
+      await _firestore
+          .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .set(newGameRoom.toMap());
+      _logger.i('Private game room created: $gameId');
+      return newGameRoom;
+    } catch (e) {
+      _logger.e('Error creating private game room: $e');
+      rethrow;
+    }
+  }
+
   /// Creates a new game room in Firestore.
   Future<GameRoom> createGameRoom({
     required String gameMode,
@@ -48,6 +100,8 @@ class GameService {
       blacksTimeRemaining: initialBlacksTime, // Set initial remaining time
       player1Score: player1Score,
       player2Score: player2Score,
+      isPrivate: false,
+      spectatorLink: 'https://yourdomain.com/spectate?gameId=$gameId',
     );
 
     try {
@@ -75,6 +129,10 @@ class GameService {
           .collection(Constants.gameRoomsCollection)
           .where(Constants.fieldGameMode, isEqualTo: gameMode)
           .where(Constants.fieldStatus, isEqualTo: Constants.statusWaiting)
+          .where(
+            Constants.fieldIsPrivate,
+            isEqualTo: false,
+          ) // Exclude private games
           .orderBy(
             Constants.fieldCreatedAt,
             descending: false,
@@ -339,6 +397,37 @@ class GameService {
     } catch (e) {
       _logger.e('Error handling rematch offer for game $gameId: $e');
       rethrow;
+    }
+  }
+
+  Future<GameRoom?> getCurrentGameForUser(String userId) async {
+    try {
+      final snapshot =
+          await _firestore
+              .collection(Constants.gameRoomsCollection)
+              .where(Constants.fieldStatus, isEqualTo: Constants.statusActive)
+              .where(Constants.fieldPlayer1Id, isEqualTo: userId)
+              .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        return GameRoom.fromMap(snapshot.docs.first.data());
+      }
+
+      final snapshot2 =
+          await _firestore
+              .collection(Constants.gameRoomsCollection)
+              .where(Constants.fieldStatus, isEqualTo: Constants.statusActive)
+              .where(Constants.fieldPlayer2Id, isEqualTo: userId)
+              .get();
+
+      if (snapshot2.docs.isNotEmpty) {
+        return GameRoom.fromMap(snapshot2.docs.first.data());
+      }
+
+      return null;
+    } catch (e) {
+      _logger.e('Error getting current game for user $userId: $e');
+      return null;
     }
   }
 
