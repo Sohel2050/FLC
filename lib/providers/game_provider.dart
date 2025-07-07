@@ -1162,6 +1162,8 @@ class GameProvider extends ChangeNotifier {
     setTimeControl(gameMode);
 
     try {
+      _logger.i('Checking for available games...');
+
       // We check if the game is still available
       GameRoom? isAvailable = await _gameService.findAvailableGame(
         gameMode: gameMode,
@@ -1171,14 +1173,7 @@ class GameProvider extends ChangeNotifier {
       );
 
       if (isAvailable != null) {
-        // Update message when joining
-        if (context != null) {
-          updateLoadingMessage(
-            context,
-            'Joining game...',
-            showCancelButton: false,
-          );
-        }
+        _logger.i('Game found: ${isAvailable.gameId}');
 
         // Join existing game
         _isHost = false;
@@ -1193,6 +1188,8 @@ class GameProvider extends ChangeNotifier {
           player2PhotoUrl: photoUrl,
           player2Rating: userRating,
         );
+
+        _logger.i('Joined');
 
         // Delete the notification
         await _gameService.deleteGameNotification(userId, gameId);
@@ -1266,12 +1263,13 @@ class GameProvider extends ChangeNotifier {
       setLoading(false);
       notifyListeners();
 
+      _logger.i('Game joined: ${_onlineGameRoom!.gameId}');
+
       return true;
     } catch (e) {
       _logger.e('Error during online game joining: $e');
       setLoading(false);
       // Handle error, e.g., show a snackbar
-      rethrow;
       return false;
     }
   }

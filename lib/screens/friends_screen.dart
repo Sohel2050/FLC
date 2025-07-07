@@ -6,6 +6,7 @@ import 'package:flutter_chess_app/screens/spectator_screen.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
 import 'package:flutter_chess_app/services/game_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
+import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:provider/provider.dart';
@@ -270,27 +271,23 @@ class _FriendsScreenState extends State<FriendsScreen>
     );
   }
 
-  void _showInviteDialog(ChessUser friend) {
-    showDialog(
+  void _showInviteDialog(ChessUser friend) async {
+    await AnimatedDialog.show(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('Invite ${friend.displayName} to a game'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children:
-                Constants.gameModes.map((mode) {
-                  return ListTile(
-                    title: Text(mode['title'] as String),
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      _createPrivateGame(friend, mode['timeControl'] as String);
-                    },
-                  );
-                }).toList(),
-          ),
-        );
-      },
+      title: 'Invite ${friend.displayName} to a game',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children:
+            Constants.gameModes.map((mode) {
+              return ListTile(
+                title: Text(mode['title'] as String),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _createPrivateGame(friend, mode['timeControl'] as String);
+                },
+              );
+            }).toList(),
+      ),
     );
   }
 

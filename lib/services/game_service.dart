@@ -314,7 +314,7 @@ class GameService {
           .collection(Constants.invitesCollection)
           .doc(gameId)
           .delete();
-      _logger.i('Game room deleted: $gameId');
+      _logger.i('Game notification deleted: $gameId');
     } catch (e) {
       _logger.e('Error deleting game room: $e');
     }

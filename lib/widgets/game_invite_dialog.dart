@@ -150,6 +150,8 @@ class GameInvitesDialog extends StatelessWidget {
     final gameProvider = context.read<GameProvider>();
 
     try {
+      Navigator.of(context).pop(); // Close dialog
+
       await gameProvider.declineGameInvite(invite.gameId, user.uid!);
 
       if (context.mounted) {
