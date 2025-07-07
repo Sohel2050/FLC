@@ -1,8 +1,11 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
+import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 
@@ -42,16 +45,12 @@ class GameInvitesDialog extends StatelessWidget {
           children: [
             Row(
               children: [
-                CircleAvatar(
+                ProfileImageWidget(
+                  imageUrl: invite.player1PhotoUrl!,
                   radius: 20,
-                  backgroundImage:
-                      invite.player1PhotoUrl != null
-                          ? NetworkImage(invite.player1PhotoUrl!)
-                          : null,
-                  child:
-                      invite.player1PhotoUrl == null
-                          ? const Icon(Icons.person)
-                          : null,
+                  isEditable: false,
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primaryContainer,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -120,10 +119,13 @@ class GameInvitesDialog extends StatelessWidget {
         gameMode: invite.gameMode,
       );
 
-      if (context.mounted) {
-        LoadingDialog.hide(context);
+      log('Game is available: $isAvailable');
 
-        if (isAvailable) {
+      if (isAvailable) {
+        log('Game is available');
+        if (context.mounted) {
+          LoadingDialog.hide(context);
+
           // Lets have a small delay to ensure UI is updated
           await Future.delayed(const Duration(milliseconds: 500));
           // Navigate to game

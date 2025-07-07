@@ -1192,80 +1192,85 @@ class GameProvider extends ChangeNotifier {
         _logger.i('Joined');
 
         // Delete the notification
-        await _gameService.deleteGameNotification(userId, gameId);
+        await _gameService.deleteGameNotification(userId, _gameId);
 
-        _logger.i('Joined game: ${isAvailable.gameId}');
+        _logger.i('Notification deleted, setting up stream...');
 
         // Update message when game is ready
-        if (context != null) {
+        if (context.mounted) {
           updateLoadingMessage(
             context,
             'Game ready! Starting...',
             showCancelButton: false,
           );
         }
-      } else {
-        // Update message game not found and return
-        setLoading(false);
-        if (context != null) {
-          updateLoadingMessage(
-            context,
-            'Game note found...',
-            showCancelButton: false,
+
+        // Set up real-time listener for the game room
+        gameRoomSubscription = _gameService
+            .streamGameRoom(_gameId)
+            .listen(
+              onOnlineGameRoomUpdate,
+              onError: (error) {
+                _logger.e('Error streaming game room $_gameId: $error');
+                // Handle error, e.g., show a snackbar
+              },
+              onDone: () {
+                _logger.i('Game room $_gameId stream closed.');
+              },
+            );
+
+        // Initialize game state based on the online game room
+        _whitesTime = Duration(
+          milliseconds: _onlineGameRoom!.initialWhitesTime,
+        );
+        _blacksTime = Duration(
+          milliseconds: _onlineGameRoom!.initialBlacksTime,
+        );
+        // Initialize game state based on the online game room
+        _whitesTime = Duration(
+          milliseconds: _onlineGameRoom!.whitesTimeRemaining,
+        ); // Use remaining time
+        _blacksTime = Duration(
+          milliseconds: _onlineGameRoom!.blacksTimeRemaining,
+        ); // Use remaining time
+        _player1OnlineScore = _onlineGameRoom!.player1Score;
+        _player2OnlineScore = _onlineGameRoom!.player2Score;
+
+        _game = bishop.Game(fen: _onlineGameRoom!.fen);
+        _state = _game.squaresState(_player);
+
+        // Apply historical moves if any
+        for (var moveString in _onlineGameRoom!.moves) {
+          _game.makeSquaresMove(
+            _convertMoveStringToMove(moveString: moveString),
           );
         }
 
+        // Start timer if game is active and it's our turn
+        if (_onlineGameRoom!.status == Constants.statusActive &&
+            ((_isHost && _game.state.turn == Squares.white) ||
+                (!_isHost && _game.state.turn == Squares.black))) {
+          _startTimer();
+        }
+
+        setLoading(false);
+        notifyListeners();
+
+        _logger.i('Stream set up, initializing game state...');
+
+        return true;
+      } else {
+        // Update message game not found and return
+        setLoading(false);
+        if (context.mounted) {
+          updateLoadingMessage(
+            context,
+            'Game not found...',
+            showCancelButton: false,
+          );
+        }
         return false;
       }
-
-      // Set up real-time listener for the game room
-      gameRoomSubscription = _gameService
-          .streamGameRoom(_gameId)
-          .listen(
-            onOnlineGameRoomUpdate,
-            onError: (error) {
-              _logger.e('Error streaming game room $_gameId: $error');
-              // Handle error, e.g., show a snackbar
-            },
-            onDone: () {
-              _logger.i('Game room $_gameId stream closed.');
-            },
-          );
-
-      // Initialize game state based on the online game room
-      _whitesTime = Duration(milliseconds: _onlineGameRoom!.initialWhitesTime);
-      _blacksTime = Duration(milliseconds: _onlineGameRoom!.initialBlacksTime);
-      // Initialize game state based on the online game room
-      _whitesTime = Duration(
-        milliseconds: _onlineGameRoom!.whitesTimeRemaining,
-      ); // Use remaining time
-      _blacksTime = Duration(
-        milliseconds: _onlineGameRoom!.blacksTimeRemaining,
-      ); // Use remaining time
-      _player1OnlineScore = _onlineGameRoom!.player1Score;
-      _player2OnlineScore = _onlineGameRoom!.player2Score;
-
-      _game = bishop.Game(fen: _onlineGameRoom!.fen);
-      _state = _game.squaresState(_player);
-
-      // Apply historical moves if any
-      for (var moveString in _onlineGameRoom!.moves) {
-        _game.makeSquaresMove(_convertMoveStringToMove(moveString: moveString));
-      }
-
-      // Start timer if game is active and it's our turn
-      if (_onlineGameRoom!.status == Constants.statusActive &&
-          ((_isHost && _game.state.turn == Squares.white) ||
-              (!_isHost && _game.state.turn == Squares.black))) {
-        _startTimer();
-      }
-
-      setLoading(false);
-      notifyListeners();
-
-      _logger.i('Game joined: ${_onlineGameRoom!.gameId}');
-
-      return true;
     } catch (e) {
       _logger.e('Error during online game joining: $e');
       setLoading(false);
@@ -1329,8 +1334,6 @@ class GameProvider extends ChangeNotifier {
     if (wasGameOver &&
         updatedRoom.status == Constants.statusActive &&
         updatedRoom.rematchOfferedBy == null) {
-      _logger.i('Rematch detected! Resetting game.');
-
       // Explicitly reset timers for the rematch
       _whitesTime = Duration(milliseconds: updatedRoom.initialWhitesTime);
       _blacksTime = Duration(milliseconds: updatedRoom.initialBlacksTime);
