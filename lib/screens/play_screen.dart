@@ -4,10 +4,12 @@ import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
+import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/cpu_difficulty_dialog.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
+import 'package:flutter_chess_app/widgets/online_players_count_widget.dart';
 import 'package:provider/provider.dart';
 import '../models/user_model.dart';
 import '../widgets/game_mode_card.dart';
@@ -30,12 +32,15 @@ class _PlayScreenState extends State<PlayScreen> {
   @override
   Widget build(BuildContext context) {
     final gameProvider = context.read<GameProvider>();
+
     return Scaffold(
       body: Column(
         children: [
           // Game Modes Carousel
           Column(
             children: [
+              // Container for online people count
+              OnlinePlayersCountWidget(),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
