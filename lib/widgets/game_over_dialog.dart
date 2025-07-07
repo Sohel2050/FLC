@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer';
 import 'package:bishop/bishop.dart' as bishop;
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
@@ -29,12 +28,12 @@ class GameOverDialog extends StatefulWidget {
 class _GameOverDialogState extends State<GameOverDialog> {
   String? _rematchStatus; // e.g., 'waiting', 'rejected'
   Timer? _statusClearTimer;
-  late GameProvider _gameProvider;
+  late GameProvider gameProvider;
 
   @override
   void initState() {
     super.initState();
-    _gameProvider = context.read<GameProvider>();
+    gameProvider = context.read<GameProvider>();
   }
 
   @override

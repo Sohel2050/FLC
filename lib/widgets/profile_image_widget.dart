@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/services/assets_manager.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 
@@ -36,14 +37,14 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
           radius: widget.radius,
           backgroundColor: widget.backgroundColor ?? Colors.grey[300],
           backgroundImage: _getImageProvider(),
-          child:
-              _getImageProvider() == null
-                  ? Icon(
-                    widget.placeholderIcon,
-                    size: widget.radius * 0.8,
-                    color: Colors.grey[600],
-                  )
-                  : null,
+          // child:
+          //     _getImageProvider() == null
+          //         ? Icon(
+          //           widget.placeholderIcon,
+          //           size: widget.radius * 0.8,
+          //           color: Colors.grey[600],
+          //         )
+          //         : null,
         ),
         if (widget.isEditable)
           Positioned(
@@ -72,7 +73,7 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
     } else if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty) {
       return NetworkImage(widget.imageUrl!);
     }
-    return null; // This will show the placeholder icon
+    return AssetImage(AssetsManager.userIcon);
   }
 
   void _showImageSourceDialog() {
