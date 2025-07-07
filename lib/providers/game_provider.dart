@@ -1053,11 +1053,9 @@ class GameProvider extends ChangeNotifier {
   }
 
   Future<void> createPrivateGameRoom({
-    required BuildContext context,
     required String gameMode,
     required String player1Id,
     required String player2Id,
-    required String friendName,
     required String player1DisplayName,
     String? player1PhotoUrl,
     required int player1Rating,
@@ -1066,13 +1064,6 @@ class GameProvider extends ChangeNotifier {
     setIsOnlineGame(true); // Set online game mode
 
     setTimeControl(gameMode);
-
-    // Update message when creating
-    updateLoadingMessage(
-      context,
-      'Creating new game...',
-      showCancelButton: true,
-    );
 
     _isHost = true;
     _player = Squares.white; // Current user will be white
@@ -1089,15 +1080,6 @@ class GameProvider extends ChangeNotifier {
     );
     _gameId = _onlineGameRoom!.gameId;
     _logger.i('Created new game: ${_onlineGameRoom!.gameId}');
-
-    // Update message when waiting for opponent
-    if (context.mounted) {
-      updateLoadingMessage(
-        context,
-        'Waiting for $friendName to join...',
-        showCancelButton: true,
-      );
-    }
 
     // Send game notification for friends notification collection
     _gameService.sendGameNotification(gameRoom: _onlineGameRoom!);
@@ -1149,7 +1131,6 @@ class GameProvider extends ChangeNotifier {
   }
 
   Future<bool> joinPrivateGameRoom({
-    required BuildContext context,
     required String userId,
     required String displayName,
     String? photoUrl,
@@ -1189,21 +1170,10 @@ class GameProvider extends ChangeNotifier {
           player2Rating: userRating,
         );
 
-        _logger.i('Joined');
-
         // Delete the notification
         await _gameService.deleteGameNotification(userId, _gameId);
 
-        _logger.i('Notification deleted, setting up stream...');
-
-        // Update message when game is ready
-        if (context.mounted) {
-          updateLoadingMessage(
-            context,
-            'Game ready! Starting...',
-            showCancelButton: false,
-          );
-        }
+        _logger.i('Game notification deleted: $_gameId');
 
         // Set up real-time listener for the game room
         gameRoomSubscription = _gameService
@@ -1258,22 +1228,10 @@ class GameProvider extends ChangeNotifier {
 
         _logger.i('Stream set up, initializing game state...');
 
-        if (context.mounted) {
-          // Small delay to ensure the "Game ready!" message is visible
-          await Future.delayed(const Duration(milliseconds: 300));
-        }
-
         return true;
       } else {
         // Update message game not found and return
         setLoading(false);
-        if (context.mounted) {
-          updateLoadingMessage(
-            context,
-            'Game not found...',
-            showCancelButton: false,
-          );
-        }
         return false;
       }
     } catch (e) {
@@ -1323,6 +1281,12 @@ class GameProvider extends ChangeNotifier {
 
   /// Handles updates received from the online game room stream.
   void onOnlineGameRoomUpdate(GameRoom updatedRoom) {
+    // If the game room is null or the ID doesn't match, ignore the update
+    if (_onlineGameRoom == null ||
+        _onlineGameRoom!.gameId != updatedRoom.gameId) {
+      return;
+    }
+
     final bool wasGameOver = isGameOver;
     _onlineGameRoom = updatedRoom;
     _gameId = updatedRoom.gameId;
@@ -1485,6 +1449,15 @@ class GameProvider extends ChangeNotifier {
             _onlineGameRoom != null &&
             _onlineGameRoom!.status == Constants.statusWaiting) {
           _gameService.deleteGameRoom(_onlineGameRoom!.gameId);
+        }
+        // delete the game room if it was created and still waiting
+        if (_isHost &&
+            _onlineGameRoom != null &&
+            _onlineGameRoom!.isPrivate == true) {
+          _gameService.deleteGameNotification(
+            onlineGameRoom!.player1Id,
+            _onlineGameRoom!.gameId,
+          );
         }
         _logger.w('Timed out waiting for opponent to join');
         // Show a timeout exception

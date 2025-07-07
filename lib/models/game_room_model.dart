@@ -100,35 +100,43 @@ class GameRoom {
 
   factory GameRoom.fromMap(Map<String, dynamic> map) {
     return GameRoom(
-      gameId: map[Constants.fieldGameId] as String,
-      gameMode: map[Constants.fieldGameMode] as String,
-      player1Id: map[Constants.fieldPlayer1Id] as String,
-      player2Id: map[Constants.fieldPlayer2Id] as String?,
-      player1DisplayName: map[Constants.fieldPlayer1DisplayName] as String,
-      player2DisplayName: map[Constants.fieldPlayer2DisplayName] as String?,
-      player1PhotoUrl: map[Constants.fieldPlayer1PhotoUrl] as String?,
-      player2PhotoUrl: map[Constants.fieldPlayer2PhotoUrl] as String?,
-      player1Color: map[Constants.fieldPlayer1Color] as int,
-      player2Color: map[Constants.fieldPlayer2Color] as int?,
-      status: map[Constants.fieldStatus] as String,
-      fen: map[Constants.fieldFen] as String,
-      moves: List<String>.from(map[Constants.fieldMoves] as List),
-      createdAt: map[Constants.fieldCreatedAt] as Timestamp,
-      lastMoveAt: map[Constants.fieldLastMoveAt] as Timestamp,
-      player1Rating: map[Constants.fieldPlayer1Rating] as int,
-      player2Rating: map[Constants.fieldPlayer2Rating] as int?,
-      ratingBasedSearch: map[Constants.fieldRatingBasedSearch] as bool,
-      initialWhitesTime: map[Constants.fieldInitialWhitesTime] as int,
-      initialBlacksTime: map[Constants.fieldInitialBlacksTime] as int,
-      whitesTimeRemaining: map[Constants.fieldWhitesTimeRemaining] as int,
-      blacksTimeRemaining: map[Constants.fieldBlacksTimeRemaining] as int,
-      player1Score: map[Constants.fieldPlayer1Score] as int,
-      player2Score: map[Constants.fieldPlayer2Score] as int,
-      winnerId: map[Constants.fieldWinnerId] as String?,
-      drawOfferedBy: map[Constants.fieldDrawOfferedBy] as String?,
-      rematchOfferedBy: map[Constants.fieldRematchOfferedBy] as String?,
-      isPrivate: map[Constants.fieldIsPrivate] as bool? ?? false,
-      spectatorLink: map[Constants.fieldSpectatorLink] as String?,
+      gameId: map[Constants.fieldGameId] ?? '',
+      gameMode: map[Constants.fieldGameMode] ?? 'Unknown',
+      player1Id: map[Constants.fieldPlayer1Id] ?? '',
+      player2Id: map[Constants.fieldPlayer2Id],
+      player1DisplayName: map[Constants.fieldPlayer1DisplayName] ?? 'Player 1',
+      player2DisplayName: map[Constants.fieldPlayer2DisplayName],
+      player1PhotoUrl:
+          (map[Constants.fieldPlayer1PhotoUrl] as String?)?.isEmpty ?? true
+              ? null
+              : map[Constants.fieldPlayer1PhotoUrl],
+      player2PhotoUrl:
+          (map[Constants.fieldPlayer2PhotoUrl] as String?)?.isEmpty ?? true
+              ? null
+              : map[Constants.fieldPlayer2PhotoUrl],
+      player1Color: map[Constants.fieldPlayer1Color] ?? 0,
+      player2Color: map[Constants.fieldPlayer2Color],
+      status: map[Constants.fieldStatus] ?? Constants.statusWaiting,
+      fen:
+          map[Constants.fieldFen] ??
+          'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      moves: List<String>.from(map[Constants.fieldMoves] ?? []),
+      createdAt: map[Constants.fieldCreatedAt] ?? Timestamp.now(),
+      lastMoveAt: map[Constants.fieldLastMoveAt] ?? Timestamp.now(),
+      player1Rating: map[Constants.fieldPlayer1Rating] ?? 0,
+      player2Rating: map[Constants.fieldPlayer2Rating],
+      ratingBasedSearch: map[Constants.fieldRatingBasedSearch] ?? false,
+      initialWhitesTime: map[Constants.fieldInitialWhitesTime] ?? 0,
+      initialBlacksTime: map[Constants.fieldInitialBlacksTime] ?? 0,
+      whitesTimeRemaining: map[Constants.fieldWhitesTimeRemaining] ?? 0,
+      blacksTimeRemaining: map[Constants.fieldBlacksTimeRemaining] ?? 0,
+      player1Score: map[Constants.fieldPlayer1Score] ?? 0,
+      player2Score: map[Constants.fieldPlayer2Score] ?? 0,
+      winnerId: map[Constants.fieldWinnerId],
+      drawOfferedBy: map[Constants.fieldDrawOfferedBy],
+      rematchOfferedBy: map[Constants.fieldRematchOfferedBy],
+      isPrivate: map[Constants.fieldIsPrivate] ?? false,
+      spectatorLink: map[Constants.fieldSpectatorLink],
     );
   }
 

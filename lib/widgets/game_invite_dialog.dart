@@ -46,7 +46,7 @@ class GameInvitesDialog extends StatelessWidget {
             Row(
               children: [
                 ProfileImageWidget(
-                  imageUrl: invite.player1PhotoUrl!,
+                  imageUrl: invite.player1PhotoUrl,
                   radius: 20,
                   isEditable: false,
                   backgroundColor:
@@ -109,32 +109,39 @@ class GameInvitesDialog extends StatelessWidget {
         barrierDismissible: false,
       );
 
+      await Future.delayed(const Duration(seconds: 2));
+
       // Set up the game
-      bool isAvailable = await gameProvider.joinPrivateGameRoom(
-        context: context,
-        userId: user.uid!,
-        displayName: user.displayName,
-        photoUrl: user.photoUrl,
-        userRating: user.classicalRating,
-        gameMode: invite.gameMode,
-      );
+      // bool isAvailable = await gameProvider.joinPrivateGameRoom(
+      //   userId: user.uid!,
+      //   displayName: user.displayName,
+      //   photoUrl: user.photoUrl,
+      //   userRating: user.classicalRating,
+      //   gameMode: invite.gameMode,
+      // );
 
-      log('Game is available: $isAvailable');
+      //log('Game is available: $isAvailable');
 
-      // Hide loading dialog regardless of result
+      //if (isAvailable) {
       if (context.mounted) {
+        LoadingDialog.updateMessage(context, 'Game ready! Starting...');
+        // Lets have a small delay to ensure UI is updated
+        await Future.delayed(const Duration(seconds: 2));
         LoadingDialog.hide(context);
-      }
-
-      if (isAvailable) {
-        log('Game is available');
+        // Navigate to game
+        // Navigator.push(
+        //   context,
+        //   MaterialPageRoute(builder: (context) => GameScreen(user: user)),
+        // );
+        // }
+      } else {
         if (context.mounted) {
-          // Lets have a small delay to ensure UI is updated
-          await Future.delayed(const Duration(milliseconds: 300));
-          // Navigate to game
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => GameScreen(user: user)),
+          LoadingDialog.hide(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Game not found or is no longer available.'),
+              backgroundColor: Colors.orange,
+            ),
           );
         }
       }

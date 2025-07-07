@@ -299,21 +299,27 @@ class _FriendsScreenState extends State<FriendsScreen>
       context,
       message: 'Sending invite...',
       barrierDismissible: false,
-      showOnlineCount: true,
       showCancelButton: true,
       onCancel: () => gameProvider.cancelOnlineGameSearch(isFriend: true),
     );
     try {
       await gameProvider.createPrivateGameRoom(
-        context: context,
         gameMode: gameMode,
         player1Id: widget.user.uid!,
         player2Id: friend.uid!,
-        friendName: friend.displayName,
         player1DisplayName: widget.user.displayName,
         player1PhotoUrl: widget.user.photoUrl,
         player1Rating: widget.user.classicalRating,
       );
+
+      if (mounted) {
+        LoadingDialog.updateMessage(
+          context,
+          'Waiting for ${friend.displayName} to join...',
+          showCancelButton: true,
+          onCancel: () => gameProvider.cancelOnlineGameSearch(isFriend: true),
+        );
+      }
 
       // Wait for game to become active before navigating
       await gameProvider.waitForGameToStart();

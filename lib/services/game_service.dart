@@ -250,12 +250,22 @@ class GameService {
         .doc(gameId)
         .snapshots()
         .map((snapshot) {
-          if (!snapshot.exists) {
-            _logger.w('Game room $gameId does not exist for streaming.');
-            throw Exception('Game room does not exist');
+          if (!snapshot.exists || snapshot.data() == null) {
+            _logger.w('Game room $gameId does not exist or has no data.');
+            throw Exception('Game room does not exist or is empty');
           }
-          _logger.i('Received snapshot for game room $gameId');
-          return GameRoom.fromMap(snapshot.data() as Map<String, dynamic>);
+          final data = snapshot.data() as Map<String, dynamic>;
+          _logger.i('Received snapshot for game room $gameId: $data');
+          try {
+            return GameRoom.fromMap(data);
+          } catch (e, stacktrace) {
+            _logger.e(
+              'Error parsing game room $gameId: $e',
+              error: e,
+              stackTrace: stacktrace,
+            );
+            throw Exception('Failed to parse game room data');
+          }
         });
   }
 
