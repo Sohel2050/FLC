@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
+import 'package:flutter_chess_app/screens/game_screen.dart';
 import 'package:flutter_chess_app/screens/profile_screen.dart';
 import 'package:flutter_chess_app/screens/rating_screen.dart';
 import 'package:flutter_chess_app/screens/saved_games_screen.dart';
 import 'package:flutter_chess_app/screens/statistics_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
-import 'package:flutter_chess_app/widgets/game_invite_dialog.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:provider/provider.dart';
@@ -149,31 +149,33 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         barrierDismissible: false,
       );
 
-      await Future.delayed(const Duration(seconds: 2));
-
       // Set up the game
-      // bool isAvailable = await gameProvider.joinPrivateGameRoom(
-      //   userId: user.uid!,
-      //   displayName: user.displayName,
-      //   photoUrl: user.photoUrl,
-      //   userRating: user.classicalRating,
-      //   gameMode: invite.gameMode,
-      // );
+      bool isAvailable = await gameProvider.joinPrivateGameRoom(
+        userId: widget.user.uid!,
+        displayName: widget.user.displayName,
+        photoUrl: widget.user.photoUrl,
+        userRating: widget.user.classicalRating,
+        gameMode: invite.gameMode,
+      );
 
-      //log('Game is available: $isAvailable');
-
-      //if (isAvailable) {
       if (context.mounted) {
         LoadingDialog.updateMessage(context, 'Game ready! Starting...');
+      }
+
+      if (isAvailable) {
         // Lets have a small delay to ensure UI is updated
-        await Future.delayed(const Duration(seconds: 2));
-        LoadingDialog.hide(context);
-        // Navigate to game
-        // Navigator.push(
-        //   context,
-        //   MaterialPageRoute(builder: (context) => GameScreen(user: user)),
-        // );
-        // }
+        await Future.delayed(const Duration(milliseconds: 500));
+
+        if (context.mounted) {
+          LoadingDialog.hide(context);
+          // Navigate to game
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => GameScreen(user: widget.user),
+            ),
+          );
+        }
       } else {
         if (context.mounted) {
           LoadingDialog.hide(context);

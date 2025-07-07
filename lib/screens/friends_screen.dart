@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
-import 'package:flutter_chess_app/screens/spectator_screen.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
-import 'package:flutter_chess_app/services/game_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
@@ -24,7 +22,6 @@ class _FriendsScreenState extends State<FriendsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final FriendService _friendService = FriendService();
-  final GameService _gameService = GameService();
   final TextEditingController _searchController = TextEditingController();
   List<ChessUser> _searchResults = [];
   bool _isSearching = false;
@@ -329,8 +326,11 @@ class _FriendsScreenState extends State<FriendsScreen>
       if (mounted) {
         // Hide loading dialog
         LoadingDialog.hide(context);
-        // Lets have a small delay to ensure UI is updated
-        await Future.delayed(const Duration(milliseconds: 500));
+      }
+
+      // Lets have a small delay to ensure UI is updated
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted) {
         // Navigate to GameScreen after game is ready
         Navigator.push(
           context,
