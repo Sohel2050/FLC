@@ -230,7 +230,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final _gameService = GameService();
+    final gameService = GameService();
 
     return UpgradeAlert(
       child: Scaffold(
@@ -274,7 +274,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             // Game Invites Icon
             if (!widget.user.isGuest)
               StreamBuilder<List<GameRoom>>(
-                stream: _gameService.streamGameInvites(widget.user.uid!),
+                stream: gameService.streamGameInvites(widget.user.uid!),
                 builder: (context, snapshot) {
                   final invites = snapshot.data ?? [];
                   final hasInvites = invites.isNotEmpty;

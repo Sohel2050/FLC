@@ -1,3 +1,4 @@
+import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
@@ -23,6 +24,8 @@ class PlayScreen extends StatefulWidget {
 
 class _PlayScreenState extends State<PlayScreen> {
   int _selectedGameMode = 0;
+  final CarouselSliderController _carouselController =
+      CarouselSliderController();
 
   @override
   Widget build(BuildContext context) {
@@ -31,33 +34,87 @@ class _PlayScreenState extends State<PlayScreen> {
       body: Column(
         children: [
           // Game Modes Carousel
-          SizedBox(
-            height: 180,
-            child: PageView.builder(
-              controller: PageController(viewportFraction: 0.8),
-              onPageChanged: (index) {
-                setState(() {
-                  _selectedGameMode = index;
-                });
-              },
-              itemCount: Constants.gameModes.length,
-              itemBuilder: (context, index) {
-                final mode = Constants.gameModes[index];
-                return GameModeCard(
-                  title: mode[Constants.title],
-                  timeControl: mode[Constants.timeControl],
-                  icon: mode[Constants.icon],
-                  isSelected: _selectedGameMode == index,
-                  onTap: () {
-                    setState(() {
-                      _selectedGameMode = index;
-                    });
-                  },
-                );
-              },
-            ),
+          Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_ios),
+                    onPressed: () => _carouselController.previousPage(),
+                  ),
+                  Expanded(
+                    child: CarouselSlider.builder(
+                      carouselController: _carouselController,
+                      options: CarouselOptions(
+                        height: 180,
+                        viewportFraction: 0.8,
+                        enlargeCenterPage: true,
+                        onPageChanged: (index, reason) {
+                          setState(() {
+                            _selectedGameMode = index;
+                          });
+                        },
+                      ),
+                      itemCount: Constants.gameModes.length,
+                      itemBuilder: (context, index, realIndex) {
+                        final mode = Constants.gameModes[index];
+                        return SizedBox(
+                          width: MediaQuery.of(context).size.width * 0.8,
+                          child: GameModeCard(
+                            title: mode[Constants.title],
+                            timeControl: mode[Constants.timeControl],
+                            icon: mode[Constants.icon],
+                            isSelected: _selectedGameMode == index,
+                            onTap: () {
+                              setState(() {
+                                _selectedGameMode = index;
+                              });
+                              _carouselController.animateToPage(index);
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.arrow_forward_ios),
+                    onPressed: () => _carouselController.nextPage(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children:
+                    Constants.gameModes.asMap().entries.map((entry) {
+                      return GestureDetector(
+                        onTap:
+                            () => _carouselController.animateToPage(entry.key),
+                        child: Container(
+                          width: 12.0,
+                          height: 12.0,
+                          margin: const EdgeInsets.symmetric(
+                            vertical: 8.0,
+                            horizontal: 4.0,
+                          ),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: (Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.white
+                                    : Colors.black)
+                                .withOpacity(
+                                  _selectedGameMode == entry.key ? 0.9 : 0.4,
+                                ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+              ),
+            ],
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
           Spacer(),
 
           // Play Buttons
