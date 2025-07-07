@@ -135,6 +135,53 @@ class FriendService {
     }
   }
 
+  /// Blocks a user.
+  Future<void> blockUser({
+    required String currentUserId,
+    required String blockedUserId,
+  }) async {
+    try {
+      // Add the blocked user's ID to the current user's blocked list
+      await _firestore
+          .collection(Constants.usersCollection)
+          .doc(currentUserId)
+          .update({
+            Constants.blockedUsers: FieldValue.arrayUnion([blockedUserId]),
+          });
+
+      // Also remove them as a friend, if they are one
+      await removeFriend(
+        currentUserId: currentUserId,
+        friendUserId: blockedUserId,
+      );
+
+      _logger.i('$currentUserId blocked $blockedUserId.');
+    } catch (e) {
+      _logger.e('Error blocking user: $e');
+      rethrow;
+    }
+  }
+
+  /// Unblocks a user.
+  Future<void> unblockUser({
+    required String currentUserId,
+    required String unblockedUserId,
+  }) async {
+    try {
+      // Remove the unblocked user's ID from the current user's blocked list
+      await _firestore
+          .collection(Constants.usersCollection)
+          .doc(currentUserId)
+          .update({
+            Constants.blockedUsers: FieldValue.arrayRemove([unblockedUserId]),
+          });
+      _logger.i('$currentUserId unblocked $unblockedUserId.');
+    } catch (e) {
+      _logger.e('Error unblocking user: $e');
+      rethrow;
+    }
+  }
+
   /// Fetches a stream of the user's friends.
   Stream<List<ChessUser>> getFriends(String userId) {
     return _firestore
@@ -143,9 +190,19 @@ class FriendService {
         .snapshots()
         .asyncMap((snapshot) async {
           if (!snapshot.exists) return [];
+          final userData = snapshot.data()!;
           List<String> friendIds = List<String>.from(
-            snapshot.data()![Constants.friends] ?? [],
+            userData[Constants.friends] ?? [],
           );
+          List<String> blockedIds = List<String>.from(
+            userData[Constants.blockedUsers] ?? [],
+          );
+
+          if (friendIds.isEmpty) return [];
+
+          // Filter out blocked users from the friend list
+          friendIds.removeWhere((id) => blockedIds.contains(id));
+
           if (friendIds.isEmpty) return [];
 
           final friendDocs =
@@ -168,9 +225,19 @@ class FriendService {
         .snapshots()
         .asyncMap((snapshot) async {
           if (!snapshot.exists) return [];
+          final userData = snapshot.data()!;
           List<String> requestIds = List<String>.from(
-            snapshot.data()![Constants.friendRequestsReceived] ?? [],
+            userData[Constants.friendRequestsReceived] ?? [],
           );
+          List<String> blockedIds = List<String>.from(
+            userData[Constants.blockedUsers] ?? [],
+          );
+
+          if (requestIds.isEmpty) return [];
+
+          // Filter out requests from blocked users
+          requestIds.removeWhere((id) => blockedIds.contains(id));
+
           if (requestIds.isEmpty) return [];
 
           final requestDocs =
@@ -185,10 +252,23 @@ class FriendService {
         });
   }
 
-  /// Searches for users by their display name.
-  Future<List<ChessUser>> searchUsers(String query) async {
+  /// Searches for users by their display name, excluding blocked users.
+  Future<List<ChessUser>> searchUsers(
+    String query,
+    String currentUserId,
+  ) async {
     if (query.isEmpty) return [];
     try {
+      // First, get the list of blocked users
+      final userDoc =
+          await _firestore
+              .collection(Constants.usersCollection)
+              .doc(currentUserId)
+              .get();
+      final blockedUsers = List<String>.from(
+        userDoc.data()?[Constants.blockedUsers] ?? [],
+      );
+
       final snapshot =
           await _firestore
               .collection(Constants.usersCollection)
@@ -197,7 +277,15 @@ class FriendService {
               .limit(10)
               .get();
 
-      return snapshot.docs.map((doc) => ChessUser.fromMap(doc.data())).toList();
+      var users =
+          snapshot.docs.map((doc) => ChessUser.fromMap(doc.data())).toList();
+
+      // Filter out the current user and blocked users from the search results
+      users.removeWhere(
+        (user) => user.uid == currentUserId || blockedUsers.contains(user.uid),
+      );
+
+      return users;
     } catch (e) {
       _logger.e('Error searching users: $e');
       return [];

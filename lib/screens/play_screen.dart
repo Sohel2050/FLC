@@ -4,7 +4,6 @@ import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
-import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/cpu_difficulty_dialog.dart';

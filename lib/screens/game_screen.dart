@@ -12,6 +12,7 @@ import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:squares/squares.dart';
+import 'package:flutter_chess_app/screens/chat_screen.dart';
 
 class GameScreen extends StatefulWidget {
   final ChessUser user;
@@ -261,18 +262,24 @@ class _GameScreenState extends State<GameScreen> {
                   icon: const Icon(Icons.flag),
                   tooltip: 'Resign',
                 ),
+                // if (gameProvider.isOnlineGame)
+                //   IconButton(
+                //     onPressed: () {
+                //       final gameRoom = gameProvider.onlineGameRoom;
+                //       if (gameRoom != null && gameRoom.spectatorLink != null) {
+                //         Share.share(
+                //           'Watch my chess game: ${gameRoom.spectatorLink}',
+                //         );
+                //       }
+                //     },
+                //     icon: const Icon(Icons.share),
+                //     tooltip: 'Share Spectator Link',
+                //   ),
                 if (gameProvider.isOnlineGame)
                   IconButton(
-                    onPressed: () {
-                      final gameRoom = gameProvider.onlineGameRoom;
-                      if (gameRoom != null && gameRoom.spectatorLink != null) {
-                        Share.share(
-                          'Watch my chess game: ${gameRoom.spectatorLink}',
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.share),
-                    tooltip: 'Share Spectator Link',
+                    icon: const Icon(Icons.chat),
+                    onPressed: () => _showInGameChat(context, gameProvider),
+                    tooltip: 'In-Game Chat',
                   ),
               ],
             ),
@@ -860,6 +867,34 @@ class _GameScreenState extends State<GameScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showInGameChat(BuildContext context, GameProvider gameProvider) {
+    final opponent =
+        gameProvider.onlineGameRoom?.player1Id == widget.user.uid
+            ? ChessUser(
+              uid: gameProvider.onlineGameRoom?.player2Id,
+              displayName:
+                  gameProvider.onlineGameRoom?.player2DisplayName ?? 'Opponent',
+              photoUrl: gameProvider.onlineGameRoom?.player2PhotoUrl,
+            )
+            : ChessUser(
+              uid: gameProvider.onlineGameRoom?.player1Id,
+              displayName:
+                  gameProvider.onlineGameRoom?.player1DisplayName ?? 'Opponent',
+              photoUrl: gameProvider.onlineGameRoom?.player1PhotoUrl,
+            );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) {
+        return SizedBox(
+          height: MediaQuery.of(context).size.height * 0.7,
+          child: ChatScreen(currentUser: widget.user, otherUser: opponent),
+        );
+      },
     );
   }
 }
