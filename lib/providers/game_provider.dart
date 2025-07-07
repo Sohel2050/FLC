@@ -80,6 +80,12 @@ class GameProvider extends ChangeNotifier {
   Duration _savedWhitesTime = Duration.zero;
   Duration _savedBlacksTime = Duration.zero;
 
+  // Time control variables
+  Duration? _timePerMove;
+  Duration? _bonusTime;
+  Duration? _bonusThreshold;
+  DateTime? _turnStartTime;
+
   // Online game scores
   int _player1OnlineScore = 0;
   int _player2OnlineScore = 0;
@@ -204,8 +210,22 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Ends the game as a draw. This is used for local multiplayer draw agreements.
+  void endGameAsDraw() {
+    _gameResultNotifier.value = const DrawnGameAgreement();
+    _stopTimers();
+    checkGameOver();
+    notifyListeners();
+  }
+
   /// Offers a draw in the current game.
   Future<void> offerDraw() async {
+    // For local multiplayer, the draw is handled in the UI (_showDrawOfferDialog)
+    // and calls endGameAsDraw() directly.
+    // This method is now only for online games.
+    if (_localMultiplayer) {
+      return;
+    }
     if (!_isOnlineGame || _onlineGameRoom == null) {
       _logger.w('Draw offer only available in online games.');
       return;
@@ -315,7 +335,7 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
-  void setVsCPU(bool value) {
+  Future<void> setVsCPU(bool value) async {
     _vsCPU = value;
     _isOnlineGame = false;
     _localMultiplayer = false;
@@ -358,15 +378,30 @@ class GameProvider extends ChangeNotifier {
   }
 
   void _parseTimeControl(String timeControl) {
-    // Parse different time control formats
+    // Reset all time control variables
+    _timePerMove = null;
+    _bonusTime = null;
+    _bonusThreshold = null;
+    _incrementalValue = 0;
+
     if (timeControl.contains('sec/move')) {
       // Format: "60 sec/move"
       final seconds = int.tryParse(timeControl.split(' ')[0]) ?? 60;
-      _whitesTime = Duration(seconds: seconds);
-      _blacksTime = Duration(seconds: seconds);
-      _incrementalValue = 0;
+      _timePerMove = Duration(seconds: seconds);
+      _whitesTime = _timePerMove!;
+      _blacksTime = _timePerMove!;
+    } else if (timeControl.contains('bonus')) {
+      // Format: "3 min + 5s bonus 3s"
+      final parts = timeControl.replaceAll('s', '').split(' ');
+      final minutes = int.tryParse(parts[0]) ?? 3;
+      final bonusSeconds = int.tryParse(parts[3]) ?? 5;
+      final thresholdSeconds = int.tryParse(parts[5]) ?? 3;
+      _whitesTime = Duration(minutes: minutes);
+      _blacksTime = Duration(minutes: minutes);
+      _bonusTime = Duration(seconds: bonusSeconds);
+      _bonusThreshold = Duration(seconds: thresholdSeconds);
     } else if (timeControl.contains('min + ') && timeControl.contains('sec')) {
-      // Format: "5 min + 3 sec"
+      // Format: "5 min + 3 sec" - Legacy increment
       final parts = timeControl.split(' ');
       final minutes = int.tryParse(parts[0]) ?? 5;
       final increment = int.tryParse(parts[4]) ?? 3;
@@ -397,6 +432,16 @@ class GameProvider extends ChangeNotifier {
   // Start the timer for the current player
   void _startTimer() {
     _stopTimers(); // Stop any existing timers
+    _turnStartTime = DateTime.now();
+
+    if (_timePerMove != null) {
+      if (_game.state.turn == Squares.white) {
+        _whitesTime = _timePerMove!;
+      } else {
+        _blacksTime = _timePerMove!;
+      }
+    }
+
     if (_game.state.turn == Squares.white) {
       _playWhitesTimer = true;
       _playBlacksTimer = false;
@@ -481,15 +526,20 @@ class GameProvider extends ChangeNotifier {
       }
     }
 
-    // Change player color if it's a new game (for local/CPU)
-    if (isNewGame && !_isOnlineGame) {
+    // For a rematch or new game, swap sides.
+    if (isNewGame) {
       _player = _player == Squares.white ? Squares.black : Squares.white;
     }
 
     // For online games, times are set from the GameRoom update
     if (!_isOnlineGame) {
-      _whitesTime = _savedWhitesTime;
-      _blacksTime = _savedBlacksTime;
+      if (_timePerMove != null) {
+        _whitesTime = _timePerMove!;
+        _blacksTime = _timePerMove!;
+      } else {
+        _whitesTime = _savedWhitesTime;
+        _blacksTime = _savedBlacksTime;
+      }
     }
 
     _game = bishop.Game(variant: bishop.Variant.standard());
@@ -600,8 +650,23 @@ class GameProvider extends ChangeNotifier {
         _state = _game.squaresState(_player);
       }
 
-      // Add increment time after a successful move
-      if (_incrementalValue > 0) {
+      // Add increment/bonus time after a successful move
+      if (_timePerMove != null) {
+        // For per-move modes, the timer is reset in _startTimer for the next player
+      } else if (_bonusTime != null &&
+          _bonusThreshold != null &&
+          _turnStartTime != null) {
+        final moveDuration = DateTime.now().difference(_turnStartTime!);
+        if (moveDuration <= _bonusThreshold!) {
+          if (_game.state.turn == Squares.white) {
+            // Bonus for black who just moved
+            _blacksTime += _bonusTime!;
+          } else {
+            // Bonus for white who just moved
+            _whitesTime += _bonusTime!;
+          }
+        }
+      } else if (_incrementalValue > 0) {
         if (_game.state.turn == Squares.white) {
           _blacksTime += Duration(seconds: _incrementalValue);
         } else {
@@ -796,8 +861,23 @@ class GameProvider extends ChangeNotifier {
 
         _state = _game.squaresState(_player);
 
-        // Add increment time after a successful move
-        if (_incrementalValue > 0) {
+        // Add increment/bonus time after a successful move
+        if (_timePerMove != null) {
+          // For per-move modes, the timer is reset in _startTimer for the next player
+        } else if (_bonusTime != null &&
+            _bonusThreshold != null &&
+            _turnStartTime != null) {
+          final moveDuration = DateTime.now().difference(_turnStartTime!);
+          if (moveDuration <= _bonusThreshold!) {
+            if (_game.state.turn == Squares.white) {
+              // Bonus for black who just moved
+              _blacksTime += _bonusTime!;
+            } else {
+              // Bonus for white who just moved
+              _whitesTime += _bonusTime!;
+            }
+          }
+        } else if (_incrementalValue > 0) {
           if (_game.state.turn == Squares.white) {
             _blacksTime += Duration(seconds: _incrementalValue);
           } else {
@@ -972,8 +1052,241 @@ class GameProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> createPrivateGameRoom({
+    required String gameMode,
+    required String player1Id,
+    required String player2Id,
+    required String player1DisplayName,
+    String? player1PhotoUrl,
+    required int player1Rating,
+  }) async {
+    setLoading(true);
+    setIsOnlineGame(true); // Set online game mode
+
+    setTimeControl(gameMode);
+
+    _isHost = true;
+    _player = Squares.white; // Current user will be white
+
+    _onlineGameRoom = await _gameService.createPrivateGameRoom(
+      gameMode: gameMode,
+      player1Id: player1Id,
+      player2Id: player2Id,
+      player1DisplayName: player1DisplayName,
+      player1PhotoUrl: player1PhotoUrl,
+      player1Rating: player1Rating,
+      initialWhitesTime: _savedWhitesTime.inMilliseconds,
+      initialBlacksTime: _savedBlacksTime.inMilliseconds,
+    );
+    _gameId = _onlineGameRoom!.gameId;
+    _logger.i('Created new game: ${_onlineGameRoom!.gameId}');
+
+    // Send game notification for friends notification collection
+    _gameService.sendGameNotification(gameRoom: _onlineGameRoom!);
+
+    // Set up real-time listener for the game room
+    gameRoomSubscription = _gameService
+        .streamGameRoom(_gameId)
+        .listen(
+          onOnlineGameRoomUpdate,
+          onError: (error) {
+            _logger.e('Error streaming game room $_gameId: $error');
+            // Handle error, e.g., show a snackbar
+          },
+          onDone: () {
+            _logger.i('Game room $_gameId stream closed.');
+          },
+        );
+
+    // Initialize game state based on the online game room
+    _whitesTime = Duration(milliseconds: _onlineGameRoom!.initialWhitesTime);
+    _blacksTime = Duration(milliseconds: _onlineGameRoom!.initialBlacksTime);
+    // Initialize game state based on the online game room
+    _whitesTime = Duration(
+      milliseconds: _onlineGameRoom!.whitesTimeRemaining,
+    ); // Use remaining time
+    _blacksTime = Duration(
+      milliseconds: _onlineGameRoom!.blacksTimeRemaining,
+    ); // Use remaining time
+    _player1OnlineScore = _onlineGameRoom!.player1Score;
+    _player2OnlineScore = _onlineGameRoom!.player2Score;
+
+    _game = bishop.Game(fen: _onlineGameRoom!.fen);
+    _state = _game.squaresState(_player);
+
+    // Apply historical moves if any
+    for (var moveString in _onlineGameRoom!.moves) {
+      _game.makeSquaresMove(_convertMoveStringToMove(moveString: moveString));
+    }
+
+    // Start timer if game is active and it's our turn
+    if (_onlineGameRoom!.status == Constants.statusActive &&
+        ((_isHost && _game.state.turn == Squares.white) ||
+            (!_isHost && _game.state.turn == Squares.black))) {
+      _startTimer();
+    }
+
+    setLoading(false);
+    notifyListeners();
+  }
+
+  Future<bool> joinPrivateGameRoom({
+    required String userId,
+    required String displayName,
+    String? photoUrl,
+    required int userRating,
+    required String gameMode,
+  }) async {
+    // Set loading
+    setLoading(true);
+    setIsOnlineGame(true);
+    setTimeControl(gameMode);
+
+    try {
+      _logger.i('Checking for available games...');
+
+      // We check if the game is still available
+      GameRoom? isAvailable = await _gameService.findAvailableGame(
+        gameMode: gameMode,
+        userRating: userRating,
+        isPrivate: true,
+        currentUserId: userId,
+      );
+
+      if (isAvailable != null) {
+        _logger.i('Game found: ${isAvailable.gameId}');
+
+        // Join existing game
+        _isHost = false;
+        _onlineGameRoom = isAvailable;
+        _gameId = isAvailable.gameId;
+        _player = Squares.black; // Joining player is Black
+
+        await _gameService.joinGameRoom(
+          gameId: isAvailable.gameId,
+          player2Id: userId,
+          player2DisplayName: displayName,
+          player2PhotoUrl: photoUrl,
+          player2Rating: userRating,
+        );
+
+        // Delete the notification
+        await _gameService.deleteGameNotification(userId, _gameId);
+
+        _logger.i('Game notification deleted: $_gameId');
+
+        // Set up real-time listener for the game room
+        gameRoomSubscription = _gameService
+            .streamGameRoom(_gameId)
+            .listen(
+              onOnlineGameRoomUpdate,
+              onError: (error) {
+                _logger.e('Error streaming game room $_gameId: $error');
+                // Handle error, e.g., show a snackbar
+              },
+              onDone: () {
+                _logger.i('Game room $_gameId stream closed.');
+              },
+            );
+
+        // Initialize game state based on the online game room
+        _whitesTime = Duration(
+          milliseconds: _onlineGameRoom!.initialWhitesTime,
+        );
+        _blacksTime = Duration(
+          milliseconds: _onlineGameRoom!.initialBlacksTime,
+        );
+        // Initialize game state based on the online game room
+        _whitesTime = Duration(
+          milliseconds: _onlineGameRoom!.whitesTimeRemaining,
+        ); // Use remaining time
+        _blacksTime = Duration(
+          milliseconds: _onlineGameRoom!.blacksTimeRemaining,
+        ); // Use remaining time
+        _player1OnlineScore = _onlineGameRoom!.player1Score;
+        _player2OnlineScore = _onlineGameRoom!.player2Score;
+
+        _game = bishop.Game(fen: _onlineGameRoom!.fen);
+        _state = _game.squaresState(_player);
+
+        // Apply historical moves if any
+        for (var moveString in _onlineGameRoom!.moves) {
+          _game.makeSquaresMove(
+            _convertMoveStringToMove(moveString: moveString),
+          );
+        }
+
+        // Start timer if game is active and it's our turn
+        if (_onlineGameRoom!.status == Constants.statusActive &&
+            ((_isHost && _game.state.turn == Squares.white) ||
+                (!_isHost && _game.state.turn == Squares.black))) {
+          _startTimer();
+        }
+
+        setLoading(false);
+        notifyListeners();
+
+        _logger.i('Stream set up, initializing game state...');
+
+        return true;
+      } else {
+        // Update message game not found and return
+        setLoading(false);
+        return false;
+      }
+    } catch (e) {
+      _logger.e('Error during online game joining: $e');
+      setLoading(false);
+      // Handle error, e.g., show a snackbar
+      return false;
+    }
+  }
+
+  Future<void> declineGameInvite(String gameId, String userId) async {
+    try {
+      // Delete the game room and notification
+      await _gameService.declineGameInvite(gameId, userId);
+
+      notifyListeners();
+    } catch (e) {
+      _logger.e('Error declining game invite: $e');
+      rethrow;
+    }
+  }
+
+  // Future<void> startOnlineGameWithRoom(GameRoom room, ChessUser user) async {
+  //   setLoading(true);
+  //   setIsOnlineGame(true);
+  //   _onlineGameRoom = room;
+  //   _gameId = room.gameId;
+  //   _isHost = room.player1Id == user.uid;
+  //   _player = _isHost ? room.player1Color : room.player2Color!;
+
+  //   // Set up real-time listener for the game room
+  //   gameRoomSubscription = _gameService
+  //       .streamGameRoom(_gameId)
+  //       .listen(onOnlineGameRoomUpdate);
+
+  //   _whitesTime = Duration(milliseconds: room.initialWhitesTime);
+  //   _blacksTime = Duration(milliseconds: room.initialBlacksTime);
+  //   _player1OnlineScore = room.player1Score;
+  //   _player2OnlineScore = room.player2Score;
+
+  //   _game = bishop.Game(fen: room.fen);
+  //   _state = _game.squaresState(_player);
+
+  //   setLoading(false);
+  //   notifyListeners();
+  // }
+
   /// Handles updates received from the online game room stream.
   void onOnlineGameRoomUpdate(GameRoom updatedRoom) {
+    // If the game room is null or the ID doesn't match, ignore the update
+    if (_onlineGameRoom == null ||
+        _onlineGameRoom!.gameId != updatedRoom.gameId) {
+      return;
+    }
+
     final bool wasGameOver = isGameOver;
     _onlineGameRoom = updatedRoom;
     _gameId = updatedRoom.gameId;
@@ -990,8 +1303,6 @@ class GameProvider extends ChangeNotifier {
     if (wasGameOver &&
         updatedRoom.status == Constants.statusActive &&
         updatedRoom.rematchOfferedBy == null) {
-      _logger.i('Rematch detected! Resetting game.');
-
       // Explicitly reset timers for the rematch
       _whitesTime = Duration(milliseconds: updatedRoom.initialWhitesTime);
       _blacksTime = Duration(milliseconds: updatedRoom.initialBlacksTime);
@@ -1065,9 +1376,12 @@ class GameProvider extends ChangeNotifier {
             updatedRoom.player1Id == updatedRoom.winnerId
                 ? updatedRoom.player1Color
                 : updatedRoom.player2Color;
-        _gameResultNotifier.value = WonGameResignation(winner: winnerColor!);
-      } else if (updatedRoom.drawOfferedBy != null) {
-        _gameResultNotifier.value = bishop.DrawnGame();
+        if (winnerColor != null) {
+          _gameResultNotifier.value = WonGameResignation(winner: winnerColor);
+        }
+      } else if (updatedRoom.status == Constants.statusCompleted) {
+        // If game is completed and there's no winner, it's a draw.
+        _gameResultNotifier.value = const DrawnGameAgreement();
       }
       checkGameOver();
     }
@@ -1111,9 +1425,12 @@ class GameProvider extends ChangeNotifier {
               subscription.cancel();
               completer.complete();
             } else if (gameRoom.status == Constants.statusAborted ||
-                gameRoom.status == Constants.statusCompleted) {
+                gameRoom.status == Constants.statusCompleted ||
+                gameRoom.status == Constants.statusDeclined) {
               subscription.cancel();
-              completer.completeError('Game was aborted or completed');
+              completer.completeError(
+                'Game was aborted, declined or completed',
+              );
             }
           },
           onError: (error) {
@@ -1133,6 +1450,15 @@ class GameProvider extends ChangeNotifier {
             _onlineGameRoom!.status == Constants.statusWaiting) {
           _gameService.deleteGameRoom(_onlineGameRoom!.gameId);
         }
+        // delete the game room if it was created and still waiting
+        if (_isHost &&
+            _onlineGameRoom != null &&
+            _onlineGameRoom!.isPrivate == true) {
+          _gameService.deleteGameNotification(
+            onlineGameRoom!.player1Id,
+            _onlineGameRoom!.gameId,
+          );
+        }
         _logger.w('Timed out waiting for opponent to join');
         // Show a timeout exception
         throw TimeoutException(
@@ -1143,7 +1469,7 @@ class GameProvider extends ChangeNotifier {
     );
   }
 
-  Future<void> cancelOnlineGameSearch() async {
+  Future<void> cancelOnlineGameSearch({bool isFriend = false}) async {
     try {
       // Cancel the game room subscription
       await gameRoomSubscription?.cancel();
@@ -1152,6 +1478,13 @@ class GameProvider extends ChangeNotifier {
       // If we created a game (we're the host), delete it
       if (_isHost && _onlineGameRoom != null) {
         await _gameService.deleteGameRoom(_onlineGameRoom!.gameId);
+        // If it was a friend invite we also need to delete the notification
+        if (isFriend) {
+          await _gameService.deleteGameNotification(
+            _onlineGameRoom!.player2Id!,
+            _onlineGameRoom!.gameId,
+          );
+        }
         _logger.i('Deleted game room: ${_onlineGameRoom!.gameId}');
       }
 

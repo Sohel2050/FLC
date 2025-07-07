@@ -14,6 +14,8 @@ class Constants {
   static const String gamesDraw = 'gamesDraw';
   static const String achievements = 'achievements';
   static const String friends = 'friends';
+  static const String friendRequestsSent = 'friendRequestsSent';
+  static const String friendRequestsReceived = 'friendRequestsReceived';
   static const String isOnline = 'isOnline';
   static const String lastSeen = 'lastSeen';
   static const String isGuest = 'isGuest';
@@ -44,6 +46,8 @@ class Constants {
   static const String achievementsCollection = 'achievements';
   static const String gameRoomsCollection = 'gameRooms';
   static const String gameHistoryCollection = 'gameHistory';
+  static const String notificationsCollection = 'notifications';
+  static const String invitesCollection = 'invites';
 
   // Firestore fields
   static const String fieldPlayer1Id = 'player1Id';
@@ -72,6 +76,8 @@ class Constants {
   static const String fieldBlacksTimeRemaining = 'blacksTimeRemaining';
   static const String fieldPlayer1Score = 'player1Score';
   static const String fieldPlayer2Score = 'player2Score';
+  static const String fieldIsPrivate = 'isPrivate';
+  static const String fieldSpectatorLink = 'spectatorLink';
 
   // Saved Game fields
   static const String fieldUserId = 'userId';
@@ -92,6 +98,7 @@ class Constants {
   static const String statusActive = 'active';
   static const String statusCompleted = 'completed';
   static const String statusAborted = 'aborted';
+  static const String statusDeclined = 'declined';
 
   // Game results
   static const String win = 'win';
@@ -100,23 +107,27 @@ class Constants {
   static const String none = 'none';
 
   static const String classical = 'Classical';
-  static const String blitz = 'Blitz';
   static const String tempo = 'Tempo';
-  static const String quickBlitz = 'Quick Blitz';
+  static const String blitz3 = 'Blitz3';
+  static const String blitz5 = 'Blitz5';
 
   // Map game modes to rating types
   static const Map<String, String> gameModeToRatingType = {
     '60 sec/move': classicalRating,
-    '5 min + 3 sec': blitzRating,
     '20 sec/move': tempoRating,
-    '3 min': blitzRating, // Quick Blitz also uses Blitz rating
+    '3 min + 5s bonus 3s': blitzRating,
+    '5 min + 5s bonus 5s': blitzRating,
   };
 
   static const List<Map<String, dynamic>> gameModes = [
-    {'title': 'Classical', 'timeControl': '60 sec/move', 'icon': Icons.timer},
-    {'title': 'Blitz', 'timeControl': '5 min + 3 sec', 'icon': Icons.bolt},
-    {'title': 'Tempo', 'timeControl': '20 sec/move', 'icon': Icons.speed},
-    {'title': 'Quick Blitz', 'timeControl': '3 min', 'icon': Icons.flash_on},
+    {'title': classical, 'timeControl': '60 sec/move', 'icon': Icons.timer},
+    {'title': tempo, 'timeControl': '20 sec/move', 'icon': Icons.speed},
+    {
+      'title': blitz3,
+      'timeControl': '3 min + 5s bonus 3s',
+      'icon': Icons.flash_on,
+    },
+    {'title': blitz5, 'timeControl': '5 min + 5s bonus 5s', 'icon': Icons.bolt},
   ];
 
   static const List<Map<String, dynamic>> difficulties = [

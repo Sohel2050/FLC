@@ -10,6 +10,7 @@ import 'package:flutter_chess_app/widgets/draw_offer_widget.dart';
 import 'package:flutter_chess_app/widgets/game_over_dialog.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:squares/squares.dart';
 
 class GameScreen extends StatefulWidget {
@@ -90,18 +91,30 @@ class _GameScreenState extends State<GameScreen> {
         playerColor: _gameProvider.player,
       ),
     ).then((action) {
-      if (action == GameOverAction.newGame) {
-        _gameProvider.disposeStockfish();
-        // For online games, reset scores to 0-0 for a new game.
-        if (_gameProvider.isOnlineGame) {
-          _gameProvider.resetGame(true);
-        }
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
+      if (action == null) return; // Dialog was dismissed
+
+      final isOnline = _gameProvider.isOnlineGame;
+
+      switch (action) {
+        case GameOverAction.rematch:
+          // This is now handled in the dialog for local games.
+          // For online games, it's also handled in the dialog.
+          break;
+        case GameOverAction.newGame:
+          _gameProvider.disposeStockfish();
+          if (isOnline) {
+            // For online, properly leave the game room before navigating.
+            _gameProvider.cancelOnlineGameSearch();
+          }
+          // For all modes, a new game means going back to the play screen.
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
+          break;
+        case GameOverAction.none:
+          // Do nothing
+          break;
       }
-      // We still need to check for game over to save the game.
-      _gameProvider.checkGameOver(userId: userId);
     });
   }
 
@@ -171,19 +184,37 @@ class _GameScreenState extends State<GameScreen> {
 
   /// Shows a confirmation dialog for offering a draw.
   void _showDrawOfferDialog() async {
-    final bool? confirmDraw = await AnimatedDialog.show<bool>(
-      context: context,
-      title: 'Offer Draw?',
-      maxWidth: 400,
-      child: const ConfirmationDialog(
-        message: 'Are you sure you want to offer a draw?',
-        confirmButtonText: 'Offer Draw',
-        cancelButtonText: 'Cancel',
-      ),
-    );
+    if (_gameProvider.localMultiplayer) {
+      // For local multiplayer, show a dialog to accept or reject the draw immediately.
+      final bool? acceptDraw = await AnimatedDialog.show<bool>(
+        context: context,
+        title: 'Draw Offer',
+        maxWidth: 400,
+        child: const ConfirmationDialog(
+          message: 'The opponent offers a draw. Do you accept?',
+          confirmButtonText: 'Accept',
+          cancelButtonText: 'Reject',
+        ),
+      );
+      if (acceptDraw == true) {
+        _gameProvider.endGameAsDraw();
+      }
+    } else {
+      // For online games, show a confirmation to send the draw offer.
+      final bool? confirmDraw = await AnimatedDialog.show<bool>(
+        context: context,
+        title: 'Offer Draw?',
+        maxWidth: 400,
+        child: const ConfirmationDialog(
+          message: 'Are you sure you want to offer a draw?',
+          confirmButtonText: 'Offer Draw',
+          cancelButtonText: 'Cancel',
+        ),
+      );
 
-    if (confirmDraw == true) {
-      await _gameProvider.offerDraw();
+      if (confirmDraw == true) {
+        await _gameProvider.offerDraw();
+      }
     }
   }
 
@@ -210,8 +241,8 @@ class _GameScreenState extends State<GameScreen> {
                 gameProvider.vsCPU
                     ? 'VS CPU'
                     : gameProvider.localMultiplayer
-                    ? 'Local Multiplayer'
-                    : 'Online Game',
+                    ? 'Local'
+                    : 'Online',
               ),
               actions: [
                 IconButton(
@@ -230,6 +261,19 @@ class _GameScreenState extends State<GameScreen> {
                   icon: const Icon(Icons.flag),
                   tooltip: 'Resign',
                 ),
+                if (gameProvider.isOnlineGame)
+                  IconButton(
+                    onPressed: () {
+                      final gameRoom = gameProvider.onlineGameRoom;
+                      if (gameRoom != null && gameRoom.spectatorLink != null) {
+                        Share.share(
+                          'Watch my chess game: ${gameRoom.spectatorLink}',
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.share),
+                    tooltip: 'Share Spectator Link',
+                  ),
               ],
             ),
             body: Stack(

@@ -15,6 +15,8 @@ class ChessUser {
   final int gamesDraw;
   final List<String> achievements;
   final List<String> friends;
+  final List<String> friendRequestsSent;
+  final List<String> friendRequestsReceived;
   final bool isOnline;
   final DateTime lastSeen;
   final bool isGuest;
@@ -36,13 +38,15 @@ class ChessUser {
     this.gamesDraw = 0,
     this.achievements = const [],
     this.friends = const [],
+    this.friendRequestsSent = const [],
+    this.friendRequestsReceived = const [],
     this.isOnline = false,
     DateTime? lastSeen,
     this.isGuest = false,
     this.winStreak = const {},
     this.savedGames = const [],
     this.preferences = const {},
-  }) : this.lastSeen = lastSeen ?? DateTime.now();
+  }) : lastSeen = lastSeen ?? DateTime.now();
 
   ChessUser copyWith({
     String? uid,
@@ -58,6 +62,8 @@ class ChessUser {
     int? gamesDraw,
     List<String>? achievements,
     List<String>? friends,
+    List<String>? friendRequestsSent,
+    List<String>? friendRequestsReceived,
     bool? isOnline,
     DateTime? lastSeen,
     bool? isGuest,
@@ -79,6 +85,9 @@ class ChessUser {
       gamesDraw: gamesDraw ?? this.gamesDraw,
       achievements: achievements ?? this.achievements,
       friends: friends ?? this.friends,
+      friendRequestsSent: friendRequestsSent ?? this.friendRequestsSent,
+      friendRequestsReceived:
+          friendRequestsReceived ?? this.friendRequestsReceived,
       isOnline: isOnline ?? this.isOnline,
       lastSeen: lastSeen ?? this.lastSeen,
       isGuest: isGuest ?? this.isGuest,
@@ -107,6 +116,8 @@ class ChessUser {
       Constants.gamesDraw: gamesDraw,
       Constants.achievements: achievements,
       Constants.friends: friends,
+      Constants.friendRequestsSent: friendRequestsSent,
+      Constants.friendRequestsReceived: friendRequestsReceived,
       Constants.isOnline: isOnline,
       Constants.lastSeen: lastSeen,
       Constants.isGuest: isGuest,
@@ -131,6 +142,12 @@ class ChessUser {
       gamesDraw: map[Constants.gamesDraw] ?? 0,
       achievements: List<String>.from(map[Constants.achievements] ?? []),
       friends: List<String>.from(map[Constants.friends] ?? []),
+      friendRequestsSent: List<String>.from(
+        map[Constants.friendRequestsSent] ?? [],
+      ),
+      friendRequestsReceived: List<String>.from(
+        map[Constants.friendRequestsReceived] ?? [],
+      ),
       isOnline: map[Constants.isOnline] ?? false,
       lastSeen: _convertToDateTime(map[Constants.lastSeen]),
       isGuest: map[Constants.isGuest] ?? false,
@@ -163,6 +180,8 @@ class ChessUser {
     int? gamesDraw,
     List<String>? achievements,
     List<String>? friends,
+    List<String>? friendRequestsSent,
+    List<String>? friendRequestsReceived,
     bool? isOnline,
     DateTime? lastSeen,
     bool? isGuest,
@@ -184,6 +203,9 @@ class ChessUser {
       gamesDraw: gamesDraw ?? this.gamesDraw,
       achievements: achievements ?? this.achievements,
       friends: friends ?? this.friends,
+      friendRequestsSent: friendRequestsSent ?? this.friendRequestsSent,
+      friendRequestsReceived:
+          friendRequestsReceived ?? this.friendRequestsReceived,
       isOnline: isOnline ?? this.isOnline,
       lastSeen: lastSeen ?? this.lastSeen,
       isGuest: isGuest ?? this.isGuest,

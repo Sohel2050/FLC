@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'package:bishop/bishop.dart' as bishop;
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
@@ -30,23 +31,15 @@ class _GameOverDialogState extends State<GameOverDialog> {
   Timer? _statusClearTimer;
   late GameProvider _gameProvider;
 
-  void _onGameStatusChanged() {
-    if (_gameProvider.gameResult == null && mounted) {
-      Navigator.of(context).pop();
-    }
-  }
-
   @override
   void initState() {
     super.initState();
     _gameProvider = context.read<GameProvider>();
-    _gameProvider.gameResultNotifier.addListener(_onGameStatusChanged);
   }
 
   @override
   void dispose() {
     _statusClearTimer?.cancel();
-    _gameProvider.gameResultNotifier.removeListener(_onGameStatusChanged);
     super.dispose();
   }
 
@@ -255,13 +248,15 @@ class _GameOverDialogState extends State<GameOverDialog> {
       children: [
         ElevatedButton(
           onPressed: () {
-            gameProvider.resetGame(true); // Rematch for local/CPU
-            Navigator.of(context).pop(GameOverAction.rematch);
+            gameProvider.resetGame(true);
+            Navigator.of(context).pop(); // Pop dialog, return no action
           },
           child: const Text('Rematch'),
         ),
         OutlinedButton(
-          onPressed: () => Navigator.of(context).pop(GameOverAction.newGame),
+          onPressed: () {
+            Navigator.of(context).pop(GameOverAction.newGame);
+          },
           child: const Text('New Game'),
         ),
       ],

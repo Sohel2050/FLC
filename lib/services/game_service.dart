@@ -10,6 +10,58 @@ class GameService {
   final Logger _logger = Logger();
   final Uuid _uuid = const Uuid();
 
+  /// Creates a private game room for a friend challenge.
+  Future<GameRoom> createPrivateGameRoom({
+    required String gameMode,
+    required String player1Id,
+    required String player2Id,
+    required String player1DisplayName,
+    String? player1PhotoUrl,
+    required int player1Rating,
+    required int initialWhitesTime,
+    required int initialBlacksTime,
+  }) async {
+    final String gameId = _uuid.v4();
+    final Timestamp now = Timestamp.now();
+
+    final GameRoom newGameRoom = GameRoom(
+      gameId: gameId,
+      gameMode: gameMode,
+      player1Id: player1Id,
+      player2Id: player2Id, // Invited friend
+      player1DisplayName: player1DisplayName,
+      player1PhotoUrl: player1PhotoUrl,
+      player1Color: Squares.white,
+      status: Constants.statusWaiting,
+      fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      moves: [],
+      createdAt: now,
+      lastMoveAt: now,
+      player1Rating: player1Rating,
+      ratingBasedSearch: false,
+      initialWhitesTime: initialWhitesTime,
+      initialBlacksTime: initialBlacksTime,
+      whitesTimeRemaining: initialWhitesTime,
+      blacksTimeRemaining: initialBlacksTime,
+      player1Score: 0,
+      player2Score: 0,
+      isPrivate: true,
+      spectatorLink: null,
+    );
+
+    try {
+      await _firestore
+          .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .set(newGameRoom.toMap());
+      _logger.i('Private game room created: $gameId');
+      return newGameRoom;
+    } catch (e) {
+      _logger.e('Error creating private game room: $e');
+      rethrow;
+    }
+  }
+
   /// Creates a new game room in Firestore.
   Future<GameRoom> createGameRoom({
     required String gameMode,
@@ -48,6 +100,8 @@ class GameService {
       blacksTimeRemaining: initialBlacksTime, // Set initial remaining time
       player1Score: player1Score,
       player2Score: player2Score,
+      isPrivate: false,
+      spectatorLink: null,
     );
 
     try {
@@ -63,18 +117,40 @@ class GameService {
     }
   }
 
+  // Send game notification to friends notification collection
+  Future<void> sendGameNotification({required GameRoom gameRoom}) async {
+    try {
+      await _firestore
+          .collection(Constants.notificationsCollection)
+          .doc(gameRoom.player2Id)
+          .collection(Constants.invitesCollection)
+          .doc(gameRoom.gameId)
+          .set(gameRoom.toMap());
+      _logger.i('Game notification sent to ${gameRoom.player2Id}');
+    } catch (e) {
+      _logger.e('Error sending game notification: $e');
+    }
+  }
+
   /// Finds an available game room based on game mode and rating.
   Future<GameRoom?> findAvailableGame({
     required String gameMode,
     required int userRating,
-    required bool ratingBasedSearch,
+    bool ratingBasedSearch = false,
+    bool isPrivate = false,
     required String currentUserId, // Add this parameter
   }) async {
+    _logger.i('Finding available game for mode: $gameMode');
+
     try {
       Query query = _firestore
           .collection(Constants.gameRoomsCollection)
           .where(Constants.fieldGameMode, isEqualTo: gameMode)
           .where(Constants.fieldStatus, isEqualTo: Constants.statusWaiting)
+          .where(
+            Constants.fieldIsPrivate,
+            isEqualTo: isPrivate,
+          ) // Exclude private games
           .orderBy(
             Constants.fieldCreatedAt,
             descending: false,
@@ -174,13 +250,53 @@ class GameService {
         .doc(gameId)
         .snapshots()
         .map((snapshot) {
-          if (!snapshot.exists) {
-            _logger.w('Game room $gameId does not exist for streaming.');
-            throw Exception('Game room does not exist');
+          if (!snapshot.exists || snapshot.data() == null) {
+            _logger.w('Game room $gameId does not exist or has no data.');
+            throw Exception('Game room does not exist or is empty');
           }
-          _logger.i('Received snapshot for game room $gameId');
-          return GameRoom.fromMap(snapshot.data() as Map<String, dynamic>);
+          final data = snapshot.data() as Map<String, dynamic>;
+          _logger.i('Received snapshot for game room $gameId: $data');
+          try {
+            return GameRoom.fromMap(data);
+          } catch (e, stacktrace) {
+            _logger.e(
+              'Error parsing game room $gameId: $e',
+              error: e,
+              stackTrace: stacktrace,
+            );
+            throw Exception('Failed to parse game room data');
+          }
         });
+  }
+
+  Stream<List<GameRoom>> streamGameInvites(String userId) {
+    return _firestore
+        .collection(Constants.notificationsCollection)
+        .doc(userId)
+        .collection(Constants.invitesCollection)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => GameRoom.fromMap(doc.data())).toList(),
+        );
+  }
+
+  Future<void> declineGameInvite(String gameId, String userId) async {
+    try {
+      // Delete the game room
+      await _firestore
+          .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .update({Constants.fieldStatus: Constants.statusDeclined});
+
+      // Delete the notification
+      await deleteGameNotification(userId, gameId);
+
+      _logger.i('Game invite declined: $gameId');
+    } catch (e) {
+      _logger.e('Error declining game invite: $e');
+      rethrow;
+    }
   }
 
   // Deletes a game room by its ID.
@@ -193,6 +309,22 @@ class GameService {
           .doc(gameId)
           .delete();
       _logger.i('Game room deleted: $gameId');
+    } catch (e) {
+      _logger.e('Error deleting game room: $e');
+    }
+  }
+
+  // Delete a game notification
+  /// This is used when the game has started or canclled
+  Future<void> deleteGameNotification(String userId, String gameId) async {
+    try {
+      await _firestore
+          .collection(Constants.notificationsCollection)
+          .doc(userId)
+          .collection(Constants.invitesCollection)
+          .doc(gameId)
+          .delete();
+      _logger.i('Game notification deleted: $gameId');
     } catch (e) {
       _logger.e('Error deleting game room: $e');
     }
@@ -339,6 +471,37 @@ class GameService {
     } catch (e) {
       _logger.e('Error handling rematch offer for game $gameId: $e');
       rethrow;
+    }
+  }
+
+  Future<GameRoom?> getCurrentGameForUser(String userId) async {
+    try {
+      final snapshot =
+          await _firestore
+              .collection(Constants.gameRoomsCollection)
+              .where(Constants.fieldStatus, isEqualTo: Constants.statusActive)
+              .where(Constants.fieldPlayer1Id, isEqualTo: userId)
+              .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        return GameRoom.fromMap(snapshot.docs.first.data());
+      }
+
+      final snapshot2 =
+          await _firestore
+              .collection(Constants.gameRoomsCollection)
+              .where(Constants.fieldStatus, isEqualTo: Constants.statusActive)
+              .where(Constants.fieldPlayer2Id, isEqualTo: userId)
+              .get();
+
+      if (snapshot2.docs.isNotEmpty) {
+        return GameRoom.fromMap(snapshot2.docs.first.data());
+      }
+
+      return null;
+    } catch (e) {
+      _logger.e('Error getting current game for user $userId: $e');
+      return null;
     }
   }
 
