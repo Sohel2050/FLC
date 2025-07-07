@@ -1091,7 +1091,7 @@ class GameProvider extends ChangeNotifier {
     _logger.i('Created new game: ${_onlineGameRoom!.gameId}');
 
     // Update message when waiting for opponent
-    if (context != null) {
+    if (context.mounted) {
       updateLoadingMessage(
         context,
         'Waiting for $friendName to join...',
@@ -1257,6 +1257,11 @@ class GameProvider extends ChangeNotifier {
         notifyListeners();
 
         _logger.i('Stream set up, initializing game state...');
+
+        if (context.mounted) {
+          // Small delay to ensure the "Game ready!" message is visible
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
 
         return true;
       } else {

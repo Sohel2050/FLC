@@ -121,13 +121,16 @@ class GameInvitesDialog extends StatelessWidget {
 
       log('Game is available: $isAvailable');
 
+      // Hide loading dialog regardless of result
+      if (context.mounted) {
+        LoadingDialog.hide(context);
+      }
+
       if (isAvailable) {
         log('Game is available');
         if (context.mounted) {
-          LoadingDialog.hide(context);
-
           // Lets have a small delay to ensure UI is updated
-          await Future.delayed(const Duration(milliseconds: 500));
+          await Future.delayed(const Duration(milliseconds: 300));
           // Navigate to game
           Navigator.push(
             context,
