@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
+import 'package:flutter_chess_app/screens/chat_screen.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
@@ -50,7 +51,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     setState(() {
       _isSearching = true;
     });
-    final results = await _friendService.searchUsers(query);
+    final results = await _friendService.searchUsers(query, widget.user.uid!);
     setState(() {
       _searchResults = results;
       _isSearching = false;
@@ -138,7 +139,15 @@ class _FriendsScreenState extends State<FriendsScreen>
                   IconButton(
                     icon: const Icon(Icons.message),
                     onPressed: () {
-                      // TODO: Implement chat
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder:
+                              (context) => ChatScreen(
+                                currentUser: widget.user,
+                                otherUser: friend,
+                              ),
+                        ),
+                      );
                     },
                   ),
                   IconButton(
@@ -147,6 +156,15 @@ class _FriendsScreenState extends State<FriendsScreen>
                       _friendService.removeFriend(
                         currentUserId: widget.user.uid!,
                         friendUserId: friend.uid!,
+                      );
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.block),
+                    onPressed: () {
+                      _friendService.blockUser(
+                        currentUserId: widget.user.uid!,
+                        blockedUserId: friend.uid!,
                       );
                     },
                   ),

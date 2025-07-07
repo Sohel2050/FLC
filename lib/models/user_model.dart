@@ -17,6 +17,7 @@ class ChessUser {
   final List<String> friends;
   final List<String> friendRequestsSent;
   final List<String> friendRequestsReceived;
+  final List<String> blockedUsers;
   final bool isOnline;
   final DateTime lastSeen;
   final bool isGuest;
@@ -40,6 +41,7 @@ class ChessUser {
     this.friends = const [],
     this.friendRequestsSent = const [],
     this.friendRequestsReceived = const [],
+    this.blockedUsers = const [],
     this.isOnline = false,
     DateTime? lastSeen,
     this.isGuest = false,
@@ -64,6 +66,7 @@ class ChessUser {
     List<String>? friends,
     List<String>? friendRequestsSent,
     List<String>? friendRequestsReceived,
+    List<String>? blockedUsers,
     bool? isOnline,
     DateTime? lastSeen,
     bool? isGuest,
@@ -88,6 +91,7 @@ class ChessUser {
       friendRequestsSent: friendRequestsSent ?? this.friendRequestsSent,
       friendRequestsReceived:
           friendRequestsReceived ?? this.friendRequestsReceived,
+      blockedUsers: blockedUsers ?? this.blockedUsers,
       isOnline: isOnline ?? this.isOnline,
       lastSeen: lastSeen ?? this.lastSeen,
       isGuest: isGuest ?? this.isGuest,
@@ -118,6 +122,7 @@ class ChessUser {
       Constants.friends: friends,
       Constants.friendRequestsSent: friendRequestsSent,
       Constants.friendRequestsReceived: friendRequestsReceived,
+      Constants.blockedUsers: blockedUsers,
       Constants.isOnline: isOnline,
       Constants.lastSeen: lastSeen,
       Constants.isGuest: isGuest,
@@ -148,6 +153,7 @@ class ChessUser {
       friendRequestsReceived: List<String>.from(
         map[Constants.friendRequestsReceived] ?? [],
       ),
+      blockedUsers: List<String>.from(map['blockedUsers'] ?? []),
       isOnline: map[Constants.isOnline] ?? false,
       lastSeen: _convertToDateTime(map[Constants.lastSeen]),
       isGuest: map[Constants.isGuest] ?? false,
@@ -182,6 +188,7 @@ class ChessUser {
     List<String>? friends,
     List<String>? friendRequestsSent,
     List<String>? friendRequestsReceived,
+    List<String>? blockedUsers,
     bool? isOnline,
     DateTime? lastSeen,
     bool? isGuest,
@@ -206,6 +213,7 @@ class ChessUser {
       friendRequestsSent: friendRequestsSent ?? this.friendRequestsSent,
       friendRequestsReceived:
           friendRequestsReceived ?? this.friendRequestsReceived,
+      blockedUsers: blockedUsers ?? this.blockedUsers,
       isOnline: isOnline ?? this.isOnline,
       lastSeen: lastSeen ?? this.lastSeen,
       isGuest: isGuest ?? this.isGuest,

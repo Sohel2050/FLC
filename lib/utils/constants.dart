@@ -16,6 +16,7 @@ class Constants {
   static const String friends = 'friends';
   static const String friendRequestsSent = 'friendRequestsSent';
   static const String friendRequestsReceived = 'friendRequestsReceived';
+  static const String blockedUsers = 'blockedUsers';
   static const String isOnline = 'isOnline';
   static const String lastSeen = 'lastSeen';
   static const String isGuest = 'isGuest';
@@ -110,6 +111,12 @@ class Constants {
   static const String tempo = 'Tempo';
   static const String blitz3 = 'Blitz3';
   static const String blitz5 = 'Blitz5';
+
+  static const String chatRoomsCollections = 'chat_rooms';
+  static const String messagesCollection = 'messages';
+  static const String timestamp = 'timestamp';
+  static const String text = 'text';
+  static const String senderId = 'senderId';
 
   // Map game modes to rating types
   static const Map<String, String> gameModeToRatingType = {
