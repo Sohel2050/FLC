@@ -152,21 +152,11 @@ class _FriendsScreenState extends State<FriendsScreen>
                   ),
                   IconButton(
                     icon: const Icon(Icons.remove_circle_outline),
-                    onPressed: () {
-                      _friendService.removeFriend(
-                        currentUserId: widget.user.uid!,
-                        friendUserId: friend.uid!,
-                      );
-                    },
+                    onPressed: () => _showRemoveFriendDialog(friend),
                   ),
                   IconButton(
                     icon: const Icon(Icons.block),
-                    onPressed: () {
-                      _friendService.blockUser(
-                        currentUserId: widget.user.uid!,
-                        blockedUserId: friend.uid!,
-                      );
-                    },
+                    onPressed: () => _showBlockUserDialog(friend),
                   ),
                 ],
               ),
@@ -302,6 +292,62 @@ class _FriendsScreenState extends State<FriendsScreen>
                 },
               );
             }).toList(),
+      ),
+    );
+  }
+
+  void _showRemoveFriendDialog(ChessUser friend) async {
+    await AnimatedDialog.show(
+      context: context,
+      title: 'Remove ${friend.displayName}?',
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            _friendService.removeFriend(
+              currentUserId: widget.user.uid!,
+              friendUserId: friend.uid!,
+            );
+          },
+          child: const Text('Remove'),
+        ),
+      ],
+      child: Text(
+        'Are you sure you want to remove ${friend.displayName} from your friends list?',
+      ),
+    );
+  }
+
+  void _showBlockUserDialog(ChessUser friend) async {
+    await AnimatedDialog.show(
+      context: context,
+      title: 'Block ${friend.displayName}?',
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            _friendService.blockUser(
+              currentUserId: widget.user.uid!,
+              blockedUserId: friend.uid!,
+            );
+          },
+          child: const Text('Block'),
+        ),
+      ],
+      child: Text(
+        'Are you sure you want to block ${friend.displayName} from your friends list?',
       ),
     );
   }

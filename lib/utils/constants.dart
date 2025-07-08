@@ -50,6 +50,8 @@ class Constants {
   static const String notificationsCollection = 'notifications';
   static const String invitesCollection = 'invites';
 
+  static const String profileImagesCollection = 'profile_images';
+
   // Firestore fields
   static const String fieldPlayer1Id = 'player1Id';
   static const String fieldPlayer2Id = 'player2Id';
