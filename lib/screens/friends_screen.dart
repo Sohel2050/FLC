@@ -6,6 +6,7 @@ import 'package:flutter_chess_app/screens/game_screen.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
+import 'package:flutter_chess_app/widgets/guest_widget.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:provider/provider.dart';
@@ -84,196 +85,184 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   Widget _buildFriendsList() {
-    return StreamBuilder<List<ChessUser>>(
-      stream: _friendService.getFriends(widget.user.uid!),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('You have no friends yet.'));
-        }
-        final friends = snapshot.data!;
-        return ListView.builder(
-          itemCount: friends.length,
-          itemBuilder: (context, index) {
-            final friend = friends[index];
-            return ListTile(
-              leading: ProfileImageWidget(
-                imageUrl: friend.photoUrl,
-                radius: 20,
-              ),
-              title: Text(friend.displayName),
-              subtitle: Text(friend.isOnline ? 'Online' : 'Offline'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // if (friend.isOnline)
-                  //   IconButton(
-                  //     icon: const Icon(Icons.tv),
-                  //     onPressed: () async {
-                  //       final game = await _gameService.getCurrentGameForUser(
-                  //         friend.uid!,
-                  //       );
-                  //       if (game != null) {
-                  //         Navigator.of(context).push(
-                  //           MaterialPageRoute(
-                  //             builder:
-                  //                 (context) =>
-                  //                     SpectatorScreen(gameId: game.gameId),
-                  //           ),
-                  //         );
-                  //       } else {
-                  //         ScaffoldMessenger.of(context).showSnackBar(
-                  //           const SnackBar(
-                  //             content: Text('Friend is not in a game.'),
-                  //           ),
-                  //         );
-                  //       }
-                  //     },
-                  //   ),
-                  IconButton(
-                    icon: const Icon(Icons.videogame_asset),
-                    onPressed: () => _showInviteDialog(friend),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.message),
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder:
-                              (context) => ChatScreen(
-                                currentUser: widget.user,
-                                otherUser: friend,
-                              ),
-                        ),
-                      );
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.remove_circle_outline),
-                    onPressed: () => _showRemoveFriendDialog(friend),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.block),
-                    onPressed: () => _showBlockUserDialog(friend),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildRequestsList() {
-    return StreamBuilder<List<ChessUser>>(
-      stream: _friendService.getFriendRequests(widget.user.uid!),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('No new friend requests.'));
-        }
-        final requests = snapshot.data!;
-        return ListView.builder(
-          itemCount: requests.length,
-          itemBuilder: (context, index) {
-            final requestUser = requests[index];
-            return ListTile(
-              leading: ProfileImageWidget(
-                imageUrl: requestUser.photoUrl,
-                radius: 20,
-              ),
-              title: Text(requestUser.displayName),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.check, color: Colors.green),
-                    onPressed: () {
-                      _friendService.acceptFriendRequest(
-                        currentUserId: widget.user.uid!,
-                        friendUserId: requestUser.uid!,
-                      );
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.red),
-                    onPressed: () {
-                      _friendService.declineFriendRequest(
-                        currentUserId: widget.user.uid!,
-                        friendUserId: requestUser.uid!,
-                      );
-                    },
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildFindPlayersTab() {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Column(
-        children: [
-          TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              labelText: 'Search for players',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon:
-                  _searchController.text.isNotEmpty
-                      ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          _searchUsers('');
-                        },
-                      )
-                      : null,
-            ),
-            onChanged: _searchUsers,
-          ),
-          const SizedBox(height: 10),
-          if (_isSearching)
-            const CircularProgressIndicator()
-          else if (_searchResults.isNotEmpty)
-            Expanded(
-              child: ListView.builder(
-                itemCount: _searchResults.length,
-                itemBuilder: (context, index) {
-                  final user = _searchResults[index];
-                  return ListTile(
-                    leading: ProfileImageWidget(
-                      imageUrl: user.photoUrl,
-                      radius: 20,
+    if (widget.user.isGuest) {
+      return GuestWidget(context: context);
+    } else {
+      return StreamBuilder<List<ChessUser>>(
+        stream: _friendService.getFriends(widget.user.uid!),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('You have no friends yet.'));
+          }
+          final friends = snapshot.data!;
+          return ListView.builder(
+            itemCount: friends.length,
+            itemBuilder: (context, index) {
+              final friend = friends[index];
+              return ListTile(
+                leading: ProfileImageWidget(
+                  imageUrl: friend.photoUrl,
+                  radius: 20,
+                ),
+                title: Text(friend.displayName),
+                subtitle: Text(friend.isOnline ? 'Online' : 'Offline'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.videogame_asset),
+                      onPressed: () => _showInviteDialog(friend),
                     ),
-                    title: Text(user.displayName),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.person_add),
+                    IconButton(
+                      icon: const Icon(Icons.message),
                       onPressed: () {
-                        _friendService.sendFriendRequest(
-                          currentUserId: widget.user.uid!,
-                          friendUserId: user.uid!,
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder:
+                                (context) => ChatScreen(
+                                  currentUser: widget.user,
+                                  otherUser: friend,
+                                ),
+                          ),
                         );
                       },
                     ),
-                  );
-                },
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      onPressed: () => _showRemoveFriendDialog(friend),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.block),
+                      onPressed: () => _showBlockUserDialog(friend),
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      );
+    }
+  }
+
+  Widget _buildRequestsList() {
+    if (widget.user.isGuest) {
+      return GuestWidget(context: context);
+    } else {
+      return StreamBuilder<List<ChessUser>>(
+        stream: _friendService.getFriendRequests(widget.user.uid!),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('No new friend requests.'));
+          }
+          final requests = snapshot.data!;
+          return ListView.builder(
+            itemCount: requests.length,
+            itemBuilder: (context, index) {
+              final requestUser = requests[index];
+              return ListTile(
+                leading: ProfileImageWidget(
+                  imageUrl: requestUser.photoUrl,
+                  radius: 20,
+                ),
+                title: Text(requestUser.displayName),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.check, color: Colors.green),
+                      onPressed: () {
+                        _friendService.acceptFriendRequest(
+                          currentUserId: widget.user.uid!,
+                          friendUserId: requestUser.uid!,
+                        );
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.red),
+                      onPressed: () {
+                        _friendService.declineFriendRequest(
+                          currentUserId: widget.user.uid!,
+                          friendUserId: requestUser.uid!,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      );
+    }
+  }
+
+  Widget _buildFindPlayersTab() {
+    if (widget.user.isGuest) {
+      return GuestWidget(context: context);
+    } else {
+      return Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Search for players',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon:
+                    _searchController.text.isNotEmpty
+                        ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                            _searchUsers('');
+                          },
+                        )
+                        : null,
               ),
-            )
-          else if (_searchController.text.isNotEmpty)
-            const Text('No users found.'),
-        ],
-      ),
-    );
+              onChanged: _searchUsers,
+            ),
+            const SizedBox(height: 10),
+            if (_isSearching)
+              const CircularProgressIndicator()
+            else if (_searchResults.isNotEmpty)
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _searchResults.length,
+                  itemBuilder: (context, index) {
+                    final user = _searchResults[index];
+                    return ListTile(
+                      leading: ProfileImageWidget(
+                        imageUrl: user.photoUrl,
+                        radius: 20,
+                      ),
+                      title: Text(user.displayName),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.person_add),
+                        onPressed: () {
+                          _friendService.sendFriendRequest(
+                            currentUserId: widget.user.uid!,
+                            friendUserId: user.uid!,
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+              )
+            else if (_searchController.text.isNotEmpty)
+              const Text('No users found.'),
+          ],
+        ),
+      );
+    }
   }
 
   void _showInviteDialog(ChessUser friend) async {

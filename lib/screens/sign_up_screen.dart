@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/screens/login_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import '../widgets/play_mode_button.dart';
@@ -251,7 +252,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     if (!_isLoading)
                       TextButton(
                         onPressed: () {
-                          Navigator.of(context).pop();
+                          // Navigate to login screen and remove all routes
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => LoginScreen(),
+                            ),
+                            (route) => false,
+                          );
                         },
                         child: Text(
                           'Already have an account? Login',
