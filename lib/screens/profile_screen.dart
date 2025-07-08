@@ -4,6 +4,7 @@ import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/screens/login_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
+import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 import 'package:flutter_chess_app/widgets/play_mode_button.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 
@@ -18,8 +19,10 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _displayNameController;
+  late TextEditingController _emailController;
   File? _selectedImageFile;
   late ChessUser _currentUser;
+  bool _imageRemoved = false;
 
   @override
   void initState() {
@@ -28,6 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _displayNameController = TextEditingController(
       text: _currentUser.displayName,
     );
+    _emailController = TextEditingController(text: _currentUser.email);
   }
 
   @override
@@ -65,6 +69,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onImageSelected: (file) {
                 setState(() {
                   _selectedImageFile = file;
+                  if (file == null) {
+                    _imageRemoved = true;
+                  }
                 });
               },
             ),
@@ -79,6 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildProfileField(
               context,
               label: 'Email',
+              controller: _emailController,
               value: _currentUser.email ?? 'N/A',
               isEditable: false,
               icon: Icons.email,
@@ -216,40 +224,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final newDisplayName = _displayNameController.text.trim();
     String? newPhotoUrl = _currentUser.photoUrl;
 
-    if (_selectedImageFile != null) {
-      // After adding connecting to Firebase Storage we will be uploading the image to Firebase Storage
-      // and get a download URL here. For offline mode, we'll use the file path
-      // as a temporary representation or clear it if removed.
-      newPhotoUrl = _selectedImageFile!.path;
-    } else if (_selectedImageFile == null && _currentUser.photoUrl != null) {
-      // If image was removed
-      newPhotoUrl = null;
+    bool hasChanges =
+        newDisplayName != _currentUser.displayName ||
+        _selectedImageFile != null ||
+        _imageRemoved;
+
+    if (!hasChanges) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('No changes to save.')));
+      return;
     }
 
-    if (newDisplayName != _currentUser.displayName ||
-        newPhotoUrl != _currentUser.photoUrl) {
+    LoadingDialog.show(context, message: 'Saving profile...');
+
+    try {
+      if (_imageRemoved && _currentUser.photoUrl != null) {
+        LoadingDialog.updateMessage(context, 'Deleting image...');
+        await userService.deleteProfileImage(_currentUser.uid!);
+        newPhotoUrl = null;
+      } else if (_selectedImageFile != null) {
+        LoadingDialog.updateMessage(context, 'Uploading image...');
+        newPhotoUrl = await userService.uploadProfileImage(
+          _currentUser.uid!,
+          _selectedImageFile!,
+        );
+      }
+
       final updatedUser = _currentUser.copyWith(
         displayName: newDisplayName,
         photoUrl: newPhotoUrl,
       );
 
-      // Simulate saving the user data
+      if (mounted) {
+        LoadingDialog.updateMessage(context, 'Updating profile...');
+      }
+
       await userService.updateUser(updatedUser);
 
       setState(() {
         _currentUser = updatedUser;
-        _selectedImageFile = null; // Clear selected image after saving
+        _selectedImageFile = null;
+        _imageRemoved = false;
       });
 
       if (mounted) {
+        LoadingDialog.hide(context);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text('Profile updated.')));
       }
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('No changes to save.')));
+    } catch (e) {
+      if (mounted) {
+        LoadingDialog.hide(context);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to save profile: $e')));
+      }
     }
   }
 
@@ -278,15 +309,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (confirmed == true) {
-      await userService.deleteUserAccount(_currentUser.uid!);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Account deleted.')));
-        // Navigate back to a login/guest screen or home screen as appropriate
-        Navigator.of(
-          context,
-        ).popUntil((route) => route.isFirst); // Example: pop all routes
+      LoadingDialog.show(context, message: 'Deleting account...');
+      try {
+        await userService.deleteUserAccount(_currentUser.uid!);
+        if (mounted) {
+          LoadingDialog.hide(context);
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Account deleted.')));
+          // Navigate back to a login/guest screen or home screen as appropriate
+          Navigator.of(
+            context,
+          ).popUntil((route) => route.isFirst); // Example: pop all routes
+        }
+      } catch (e) {
+        if (mounted) {
+          LoadingDialog.hide(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete account: $e')),
+          );
+        }
       }
     }
   }

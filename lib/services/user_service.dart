@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'dart:math';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_chess_app/services/rating_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:get_it/get_it.dart';
@@ -13,6 +15,7 @@ class UserService {
   final Logger logger = Logger();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseStorage _storage = FirebaseStorage.instance;
 
   ChessUser createGuestUser() {
     final random = Random();
@@ -164,13 +167,48 @@ class UserService {
     }
   }
 
+  Future<String> uploadProfileImage(String userId, File imageFile) async {
+    try {
+      final ref = _storage
+          .ref()
+          .child(Constants.profileImagesCollection)
+          .child('$userId.jpg');
+      final uploadTask = ref.putFile(imageFile);
+      final snapshot = await uploadTask.whenComplete(() => {});
+      final downloadUrl = await snapshot.ref.getDownloadURL();
+      return downloadUrl;
+    } on FirebaseException catch (e) {
+      logger.e('Error uploading profile image: $e');
+      throw Exception('Failed to upload profile image.');
+    }
+  }
+
+  Future<void> deleteProfileImage(String userId) async {
+    try {
+      final ref = _storage
+          .ref()
+          .child(Constants.profileImagesCollection)
+          .child('$userId.jpg');
+      await ref.delete();
+    } on FirebaseException catch (e) {
+      // It's okay if the file doesn't exist, so we can ignore that error.
+      if (e.code != 'object-not-found') {
+        logger.e('Error deleting profile image: $e');
+        throw Exception('Failed to delete profile image.');
+      }
+    }
+  }
+
   Future<void> updateUser(ChessUser user) async {
     try {
       bool isValid = isValidName(user.displayName);
       if (!isValid) {
         throw ArgumentError('Invalid user name: ${user.displayName}');
       }
-      await _firestore.collection('users').doc(user.uid).update(user.toMap());
+      await _firestore
+          .collection(Constants.usersCollection)
+          .doc(user.uid)
+          .update(user.toMap());
     } catch (e) {
       throw Exception('An unknown error occurred while updating user data.');
     }
@@ -178,7 +216,11 @@ class UserService {
 
   Future<void> deleteUserAccount(String uid) async {
     try {
+      // First, delete the profile image from storage
+      await deleteProfileImage(uid);
+      // Then, delete the user document from Firestore
       await _firestore.collection(Constants.usersCollection).doc(uid).delete();
+      // Finally, delete the user from Firebase Auth
       await _auth.currentUser?.delete();
     } on FirebaseAuthException catch (e) {
       throw Exception(e.message);
@@ -197,9 +239,11 @@ class UserService {
     if (name.length > 30) {
       throw ArgumentError('Name cannot exceed 30 characters');
     }
-    if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(name)) {
-      throw ArgumentError('Name can only contain letters and spaces');
+    // Name can only contain letters, numbers and spaces
+    if (!RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(name)) {
+      throw ArgumentError('Name can only contain letters, numbers and spaces');
     }
+
     return true;
   }
 
