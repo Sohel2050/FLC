@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/screens/sign_up_screen.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
+import 'package:provider/provider.dart';
 import '../widgets/play_mode_button.dart';
 import '../services/user_service.dart';
 import '../services/sign_in_results.dart';
@@ -102,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             );
                           }
                         } catch (e) {
-                          if (mounted) {
+                          if (context.mounted) {
                             Navigator.of(context).pop();
                             AnimatedDialog.show(
                               context: context,
@@ -380,9 +382,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         text: 'Play as Guest',
                         icon: Icons.person_outline,
                         onPressed: () {
+                          final userProvider = context.read<UserProvider>();
+                          final setUser = userProvider.setUser;
                           final guestUser =
                               userService
                                   .createGuestUser(); // Create guest user
+
+                          // set Guest user
+                          setUser(guestUser);
                           // Navigate to home and replace the current screen
                           Navigator.of(context).pushAndRemoveUntil(
                             MaterialPageRoute(
