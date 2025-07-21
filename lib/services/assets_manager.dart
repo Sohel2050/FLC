@@ -2,4 +2,10 @@ class AssetsManager {
   static String images = 'assets/images';
 
   static String userIcon = '$images/user_icon.png';
+  static String boyAvatar = '$images/boy_1.jpg';
+  static String girlAvatar = '$images/girl_1.jpg';
+  static String manAvatar = '$images/man_1.jpg';
+  static String womanAvatar = '$images/woman_1.jpg';
+
+  static List<String> avatars = [boyAvatar, girlAvatar, manAvatar, womanAvatar];
 }

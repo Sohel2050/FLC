@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_chess_app/services/rating_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:get_it/get_it.dart';
@@ -167,13 +168,29 @@ class UserService {
     }
   }
 
+  Future<File> _compressImage(File file) async {
+    final filePath = file.absolute.path;
+    final lastIndex = filePath.lastIndexOf(RegExp(r'.jp'));
+    final splitted = filePath.substring(0, (lastIndex));
+    final outPath = "${splitted}_out${filePath.substring(lastIndex)}";
+
+    var result = await FlutterImageCompress.compressAndGetFile(
+      file.absolute.path,
+      outPath,
+      quality: 70,
+    );
+
+    return File(result!.path);
+  }
+
   Future<String> uploadProfileImage(String userId, File imageFile) async {
     try {
+      final compressedImage = await _compressImage(imageFile);
       final ref = _storage
           .ref()
           .child(Constants.profileImagesCollection)
           .child('$userId.jpg');
-      final uploadTask = ref.putFile(imageFile);
+      final uploadTask = ref.putFile(compressedImage);
       final snapshot = await uploadTask.whenComplete(() => {});
       final downloadUrl = await snapshot.ref.getDownloadURL();
       return downloadUrl;

@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/services/assets_manager.dart';
+import 'package:flutter_chess_app/widgets/avatar_selection_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:permission_handler/permission_handler.dart';
 
 class ProfileImageWidget extends StatefulWidget {
   final String? imageUrl;
   final double radius;
   final bool isEditable;
   final Function(File?)? onImageSelected;
+  final Function(String?)? onAvatarSelected;
   final Color? backgroundColor;
   final IconData? placeholderIcon;
 
@@ -17,6 +20,7 @@ class ProfileImageWidget extends StatefulWidget {
     this.radius = 50,
     this.isEditable = false,
     this.onImageSelected,
+    this.onAvatarSelected,
     this.backgroundColor,
     this.placeholderIcon = Icons.person,
   });
@@ -27,6 +31,7 @@ class ProfileImageWidget extends StatefulWidget {
 
 class _ProfileImageWidgetState extends State<ProfileImageWidget> {
   File? _selectedImage;
+  String? _selectedAvatar;
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -70,7 +75,14 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
   ImageProvider? _getImageProvider() {
     if (_selectedImage != null) {
       return FileImage(_selectedImage!);
-    } else if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty) {
+    }
+    if (_selectedAvatar != null) {
+      return AssetImage(_selectedAvatar!);
+    }
+    if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty) {
+      if (widget.imageUrl!.startsWith('assets')) {
+        return AssetImage(widget.imageUrl!);
+      }
       return NetworkImage(widget.imageUrl!);
     }
     return AssetImage(AssetsManager.userIcon);
@@ -99,7 +111,17 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
                   _pickImage(ImageSource.gallery);
                 },
               ),
-              if (widget.imageUrl != null || _selectedImage != null)
+              ListTile(
+                leading: const Icon(Icons.person_search_rounded),
+                title: const Text('Choose Avatar'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _chooseAvatar();
+                },
+              ),
+              if (widget.imageUrl != null ||
+                  _selectedImage != null ||
+                  _selectedAvatar != null)
                 ListTile(
                   leading: const Icon(Icons.delete),
                   title: const Text('Remove Photo'),
@@ -116,30 +138,57 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    try {
-      final XFile? image = await _picker.pickImage(
-        source: source,
-        maxWidth: 512,
-        maxHeight: 512,
-        imageQuality: 80,
-      );
+    PermissionStatus status;
+    if (source == ImageSource.camera) {
+      status = await Permission.camera.request();
+    } else {
+      status = await Permission.photos.request();
+    }
 
-      if (image != null) {
-        setState(() {
-          _selectedImage = File(image.path);
-        });
-        widget.onImageSelected?.call(_selectedImage);
+    if (status.isGranted) {
+      try {
+        final XFile? image = await _picker.pickImage(
+          source: source,
+          maxWidth: 512,
+          maxHeight: 512,
+          imageQuality: 80,
+        );
+
+        if (image != null) {
+          setState(() {
+            _selectedImage = File(image.path);
+            _selectedAvatar = null;
+          });
+          widget.onImageSelected?.call(_selectedImage);
+          widget.onAvatarSelected?.call(null);
+        }
+      } catch (e) {
+        print('Error picking image: $e');
+        // You can show a snackbar or dialog for error handling
       }
-    } catch (e) {
-      print('Error picking image: $e');
-      // You can show a snackbar or dialog for error handling
+    } else {
+      // Handle permission denied
     }
   }
 
   void _removeImage() {
     setState(() {
       _selectedImage = null;
+      _selectedAvatar = null;
     });
     widget.onImageSelected?.call(null);
+    widget.onAvatarSelected?.call(null);
+  }
+
+  Future<void> _chooseAvatar() async {
+    final selectedAvatar = await AvatarSelectionDialog.show(context: context);
+    if (selectedAvatar != null) {
+      setState(() {
+        _selectedAvatar = selectedAvatar;
+        _selectedImage = null;
+      });
+      widget.onAvatarSelected?.call(selectedAvatar);
+      widget.onImageSelected?.call(null);
+    }
   }
 }

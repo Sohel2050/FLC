@@ -11,6 +11,13 @@ class UserProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void updateUserPhoto(String? photoUrl) {
+    if (_user != null) {
+      _user = _user!.copyWith(photoUrl: photoUrl);
+      notifyListeners();
+    }
+  }
+
   void updateUserRating(String ratingTypeField, int newRating) {
     if (_user != null) {
       _user = _user!.copyWith(
