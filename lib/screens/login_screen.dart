@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/screens/sign_up_screen.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
+import 'package:provider/provider.dart';
 import '../widgets/play_mode_button.dart';
 import '../services/user_service.dart';
 import '../services/sign_in_results.dart';
@@ -19,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final UserService _userService = UserService();
   bool _isLoading = false;
+  bool _isPasswordVisible = false;
 
   @override
   void dispose() {
@@ -333,11 +336,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _passwordController,
-                      obscureText: true,
+                      obscureText: !_isPasswordVisible,
                       textInputAction: TextInputAction.done,
                       decoration: InputDecoration(
                         labelText: 'Password',
                         prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isPasswordVisible = !_isPasswordVisible;
+                            });
+                          },
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -380,10 +395,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         text: 'Play as Guest',
                         icon: Icons.person_outline,
                         onPressed: () {
+                          final userProvider = context.read<UserProvider>();
+                          final setUser = userProvider.setUser;
                           final guestUser =
                               userService
                                   .createGuestUser(); // Create guest user
-                          // Navigate to home and replace the current screen
+
+                          // set Guest user
+                          setUser(guestUser);
                           Navigator.of(context).pushAndRemoveUntil(
                             MaterialPageRoute(
                               builder: (_) => HomeScreen(user: guestUser),

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:squares/squares.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:in_app_review/in_app_review.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/user_model.dart';
 
 class OptionsScreen extends StatelessWidget {
@@ -124,6 +125,19 @@ class OptionsScreen extends StatelessWidget {
             icon: Icons.privacy_tip,
             onTap: () {
               // TODO: Need to add logic to show your privacy policy
+            },
+          ),
+          const Divider(),
+          _buildSectionHeader('More'),
+          _buildListTile(
+            title: 'Get More Apps',
+            icon: Icons.shop,
+            onTap: () {
+              launchUrl(
+                Uri.parse(
+                  'https://play.google.com/store/apps/developer?id=FLC+Business+Group',
+                ),
+              );
             },
           ),
         ],

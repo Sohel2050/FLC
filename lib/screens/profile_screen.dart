@@ -380,9 +380,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
     if (confirmed == true) {
-      // After adding Firebase Auth, we will call the logout method
-      // For now, we just navigate back to the login screen
-      await userService.deleteUserAccount(_currentUser.uid!);
+      // We logout
+      await userService.signOut();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
