@@ -24,6 +24,7 @@ class ChessUser {
   final Map<String, int> winStreak;
   final List<String> savedGames;
   final Map<String, String> preferences;
+  final String fcmToken;
 
   ChessUser({
     this.uid,
@@ -48,6 +49,7 @@ class ChessUser {
     this.winStreak = const {},
     this.savedGames = const [],
     this.preferences = const {},
+    this.fcmToken = '',
   }) : lastSeen = lastSeen ?? DateTime.now();
 
   ChessUser copyWith({
@@ -73,6 +75,7 @@ class ChessUser {
     Map<String, int>? winStreak,
     List<String>? savedGames,
     Map<String, String>? preferences,
+    String? fcmToken,
   }) {
     return ChessUser(
       uid: uid ?? this.uid,
@@ -98,6 +101,7 @@ class ChessUser {
       winStreak: winStreak ?? this.winStreak,
       savedGames: savedGames ?? this.savedGames,
       preferences: preferences ?? this.preferences,
+      fcmToken: fcmToken ?? this.fcmToken,
     );
   }
 
@@ -129,6 +133,7 @@ class ChessUser {
       Constants.winStreak: winStreak,
       Constants.savedGames: savedGames,
       Constants.preferences: preferences,
+      Constants.fcmToken: fcmToken,
     };
   }
 
@@ -160,6 +165,7 @@ class ChessUser {
       winStreak: Map<String, int>.from(map[Constants.winStreak] ?? {}),
       savedGames: List<String>.from(map[Constants.savedGames] ?? []),
       preferences: Map<String, String>.from(map[Constants.preferences] ?? {}),
+      fcmToken: map[Constants.fcmToken] ?? '',
     );
   }
 
@@ -195,6 +201,7 @@ class ChessUser {
     Map<String, int>? winStreak,
     List<String>? savedGames,
     Map<String, String>? preferences,
+    String? fcmToken,
   }) {
     return ChessUser(
       uid: uid,
@@ -220,6 +227,7 @@ class ChessUser {
       winStreak: winStreak ?? this.winStreak,
       savedGames: savedGames ?? this.savedGames,
       preferences: preferences ?? this.preferences,
+      fcmToken: fcmToken ?? this.fcmToken,
     );
   }
 }

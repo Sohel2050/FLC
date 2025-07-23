@@ -23,6 +23,7 @@ class Constants {
   static const String winStreak = 'winStreak';
   static const String savedGames = 'savedGames';
   static const String preferences = 'preferences';
+  static const String fcmToken = 'fcmToken';
 
   // For the guest user's display name
   static const String guestDisplayName = 'Guest';
