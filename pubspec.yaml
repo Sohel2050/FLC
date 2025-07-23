@@ -54,9 +54,12 @@ dependencies:
   intl: ^0.20.2
   get_it: ^8.0.3
   carousel_slider: ^5.1.1
-  permission_handler: ^11.3.1
+  permission_handler: ^12.0.1
   flutter_image_compress: ^2.3.0
   url_launcher: ^6.3.2
+  firebase_messaging: ^15.2.10
+  emoji_picker_flutter: ^4.3.0
+  flutter_local_notifications: ^19.3.1
 
 dev_dependencies:
   flutter_test:
@@ -67,7 +70,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

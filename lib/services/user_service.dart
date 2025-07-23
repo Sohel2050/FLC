@@ -25,6 +25,21 @@ class UserService {
     return ChessUser(displayName: displayName, isGuest: true);
   }
 
+  // save fcmToken to firetore
+  Future<void> saveFcmToken(String fcmToken) async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null) {
+        await _firestore
+            .collection(Constants.usersCollection)
+            .doc(user.uid)
+            .update({Constants.fcmToken: fcmToken});
+      }
+    } catch (e) {
+      logger.e('Error saving FCM token: $e');
+    }
+  }
+
   Stream<int> getOnlinePlayersCountStream() {
     return _firestore
         .collection(Constants.usersCollection)
