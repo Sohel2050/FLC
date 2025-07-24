@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
+import 'package:open_settings_plus/open_settings_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:squares/squares.dart';
 import 'package:share_plus/share_plus.dart';
@@ -90,13 +91,12 @@ class OptionsScreen extends StatelessWidget {
           _buildListTile(
             title: 'Notifications',
             icon: Icons.notifications,
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Notifications feature coming soon!'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
+            onTap: () async {
+              // navigate to account settings
+              final settings = OpenSettingsPlusAndroid();
+
+              await settings.applicationNotification();
+              ;
             },
           ),
           _buildListTile(

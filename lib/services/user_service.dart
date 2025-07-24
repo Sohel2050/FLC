@@ -279,6 +279,22 @@ class UserService {
     return true;
   }
 
+  Future<ChessUser?> getUserById(String userId) async {
+    try {
+      DocumentSnapshot userDoc =
+          await _firestore
+              .collection(Constants.usersCollection)
+              .doc(userId)
+              .get();
+      if (userDoc.exists) {
+        return ChessUser.fromMap(userDoc.data() as Map<String, dynamic>);
+      }
+    } catch (e) {
+      logger.e('Error getting user by ID: $e');
+    }
+    return null;
+  }
+
   /// Updates user statistics after a game concludes.
   Future<void> updateUserStatsAfterGame({
     required String userId,
