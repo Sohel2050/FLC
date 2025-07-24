@@ -21,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final UserService _userService = UserService();
   bool _isLoading = false;
+  bool _isPasswordVisible = false;
 
   @override
   void dispose() {
@@ -335,11 +336,23 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _passwordController,
-                      obscureText: true,
+                      obscureText: !_isPasswordVisible,
                       textInputAction: TextInputAction.done,
                       decoration: InputDecoration(
                         labelText: 'Password',
                         prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isPasswordVisible = !_isPasswordVisible;
+                            });
+                          },
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -387,9 +400,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           final guestUser =
                               userService
                                   .createGuestUser(); // Create guest user
-
-                          // set Guest user
-                          setUser(guestUser);
                           // Navigate to home and replace the current screen
                           Navigator.of(context).pushAndRemoveUntil(
                             MaterialPageRoute(

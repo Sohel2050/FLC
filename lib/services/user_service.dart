@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:math';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_chess_app/services/rating_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:get_it/get_it.dart';
@@ -22,6 +23,21 @@ class UserService {
     final guestId = random.nextInt(100000); // Generate a random 5-digit number
     final displayName = 'Guest$guestId';
     return ChessUser(displayName: displayName, isGuest: true);
+  }
+
+  // save fcmToken to firetore
+  Future<void> saveFcmToken(String fcmToken) async {
+    try {
+      User? user = _auth.currentUser;
+      if (user != null) {
+        await _firestore
+            .collection(Constants.usersCollection)
+            .doc(user.uid)
+            .update({Constants.fcmToken: fcmToken});
+      }
+    } catch (e) {
+      logger.e('Error saving FCM token: $e');
+    }
   }
 
   Stream<int> getOnlinePlayersCountStream() {
@@ -167,13 +183,29 @@ class UserService {
     }
   }
 
+  Future<File> _compressImage(File file) async {
+    final filePath = file.absolute.path;
+    final lastIndex = filePath.lastIndexOf(RegExp(r'.jp'));
+    final splitted = filePath.substring(0, (lastIndex));
+    final outPath = "${splitted}_out${filePath.substring(lastIndex)}";
+
+    var result = await FlutterImageCompress.compressAndGetFile(
+      file.absolute.path,
+      outPath,
+      quality: 70,
+    );
+
+    return File(result!.path);
+  }
+
   Future<String> uploadProfileImage(String userId, File imageFile) async {
     try {
+      final compressedImage = await _compressImage(imageFile);
       final ref = _storage
           .ref()
           .child(Constants.profileImagesCollection)
           .child('$userId.jpg');
-      final uploadTask = ref.putFile(imageFile);
+      final uploadTask = ref.putFile(compressedImage);
       final snapshot = await uploadTask.whenComplete(() => {});
       final downloadUrl = await snapshot.ref.getDownloadURL();
       return downloadUrl;
@@ -245,6 +277,22 @@ class UserService {
     }
 
     return true;
+  }
+
+  Future<ChessUser?> getUserById(String userId) async {
+    try {
+      DocumentSnapshot userDoc =
+          await _firestore
+              .collection(Constants.usersCollection)
+              .doc(userId)
+              .get();
+      if (userDoc.exists) {
+        return ChessUser.fromMap(userDoc.data() as Map<String, dynamic>);
+      }
+    } catch (e) {
+      logger.e('Error getting user by ID: $e');
+    }
+    return null;
   }
 
   /// Updates user statistics after a game concludes.

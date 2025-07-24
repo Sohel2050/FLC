@@ -21,6 +21,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late TextEditingController _displayNameController;
   late TextEditingController _emailController;
   File? _selectedImageFile;
+  String? _selectedAvatar;
   late ChessUser _currentUser;
   bool _imageRemoved = false;
 
@@ -69,8 +70,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onImageSelected: (file) {
                 setState(() {
                   _selectedImageFile = file;
+                  _selectedAvatar = null;
                   if (file == null) {
                     _imageRemoved = true;
+                  } else {
+                    _imageRemoved = false;
+                  }
+                });
+              },
+              onAvatarSelected: (avatar) {
+                setState(() {
+                  _selectedAvatar = avatar;
+                  _selectedImageFile = null;
+                  if (avatar == null) {
+                    _imageRemoved = true;
+                  } else {
+                    _imageRemoved = false;
                   }
                 });
               },
@@ -227,6 +242,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     bool hasChanges =
         newDisplayName != _currentUser.displayName ||
         _selectedImageFile != null ||
+        _selectedAvatar != null ||
         _imageRemoved;
 
     if (!hasChanges) {
@@ -239,9 +255,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     LoadingDialog.show(context, message: 'Saving profile...');
 
     try {
-      if (_imageRemoved && _currentUser.photoUrl != null) {
-        LoadingDialog.updateMessage(context, 'Deleting image...');
-        await userService.deleteProfileImage(_currentUser.uid!);
+      if (_imageRemoved) {
+        if (_currentUser.photoUrl != null &&
+            !_currentUser.photoUrl!.startsWith('assets')) {
+          LoadingDialog.updateMessage(context, 'Deleting image...');
+          await userService.deleteProfileImage(_currentUser.uid!);
+        }
         newPhotoUrl = null;
       } else if (_selectedImageFile != null) {
         LoadingDialog.updateMessage(context, 'Uploading image...');
@@ -249,6 +268,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _currentUser.uid!,
           _selectedImageFile!,
         );
+      } else if (_selectedAvatar != null) {
+        newPhotoUrl = _selectedAvatar;
       }
 
       final updatedUser = _currentUser.copyWith(
@@ -265,6 +286,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         _currentUser = updatedUser;
         _selectedImageFile = null;
+        _selectedAvatar = null;
         _imageRemoved = false;
       });
 
@@ -358,9 +380,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
     if (confirmed == true) {
-      // After adding Firebase Auth, we will call the logout method
-      // For now, we just navigate back to the login screen
-      await userService.deleteUserAccount(_currentUser.uid!);
+      // We logout
+      await userService.signOut();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

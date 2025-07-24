@@ -1,3 +1,4 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
@@ -39,6 +40,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     WidgetsBinding.instance.addObserver(this);
 
+    _initializeCloudMessaging();
+
     _screens = [
       PlayScreen(user: widget.user),
       FriendsScreen(user: widget.user),
@@ -50,6 +53,52 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  // Initialize cloud messaging
+  void _initializeCloudMessaging() async {
+    final userService = UserService();
+
+    // Generate fcmToke
+    final fcmToken = await FirebaseMessaging.instance.getToken();
+
+    if (fcmToken != null) {
+      await userService.saveFcmToken(fcmToken);
+    }
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print('Got a message whilst in the foreground!');
+      print('Message data: ${message.data}');
+
+      if (message.notification != null) {
+        print('Message also contained a notification: ${message.notification}');
+      }
+    });
+  }
+
+  // setup notification interaction
+  // It is assumed that all messages contain a data field with the key 'type'
+  Future<void> setupInteractedMessage() async {
+    // Get any messages which caused the application to open from
+    // a terminated state.
+    RemoteMessage? initialMessage =
+        await FirebaseMessaging.instance.getInitialMessage();
+
+    // If the message also contains a data property with a "type" of "chat",
+    // navigate to a chat screen
+    if (initialMessage != null) {
+      _handleMessage(initialMessage);
+    }
+
+    // Also handle any interaction when the app is in the background via a
+    // Stream listener
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleMessage);
+  }
+
+  void _handleMessage(RemoteMessage message) {
+    if (message.data['type'] == 'chat') {
+      // Navigate to chat messages
+    }
   }
 
   @override

@@ -1,9 +1,13 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/firebase_options.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
+import 'package:flutter_chess_app/push_notification/notification_service.dart';
 import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
@@ -14,11 +18,21 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'models/user_model.dart';
 
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // If you're going to use other Firebase services in the background, such as Firestore,
+
+  print("Handling a background message: ${message.messageId}");
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   setupServiceLocator();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  await NotificationService.initialize();
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   runApp(
     MultiProvider(
@@ -49,6 +63,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'FLC Chess',
       theme: ThemeData(
         useMaterial3: true,

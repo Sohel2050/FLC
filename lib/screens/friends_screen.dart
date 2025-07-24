@@ -13,8 +13,13 @@ import 'package:provider/provider.dart';
 
 class FriendsScreen extends StatefulWidget {
   final ChessUser user;
+  final int initialTabIndex;
 
-  const FriendsScreen({super.key, required this.user});
+  const FriendsScreen({
+    super.key,
+    required this.user,
+    this.initialTabIndex = 0,
+  });
 
   @override
   State<FriendsScreen> createState() => _FriendsScreenState();
@@ -31,7 +36,11 @@ class _FriendsScreenState extends State<FriendsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(
+      initialIndex: widget.initialTabIndex,
+      length: 3,
+      vsync: this,
+    );
   }
 
   @override

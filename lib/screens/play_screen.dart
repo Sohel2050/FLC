@@ -108,8 +108,11 @@ class _PlayScreenState extends State<PlayScreen> {
                                         Brightness.dark
                                     ? Colors.white
                                     : Colors.black)
-                                .withOpacity(
-                                  _selectedGameMode == entry.key ? 0.9 : 0.4,
+                                .withValues(
+                                  alpha:
+                                      _selectedGameMode == entry.key
+                                          ? 0.9
+                                          : 0.4,
                                 ),
                           ),
                         ),

@@ -20,6 +20,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
       TextEditingController();
   final UserService _userService = UserService();
   bool _isLoading = false;
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
 
   @override
   void dispose() {
@@ -210,11 +212,23 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
                     TextFormField(
                       controller: _passwordController,
-                      obscureText: true,
+                      obscureText: !_isPasswordVisible,
                       textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         labelText: 'Password',
                         prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isPasswordVisible = !_isPasswordVisible;
+                            });
+                          },
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -226,11 +240,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
                     TextFormField(
                       controller: _confirmPasswordController,
-                      obscureText: true,
+                      obscureText: !_isConfirmPasswordVisible,
                       textInputAction: TextInputAction.done,
                       decoration: InputDecoration(
                         labelText: 'Confirm Password',
                         prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isConfirmPasswordVisible
+                                ? Icons.visibility
+                                : Icons.visibility_off,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isConfirmPasswordVisible =
+                                  !_isConfirmPasswordVisible;
+                            });
+                          },
+                        ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
