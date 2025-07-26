@@ -38,6 +38,11 @@ class DrawnGameAgreement extends bishop.DrawnGame {
   String get readable => '${super.readable} by agreement';
 }
 
+// Custom game result for aborted game
+class WonGameAborted extends bishop.WonGame {
+  const WonGameAborted({required super.winner});
+}
+
 class GameProvider extends ChangeNotifier {
   late bishop.Game _game = bishop.Game(variant: bishop.Variant.standard());
   late SquaresState _state = SquaresState.initial(0);
@@ -63,6 +68,7 @@ class GameProvider extends ChangeNotifier {
   int _player = Squares.white;
   Timer? _whitesTimer;
   Timer? _blacksTimer;
+  Timer? _firstMoveCountdownTimer;
   int _whitesScore = 0;
   int _blacksScore = 0;
   String _gameId = '';
@@ -496,8 +502,10 @@ class GameProvider extends ChangeNotifier {
   void _stopTimers() {
     _whitesTimer?.cancel();
     _blacksTimer?.cancel();
+    _firstMoveCountdownTimer?.cancel();
     _whitesTimer = null;
     _blacksTimer = null;
+    _firstMoveCountdownTimer = null;
     _playWhitesTimer = false;
     _playBlacksTimer = false;
   }
@@ -614,7 +622,27 @@ class GameProvider extends ChangeNotifier {
   }
 
   // Make squares move
-  Future<bool> makeSquaresMove(Move move) async {
+  Future<bool> makeSquaresMove(Move move, {String userId = ''}) async {
+    // In online games, ensure it's the player's turn to move.
+    if (_isOnlineGame) {
+      final isOurTurn = _game.state.turn == _player;
+
+      // for blacks side check is first move by white is not played we return
+      if (_onlineGameRoom?.player2Id == userId &&
+          _onlineGameRoom!.moves.isEmpty) {
+        _logger.w('White has not played first move.');
+        return false;
+      }
+
+      if (!isOurTurn) {
+        _logger.w('Not your turn to move.');
+        return false; // Prevent move if it's not our turn
+      }
+    }
+
+    // If the first move countdown is active, cancel it.
+    _firstMoveCountdownTimer?.cancel();
+
     bool result = _game.makeSquaresMove(move);
     if (result) {
       // Track move in algebraic notation
@@ -1042,6 +1070,13 @@ class GameProvider extends ChangeNotifier {
         _startTimer();
       }
 
+      // If it's the start of an online game, begin the 10-second countdown for White.
+      if (_isOnlineGame &&
+          _onlineGameRoom!.moves.isEmpty &&
+          _onlineGameRoom!.status == Constants.statusActive) {
+        _startFirstMoveCountdown();
+      }
+
       setLoading(false);
       notifyListeners();
     } catch (e) {
@@ -1362,6 +1397,10 @@ class GameProvider extends ChangeNotifier {
 
     // Handle status changes (e.g., opponent joined, game ended)
     if (updatedRoom.status == Constants.statusActive && !_game.gameOver) {
+      // If the game is just starting, initiate the first move countdown
+      if (updatedRoom.moves.isEmpty) {
+        _startFirstMoveCountdown();
+      }
       // Ensure timer is running if game becomes active and it's our turn
       if (((_isHost && _game.state.turn == Squares.white) ||
           (!_isHost && _game.state.turn == Squares.black))) {
@@ -1370,8 +1409,16 @@ class GameProvider extends ChangeNotifier {
     } else if (updatedRoom.status == Constants.statusCompleted ||
         updatedRoom.status == Constants.statusAborted) {
       _stopTimers();
+      if (updatedRoom.status == Constants.statusAborted) {
+        _gameResultNotifier.value = WonGameAborted(
+          winner:
+              updatedRoom.player1Color == Squares.white
+                  ? Squares.black
+                  : Squares.white,
+        );
+      }
       // Set game result based on winnerId or status
-      if (updatedRoom.winnerId != null) {
+      else if (updatedRoom.winnerId != null) {
         final winnerColor =
             updatedRoom.player1Id == updatedRoom.winnerId
                 ? updatedRoom.player1Color
@@ -1467,6 +1514,32 @@ class GameProvider extends ChangeNotifier {
         );
       },
     );
+  }
+
+  /// Starts a 10-second countdown for the first move in an online game.
+  /// If White doesn't move within this time, the game is aborted.
+  void _startFirstMoveCountdown() {
+    _firstMoveCountdownTimer?.cancel(); // Cancel any existing timer
+    _firstMoveCountdownTimer = Timer(const Duration(seconds: 10), () {
+      if (_isOnlineGame && _onlineGameRoom!.moves.isEmpty) {
+        _logger.i('White did not make a move in time. Aborting game.');
+        _abortGame();
+      }
+    });
+  }
+
+  /// Aborts the game.
+  Future<void> _abortGame() async {
+    if (!_isOnlineGame || _onlineGameRoom == null) return;
+
+    // Black wins by abortion
+    final winnerColor = Squares.black;
+    _gameResultNotifier.value = WonGameAborted(winner: winnerColor);
+    _stopTimers();
+
+    await _gameService.abortGame(_onlineGameRoom!.gameId);
+    checkGameOver();
+    notifyListeners();
   }
 
   Future<void> cancelOnlineGameSearch({bool isFriend = false}) async {

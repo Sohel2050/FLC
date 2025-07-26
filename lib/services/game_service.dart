@@ -389,6 +389,20 @@ class GameService {
     }
   }
 
+  /// Aborts the game.
+  Future<void> abortGame(String gameId) async {
+    try {
+      await _firestore
+          .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .update({Constants.fieldStatus: Constants.statusAborted});
+      _logger.i('Game $gameId aborted.');
+    } catch (e) {
+      _logger.e('Error aborting game $gameId: $e');
+      rethrow;
+    }
+  }
+
   /// Offers a rematch after a game.
   Future<void> offerRematch(String gameId, String offeringPlayerId) async {
     try {

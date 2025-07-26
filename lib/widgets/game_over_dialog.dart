@@ -68,6 +68,8 @@ class _GameOverDialogState extends State<GameOverDialog> {
         winType = 'by Timeout';
       } else if (widget.result is bishop.WonGameResignation) {
         winType = 'by Resignation';
+      } else if (widget.result is WonGameAborted) {
+        return 'Game Aborted';
       } else if (widget.result is bishop.WonGameElimination) {
         winType = 'by Elimination';
       } else if (widget.result is bishop.WonGameStalemate) {

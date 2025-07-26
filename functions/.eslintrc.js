@@ -15,7 +15,7 @@ module.exports = {
     "max-len": ["warn", 120],
     "prefer-arrow-callback": "error",
     "quotes": ["error", "double", { "allowTemplateLiterals": true }],
-    "linebreak-style": ["error", "unix"],
+    "linebreak-style": 0,
     "object-curly-spacing": ["error", "always"],
     "require-jsdoc": "off",
     "valid-jsdoc": "off",

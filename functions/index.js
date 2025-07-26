@@ -152,3 +152,21 @@ exports.sendFriendRequestAcceptedNotification = onDocumentWritten("users/{userId
     }
   }
 });
+
+// Deletes aborted games after 30 seconds
+exports.deleteAbortedGames = onDocumentWritten("gameRooms/{gameId}", async (event) => {
+  const gameData = event.data.after.data();
+  const gameId = event.params.gameId;
+
+  if (gameData.status === "aborted") {
+    // Set a timeout to delete the game after 30 seconds
+    setTimeout(async () => {
+      try {
+        await admin.firestore().collection("gameRooms").doc(gameId).delete();
+        logger.log(`Successfully deleted aborted game: ${gameId}`);
+      } catch (error) {
+        logger.error(`Error deleting aborted game: ${gameId}`, error);
+      }
+    }, 30000);
+  }
+});

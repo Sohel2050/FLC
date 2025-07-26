@@ -120,7 +120,7 @@ class _GameScreenState extends State<GameScreen> {
 
   void _onMove(Move move) async {
     // Make a squared move and set the squares state
-    await _gameProvider.makeSquaresMove(move);
+    await _gameProvider.makeSquaresMove(move, userId: widget.user.uid!);
 
     // Check if VS CPU mode is enabled
     if (_gameProvider.vsCPU) {
