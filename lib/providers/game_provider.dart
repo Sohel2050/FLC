@@ -1338,6 +1338,10 @@ class GameProvider extends ChangeNotifier {
     if (wasGameOver &&
         updatedRoom.status == Constants.statusActive &&
         updatedRoom.rematchOfferedBy == null) {
+      _logger.i(
+        'REMATCH DEBUG: Rematch detected - game was over: $wasGameOver, status: ${updatedRoom.status}, rematchOfferedBy: ${updatedRoom.rematchOfferedBy}',
+      );
+
       // Explicitly reset timers for the rematch
       _whitesTime = Duration(milliseconds: updatedRoom.initialWhitesTime);
       _blacksTime = Duration(milliseconds: updatedRoom.initialBlacksTime);
@@ -1350,7 +1354,14 @@ class GameProvider extends ChangeNotifier {
                       : _onlineGameRoom!.player2Id)
               ? updatedRoom.player1Color
               : updatedRoom.player2Color!;
+
+      _logger.i(
+        'REMATCH DEBUG: About to reset game and clear game result. Current game result: ${_gameResultNotifier.value}',
+      );
       resetGame(false); // false because it's a rematch, not a brand new game
+      _logger.i(
+        'REMATCH DEBUG: Game reset completed. New game result: ${_gameResultNotifier.value}',
+      );
       notifyListeners();
       return; // Exit early to avoid conflicting logic below
     }

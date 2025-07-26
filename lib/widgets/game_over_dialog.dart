@@ -118,6 +118,27 @@ class _GameOverDialogState extends State<GameOverDialog> {
     return Consumer<GameProvider>(
       builder: (context, gameProvider, child) {
         final onlineGameRoom = gameProvider.onlineGameRoom;
+
+        // DIALOG DEBUG: Log when dialog rebuilds and game state
+        gameProvider.logger.i(
+          'DIALOG DEBUG: Dialog rebuilding - gameResult: ${gameProvider.gameResult}, isGameOver: ${gameProvider.isGameOver}',
+        );
+
+        // DIALOG DEBUG: Check if dialog should close due to rematch
+        if (gameProvider.gameResult == null && !gameProvider.isGameOver) {
+          gameProvider.logger.i(
+            'DIALOG DEBUG: Game result is null and game is not over - dialog should close',
+          );
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              gameProvider.logger.i(
+                'DIALOG DEBUG: Closing dialog due to rematch',
+              );
+              Navigator.of(context).pop();
+            }
+          });
+        }
+
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
