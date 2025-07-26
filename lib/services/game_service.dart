@@ -318,13 +318,23 @@ class GameService {
   /// This is used when the game has started or canclled
   Future<void> deleteGameNotification(String userId, String gameId) async {
     try {
-      await _firestore
-          .collection(Constants.notificationsCollection)
-          .doc(userId)
-          .collection(Constants.invitesCollection)
-          .doc(gameId)
-          .delete();
-      _logger.i('Game notification deleted: $gameId');
+      final game =
+          await _firestore
+              .collection(Constants.notificationsCollection)
+              .doc(userId)
+              .collection(Constants.invitesCollection)
+              .doc(gameId)
+              .get();
+
+      if (game.exists && game.data() != null) {
+        await _firestore
+            .collection(Constants.notificationsCollection)
+            .doc(userId)
+            .collection(Constants.invitesCollection)
+            .doc(gameId)
+            .delete();
+        _logger.i('Game notification deleted: $gameId');
+      }
     } catch (e) {
       _logger.e('Error deleting game room: $e');
     }
@@ -333,14 +343,23 @@ class GameService {
   /// Resigns the game, setting the winner and updating the status to completed.
   Future<void> resignGame(String gameId, String winnerId) async {
     try {
-      await _firestore
-          .collection(Constants.gameRoomsCollection)
-          .doc(gameId)
-          .update({
-            Constants.fieldWinnerId: winnerId,
-            Constants.fieldStatus: Constants.statusCompleted,
-          });
-      _logger.i('Game $gameId resigned. Winner: $winnerId');
+      final game =
+          await _firestore
+              .collection(Constants.gameRoomsCollection)
+              .doc(gameId)
+              .get();
+
+      if (game.exists && game.data() != null) {
+        // update the game
+        await _firestore
+            .collection(Constants.gameRoomsCollection)
+            .doc(gameId)
+            .update({
+              Constants.fieldWinnerId: winnerId,
+              Constants.fieldStatus: Constants.statusCompleted,
+            });
+        _logger.i('Game $gameId resigned. Winner: $winnerId');
+      }
     } catch (e) {
       _logger.e('Error resigning game $gameId: $e');
       rethrow;

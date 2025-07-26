@@ -627,10 +627,11 @@ class GameProvider extends ChangeNotifier {
     if (_isOnlineGame) {
       final isOurTurn = _game.state.turn == _player;
 
-      // for blacks side check is first move by white is not played we return
-      if (_onlineGameRoom?.player2Id == userId &&
-          _onlineGameRoom!.moves.isEmpty) {
-        _logger.w('White has not played first move.');
+      // Prevent non-white players from making the first move when no moves have been made
+      if (_onlineGameRoom!.moves.isEmpty && _player != Squares.white) {
+        _logger.w(
+          'Only white can make the first move. Current player color: $_player',
+        );
         return false;
       }
 
