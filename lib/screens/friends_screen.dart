@@ -3,6 +3,7 @@ import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/screens/chat_screen.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
+import 'package:flutter_chess_app/services/chat_service.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
@@ -29,6 +30,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final FriendService _friendService = FriendService();
+  final ChatService _chatService = ChatService();
   final TextEditingController _searchController = TextEditingController();
   List<ChessUser> _searchResults = [];
   bool _isSearching = false;
@@ -38,7 +40,7 @@ class _FriendsScreenState extends State<FriendsScreen>
     super.initState();
     _tabController = TabController(
       initialIndex: widget.initialTabIndex,
-      length: 3,
+      length: 4,
       vsync: this,
     );
   }
@@ -68,6 +70,40 @@ class _FriendsScreenState extends State<FriendsScreen>
     });
   }
 
+  // show firendRequest Dialog
+  void showAcceptRequestDialog({required ChessUser friend}) async {
+    await AnimatedDialog.show(
+      context: context,
+      title: 'Accept Friend Request',
+      actions: [
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.red,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Decline'),
+        ),
+
+        ElevatedButton(
+          onPressed: () {
+            _friendService.acceptFriendRequest(
+              currentUserId: widget.user.uid!,
+              friendUserId: friend.uid!,
+            );
+            // pop the dialog
+            Navigator.pop(context);
+          },
+          child: const Text('Accept'),
+        ),
+      ],
+      child: Text(
+        'Do you want to accept the friend request from ${friend.displayName}?',
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -79,6 +115,7 @@ class _FriendsScreenState extends State<FriendsScreen>
             Tab(text: 'Friends'),
             Tab(text: 'Requests'),
             Tab(text: 'Find Players'),
+            Tab(text: 'Blocked'),
           ],
         ),
       ),
@@ -88,6 +125,7 @@ class _FriendsScreenState extends State<FriendsScreen>
           _buildFriendsList(),
           _buildRequestsList(),
           _buildFindPlayersTab(),
+          _buildBlockedUsersList(),
         ],
       ),
     );
@@ -125,17 +163,57 @@ class _FriendsScreenState extends State<FriendsScreen>
                       icon: const Icon(Icons.videogame_asset),
                       onPressed: () => _showInviteDialog(friend),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.message),
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder:
-                                (context) => ChatScreen(
-                                  currentUser: widget.user,
-                                  otherUser: friend,
+                    StreamBuilder<int>(
+                      stream: _chatService.getUnreadMessageCount(
+                        _chatService.getChatRoomId(
+                          widget.user.uid!,
+                          friend.uid!,
+                        ),
+                        widget.user.uid!,
+                      ),
+                      builder: (context, snapshot) {
+                        final unreadCount = snapshot.data ?? 0;
+                        return Stack(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.message),
+                              onPressed: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder:
+                                        (context) => ChatScreen(
+                                          currentUser: widget.user,
+                                          otherUser: friend,
+                                        ),
+                                  ),
+                                );
+                              },
+                            ),
+                            if (unreadCount > 0)
+                              Positioned(
+                                right: 8,
+                                top: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 16,
+                                    minHeight: 16,
+                                  ),
+                                  child: Text(
+                                    '$unreadCount',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ),
-                          ),
+                              ),
+                          ],
                         );
                       },
                     ),
@@ -186,11 +264,9 @@ class _FriendsScreenState extends State<FriendsScreen>
                   children: [
                     IconButton(
                       icon: const Icon(Icons.check, color: Colors.green),
-                      onPressed: () {
-                        _friendService.acceptFriendRequest(
-                          currentUserId: widget.user.uid!,
-                          friendUserId: requestUser.uid!,
-                        );
+                      onPressed: () async {
+                        // show friend request dialog'
+                        showAcceptRequestDialog(friend: requestUser);
                       },
                     ),
                     IconButton(
@@ -346,6 +422,70 @@ class _FriendsScreenState extends State<FriendsScreen>
       ],
       child: Text(
         'Are you sure you want to block ${friend.displayName} from your friends list?',
+      ),
+    );
+  }
+
+  Widget _buildBlockedUsersList() {
+    if (widget.user.isGuest) {
+      return GuestWidget(context: context);
+    } else {
+      return StreamBuilder<List<ChessUser>>(
+        stream: _friendService.getBlockedUsers(widget.user.uid!),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('You have no blocked users.'));
+          }
+          final blockedUsers = snapshot.data!;
+          return ListView.builder(
+            itemCount: blockedUsers.length,
+            itemBuilder: (context, index) {
+              final blockedUser = blockedUsers[index];
+              return ListTile(
+                leading: ProfileImageWidget(
+                  imageUrl: blockedUser.photoUrl,
+                  radius: 20,
+                ),
+                title: Text(blockedUser.displayName),
+                trailing: IconButton(
+                  icon: const Icon(Icons.check_circle_outline),
+                  onPressed: () => _showUnblockUserDialog(blockedUser),
+                ),
+              );
+            },
+          );
+        },
+      );
+    }
+  }
+
+  void _showUnblockUserDialog(ChessUser blockedUser) async {
+    await AnimatedDialog.show(
+      context: context,
+      title: 'Unblock ${blockedUser.displayName}?',
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            _friendService.unblockUser(
+              currentUserId: widget.user.uid!,
+              unblockedUserId: blockedUser.uid!,
+            );
+          },
+          child: const Text('Unblock'),
+        ),
+      ],
+      child: Text(
+        'Are you sure you want to unblock ${blockedUser.displayName}?',
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/screens/login_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
@@ -22,6 +23,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _isLoading = false;
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+  String _countryCode = 'US';
 
   @override
   void dispose() {
@@ -43,6 +45,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           _emailController.text,
           _passwordController.text,
           _nameController.text,
+          _countryCode,
         );
         if (mounted) {
           await _userService
@@ -190,6 +193,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         ),
                       ),
                       validator: _validateName,
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    CountryCodePicker(
+                      onChanged: (countryCode) {
+                        setState(() {
+                          _countryCode = countryCode.code!;
+                        });
+                      },
+                      initialSelection: _countryCode,
+                      showCountryOnly: true,
+                      showOnlyCountryWhenClosed: true,
+                      alignLeft: false,
                     ),
 
                     const SizedBox(height: 16),

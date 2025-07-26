@@ -198,47 +198,37 @@ class _LoginScreenState extends State<LoginScreen> {
               try {
                 await _userService.resetPassword(emailController.text);
                 if (mounted) {
-                  AnimatedDialog.show(
-                    context: context,
-                    title: 'Password Reset',
-                    child: Text(
-                      'A password reset link has been sent to ${emailController.text}.',
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('OK'),
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'A password reset link has been sent to ${emailController.text}.',
                       ),
-                    ],
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      behavior: SnackBarBehavior.floating,
+                    ),
                   );
                 }
               } catch (e) {
                 if (mounted) {
-                  AnimatedDialog.show(
-                    context: context,
-                    title: 'Password Reset Failed',
-                    child: Text(e.toString().replaceFirst('Exception: ', '')),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('OK'),
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        e.toString().replaceFirst('Exception: ', ''),
                       ),
-                    ],
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      behavior: SnackBarBehavior.floating,
+                    ),
                   );
                 }
               }
             } else {
               if (mounted) {
-                AnimatedDialog.show(
-                  context: context,
-                  title: 'Error',
-                  child: const Text('Please enter your email address.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('OK'),
-                    ),
-                  ],
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Please enter your email address.'),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    behavior: SnackBarBehavior.floating,
+                  ),
                 );
               }
             }
@@ -394,19 +384,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       MainAppButton(
                         text: 'Play as Guest',
                         icon: Icons.person_outline,
-                        onPressed: () {
+                        onPressed: () async {
                           final userProvider = context.read<UserProvider>();
-                          final setUser = userProvider.setUser;
                           final guestUser =
-                              userService
-                                  .createGuestUser(); // Create guest user
+                              await _userService.signInAnonymously();
+                          userProvider.setUser(guestUser);
                           // Navigate to home and replace the current screen
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(
-                              builder: (_) => HomeScreen(user: guestUser),
-                            ),
-                            (route) => false,
-                          );
+                          if (mounted) {
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(
+                                builder: (_) => HomeScreen(user: guestUser),
+                              ),
+                              (route) => false,
+                            );
+                          }
                         },
                         isPrimary: false,
                         isFullWidth: true,

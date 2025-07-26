@@ -4,6 +4,7 @@ import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
 import 'package:flutter_chess_app/services/saved_game_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
+import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:intl/intl.dart';
 
 class SavedGamesScreen extends StatefulWidget {
@@ -25,6 +26,44 @@ class _SavedGamesScreenState extends State<SavedGamesScreen> {
     super.initState();
     _savedGamesFuture = _savedGameService.getSavedGamesForUser(
       widget.user.uid!,
+    );
+  }
+
+  // show firendRequest Dialog
+  void showFriendRequestDialog({
+    required String opponentId,
+    required String opponentDisplayName,
+  }) async {
+    await AnimatedDialog.show(
+      context: context,
+      title: 'Send Friend Request',
+      actions: [
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(true),
+
+          child: const Text('Cancel'),
+        ),
+
+        ElevatedButton(
+          onPressed: () {
+            _friendService.sendFriendRequest(
+              currentUserId: widget.user.uid!,
+              friendUserId: opponentId,
+            );
+            // pop the dialog
+            Navigator.pop(context);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Theme.of(context).primaryColor,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Send'),
+        ),
+      ],
+      child: Text(
+        'Send a friend request to $opponentDisplayName',
+        textAlign: TextAlign.center,
+      ),
     );
   }
 
@@ -72,18 +111,37 @@ class _SavedGamesScreenState extends State<SavedGamesScreen> {
                         if (game.opponentId.isNotEmpty &&
                             game.opponentId != 'stockfish_ai' &&
                             game.opponentId != 'local_player')
-                          IconButton(
-                            icon: const Icon(Icons.person_add),
-                            onPressed: () {
-                              _friendService.sendFriendRequest(
-                                currentUserId: widget.user.uid!,
-                                friendUserId: game.opponentId,
-                              );
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Friend request sent!'),
-                                ),
-                              );
+                          FutureBuilder<bool>(
+                            future: _friendService.isFriend(
+                              widget.user.uid!,
+                              game.opponentId,
+                            ),
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return const SizedBox.shrink();
+                              }
+                              final isFriend = snapshot.data ?? false;
+                              if (!isFriend) {
+                                return IconButton(
+                                  icon: const Icon(Icons.person_add),
+                                  onPressed: () {
+                                    showFriendRequestDialog(
+                                      opponentId: game.opponentId,
+                                      opponentDisplayName:
+                                          game.opponentDisplayName,
+                                    );
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Friend request sent to ${game.opponentDisplayName}!',
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              }
+                              return const SizedBox.shrink();
                             },
                           ),
                         _buildResultIcon(game.result),

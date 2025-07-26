@@ -1,5 +1,8 @@
 class AssetsManager {
   static String images = 'assets/images';
+  static String icons = 'assets/icon';
+
+  static String appLogo = '$icons/foreground.png';
 
   static String userIcon = '$images/user_icon.png';
   static String boyAvatar = '$images/boy_1.jpg';

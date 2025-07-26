@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
@@ -194,6 +196,7 @@ class FriendService {
           List<String> friendIds = List<String>.from(
             userData[Constants.friends] ?? [],
           );
+
           List<String> blockedIds = List<String>.from(
             userData[Constants.blockedUsers] ?? [],
           );
@@ -290,5 +293,53 @@ class FriendService {
       _logger.e('Error searching users: $e');
       return [];
     }
+  }
+
+  /// Checks if two users are friends.
+  Future<bool> isFriend(String userId1, String userId2) async {
+    try {
+      final user1Doc =
+          await _firestore
+              .collection(Constants.usersCollection)
+              .doc(userId1)
+              .get();
+      if (!user1Doc.exists) return false;
+
+      final friendsList = List<String>.from(
+        user1Doc.data()?[Constants.friends] ?? [],
+      );
+
+      return friendsList.contains(userId2);
+    } catch (e) {
+      _logger.e('Error checking if users are friends: $e');
+      return false;
+    }
+  }
+
+  /// Fetches a stream of the user's blocked users.
+  Stream<List<ChessUser>> getBlockedUsers(String userId) {
+    return _firestore
+        .collection(Constants.usersCollection)
+        .doc(userId)
+        .snapshots()
+        .asyncMap((snapshot) async {
+          if (!snapshot.exists) return [];
+          final userData = snapshot.data()!;
+          List<String> blockedIds = List<String>.from(
+            userData[Constants.blockedUsers] ?? [],
+          );
+
+          if (blockedIds.isEmpty) return [];
+
+          final blockedDocs =
+              await _firestore
+                  .collection(Constants.usersCollection)
+                  .where(FieldPath.documentId, whereIn: blockedIds)
+                  .get();
+
+          return blockedDocs.docs
+              .map((doc) => ChessUser.fromMap(doc.data()))
+              .toList();
+        });
   }
 }

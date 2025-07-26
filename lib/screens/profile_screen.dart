@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/screens/login_screen.dart';
@@ -24,6 +25,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _selectedAvatar;
   late ChessUser _currentUser;
   bool _imageRemoved = false;
+  String? _countryCode;
 
   @override
   void initState() {
@@ -33,6 +35,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       text: _currentUser.displayName,
     );
     _emailController = TextEditingController(text: _currentUser.email);
+    _countryCode = _currentUser.countryCode;
   }
 
   @override
@@ -98,6 +101,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               isEditable: !_isGuest,
               icon: Icons.person,
             ),
+
             _buildProfileField(
               context,
               label: 'Email',
@@ -106,6 +110,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
               isEditable: false,
               icon: Icons.email,
             ),
+
+            if (!_isGuest)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: CountryCodePicker(
+                  onChanged: (countryCode) {
+                    setState(() {
+                      _countryCode = countryCode.code;
+                    });
+                  },
+                  initialSelection: _countryCode,
+                  showCountryOnly: true,
+                  showOnlyCountryWhenClosed: true,
+                  alignLeft: false,
+                ),
+              ),
             const Divider(height: 32),
             _buildRatingInfo(
               context,
@@ -243,7 +263,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         newDisplayName != _currentUser.displayName ||
         _selectedImageFile != null ||
         _selectedAvatar != null ||
-        _imageRemoved;
+        _imageRemoved ||
+        _countryCode != _currentUser.countryCode;
 
     if (!hasChanges) {
       ScaffoldMessenger.of(
@@ -275,6 +296,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final updatedUser = _currentUser.copyWith(
         displayName: newDisplayName,
         photoUrl: newPhotoUrl,
+        countryCode: _countryCode,
       );
 
       if (mounted) {
@@ -340,9 +362,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             context,
           ).showSnackBar(const SnackBar(content: Text('Account deleted.')));
           // Navigate back to a login/guest screen or home screen as appropriate
-          Navigator.of(
-            context,
-          ).popUntil((route) => route.isFirst); // Example: pop all routes
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const LoginScreen()),
+            (route) => false,
+          );
         }
       } catch (e) {
         if (mounted) {

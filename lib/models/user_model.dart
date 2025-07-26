@@ -25,6 +25,7 @@ class ChessUser {
   final List<String> savedGames;
   final Map<String, String> preferences;
   final String fcmToken;
+  final String? countryCode;
 
   ChessUser({
     this.uid,
@@ -50,6 +51,7 @@ class ChessUser {
     this.savedGames = const [],
     this.preferences = const {},
     this.fcmToken = '',
+    this.countryCode,
   }) : lastSeen = lastSeen ?? DateTime.now();
 
   ChessUser copyWith({
@@ -76,6 +78,7 @@ class ChessUser {
     List<String>? savedGames,
     Map<String, String>? preferences,
     String? fcmToken,
+    String? countryCode,
   }) {
     return ChessUser(
       uid: uid ?? this.uid,
@@ -102,6 +105,7 @@ class ChessUser {
       savedGames: savedGames ?? this.savedGames,
       preferences: preferences ?? this.preferences,
       fcmToken: fcmToken ?? this.fcmToken,
+      countryCode: countryCode ?? this.countryCode,
     );
   }
 
@@ -134,6 +138,7 @@ class ChessUser {
       Constants.savedGames: savedGames,
       Constants.preferences: preferences,
       Constants.fcmToken: fcmToken,
+      'countryCode': countryCode,
     };
   }
 
@@ -166,6 +171,7 @@ class ChessUser {
       savedGames: List<String>.from(map[Constants.savedGames] ?? []),
       preferences: Map<String, String>.from(map[Constants.preferences] ?? {}),
       fcmToken: map[Constants.fcmToken] ?? '',
+      countryCode: map['countryCode'],
     );
   }
 
@@ -202,6 +208,7 @@ class ChessUser {
     List<String>? savedGames,
     Map<String, String>? preferences,
     String? fcmToken,
+    String? countryCode,
   }) {
     return ChessUser(
       uid: uid,
@@ -228,6 +235,7 @@ class ChessUser {
       savedGames: savedGames ?? this.savedGames,
       preferences: preferences ?? this.preferences,
       fcmToken: fcmToken ?? this.fcmToken,
+      countryCode: countryCode ?? this.countryCode,
     );
   }
 }

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/services/assets_manager.dart';
 
 class GameModeCard extends StatelessWidget {
   final String title;
   final String timeControl;
-  final IconData icon;
   final bool isSelected;
   final VoidCallback onTap;
 
@@ -11,7 +11,6 @@ class GameModeCard extends StatelessWidget {
     super.key,
     required this.title,
     required this.timeControl,
-    required this.icon,
     this.isSelected = false,
     required this.onTap,
   });
@@ -23,57 +22,61 @@ class GameModeCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.all(8.0),
-        padding: const EdgeInsets.all(16.0),
         decoration: BoxDecoration(
-          color:
-              isSelected
-                  ? Theme.of(context).colorScheme.primaryContainer
-                  : Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(16.0),
+          image: DecorationImage(
+            image: AssetImage(AssetsManager.appLogo),
+            fit: BoxFit.cover,
+          ),
           boxShadow: [
             BoxShadow(
               color:
                   isSelected
-                      ? Theme.of(context).colorScheme.primary.withOpacity(0.3)
-                      : Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
+                      ? Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.5)
+                      : Colors.black.withValues(alpha: 0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 40,
-              color:
-                  isSelected
-                      ? Theme.of(context).colorScheme.primary
-                      : Theme.of(context).colorScheme.onSurface,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16.0),
+            gradient: LinearGradient(
+              colors: [
+                Colors.transparent,
+                Colors.black.withValues(alpha: 0.1),
+                Colors.black.withValues(alpha: 0.7),
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
             ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color:
-                    isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurface,
-              ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  timeControl,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              timeControl,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color:
-                    isSelected
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

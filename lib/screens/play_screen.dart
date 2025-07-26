@@ -51,7 +51,7 @@ class _PlayScreenState extends State<PlayScreen> {
                     child: CarouselSlider.builder(
                       carouselController: _carouselController,
                       options: CarouselOptions(
-                        height: 180,
+                        height: 220,
                         viewportFraction: 0.8,
                         enlargeCenterPage: true,
                         onPageChanged: (index, reason) {
@@ -68,7 +68,6 @@ class _PlayScreenState extends State<PlayScreen> {
                           child: GameModeCard(
                             title: mode[Constants.title],
                             timeControl: mode[Constants.timeControl],
-                            icon: mode[Constants.icon],
                             isSelected: _selectedGameMode == index,
                             onTap: () {
                               setState(() {

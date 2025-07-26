@@ -18,11 +18,26 @@ class UserService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
-  ChessUser createGuestUser() {
-    final random = Random();
-    final guestId = random.nextInt(100000); // Generate a random 5-digit number
-    final displayName = 'Guest$guestId';
-    return ChessUser(displayName: displayName, isGuest: true);
+  Future<ChessUser> signInAnonymously() async {
+    try {
+      final userCredential = await _auth.signInAnonymously();
+      final user = userCredential.user;
+      if (user != null) {
+        final chessUser = ChessUser(
+          uid: user.uid,
+          displayName: 'Guest-${user.uid.substring(0, 5)}',
+          isGuest: true,
+        );
+        await _firestore
+            .collection(Constants.usersCollection)
+            .doc(user.uid)
+            .set(chessUser.toMap());
+        return chessUser;
+      }
+      throw Exception('Anonymous sign-in failed.');
+    } catch (e) {
+      throw Exception('An unknown error occurred during anonymous sign-in.');
+    }
   }
 
   // save fcmToken to firetore
@@ -60,27 +75,62 @@ class UserService {
     }
   }
 
-  Future<ChessUser?> signUp(String email, String password, String name) async {
+  Future<ChessUser?> signUp(
+    String email,
+    String password,
+    String name,
+    String countryCode,
+  ) async {
     try {
-      UserCredential userCredential = await _auth
-          .createUserWithEmailAndPassword(email: email, password: password);
-      User? firebaseUser = userCredential.user;
+      final User? anonymousUser = _auth.currentUser;
+      AuthCredential? credential;
 
-      if (firebaseUser != null) {
-        await firebaseUser.updateDisplayName(name);
-        await firebaseUser.sendEmailVerification();
-
-        ChessUser newUser = ChessUser(
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          displayName: name,
+      if (anonymousUser != null && anonymousUser.isAnonymous) {
+        credential = EmailAuthProvider.credential(
+          email: email,
+          password: password,
         );
+        await anonymousUser.linkWithCredential(credential);
+
+        await anonymousUser.updateDisplayName(name);
+        await anonymousUser.sendEmailVerification();
+
+        final updatedUser = ChessUser(
+          uid: anonymousUser.uid,
+          email: email,
+          displayName: name,
+          isGuest: false,
+          countryCode: countryCode,
+        );
+
         await _firestore
             .collection(Constants.usersCollection)
-            .doc(firebaseUser.uid)
-            .set(newUser.toMap());
-        logger.i('User signed up: ${firebaseUser.email}');
-        return newUser;
+            .doc(anonymousUser.uid)
+            .update(updatedUser.toMap());
+        logger.i('User account upgraded: ${anonymousUser.email}');
+        return updatedUser;
+      } else {
+        UserCredential userCredential = await _auth
+            .createUserWithEmailAndPassword(email: email, password: password);
+        User? firebaseUser = userCredential.user;
+
+        if (firebaseUser != null) {
+          await firebaseUser.updateDisplayName(name);
+          await firebaseUser.sendEmailVerification();
+
+          ChessUser newUser = ChessUser(
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: name,
+            countryCode: countryCode,
+          );
+          await _firestore
+              .collection(Constants.usersCollection)
+              .doc(firebaseUser.uid)
+              .set(newUser.toMap());
+          logger.i('User signed up: ${firebaseUser.email}');
+          return newUser;
+        }
       }
     } on FirebaseAuthException catch (e) {
       throw Exception(e.message);

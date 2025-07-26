@@ -93,9 +93,9 @@ class OptionsScreen extends StatelessWidget {
             icon: Icons.notifications,
             onTap: () async {
               // navigate to account settings
-              final settings = OpenSettingsPlusAndroid();
+              // final settings = OpenSettingsPlusAndroid();
 
-              await settings.applicationNotification();
+              // await settings.applicationNotification();
               ;
             },
           ),

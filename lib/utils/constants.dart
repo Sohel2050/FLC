@@ -120,6 +120,7 @@ class Constants {
   static const String timestamp = 'timestamp';
   static const String text = 'text';
   static const String senderId = 'senderId';
+  static const String isRead = 'isRead';
 
   // Map game modes to rating types
   static const Map<String, String> gameModeToRatingType = {

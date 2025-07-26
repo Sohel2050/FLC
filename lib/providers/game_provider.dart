@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/models/saved_game_model.dart';
 import 'package:flutter_chess_app/services/captured_piece_tracker.dart';
+import 'package:flutter_chess_app/services/chat_service.dart';
 import 'package:flutter_chess_app/services/game_service.dart';
 import 'package:flutter_chess_app/services/saved_game_service.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
@@ -55,6 +56,7 @@ class GameProvider extends ChangeNotifier {
   final GameService _gameService = GameService();
   final SavedGameService _savedGameService = SavedGameService();
   final UserService _userService = UserService();
+  final ChatService _chatService = ChatService();
 
   bool _vsCPU = false;
   bool _localMultiplayer = false;
@@ -1711,5 +1713,20 @@ class GameProvider extends ChangeNotifier {
 
     _scoresUpdatedForCurrentGame = true;
     _logger.i('Updated scores on game over: P1: $newP1Score, P2: $newP2Score');
+  }
+
+  /// Deletes all chat messages between two users.
+  Future<void> deleteChatMessages(
+    String currentUserId,
+    String otherUserId,
+  ) async {
+    try {
+      await _chatService.deleteChatMessages(currentUserId, otherUserId);
+      _logger.i(
+        'Chat messages between $currentUserId and $otherUserId deleted.',
+      );
+    } catch (e) {
+      _logger.e('Error deleting chat messages: $e');
+    }
   }
 }

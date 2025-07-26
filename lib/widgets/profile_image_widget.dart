@@ -1,3 +1,4 @@
+import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/services/assets_manager.dart';
 import 'package:flutter_chess_app/widgets/avatar_selection_dialog.dart';
@@ -13,6 +14,7 @@ class ProfileImageWidget extends StatefulWidget {
   final Function(String?)? onAvatarSelected;
   final Color? backgroundColor;
   final IconData? placeholderIcon;
+  final String? countryCode;
 
   const ProfileImageWidget({
     super.key,
@@ -23,6 +25,7 @@ class ProfileImageWidget extends StatefulWidget {
     this.onAvatarSelected,
     this.backgroundColor,
     this.placeholderIcon = Icons.person,
+    this.countryCode,
   });
 
   @override
@@ -65,6 +68,26 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
                   color: Colors.white,
                 ),
                 onPressed: _showImageSourceDialog,
+              ),
+            ),
+          ),
+        if (widget.countryCode != null)
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: CircleAvatar(
+              radius: widget.radius * 0.3,
+              backgroundColor: Colors.transparent,
+              child: ClipOval(
+                child: CountryCodePicker(
+                  onChanged: print,
+                  initialSelection: widget.countryCode,
+                  favorite: [widget.countryCode!],
+                  showCountryOnly: true,
+                  showOnlyCountryWhenClosed: true,
+                  alignLeft: false,
+                  flagDecoration: BoxDecoration(shape: BoxShape.circle),
+                ),
               ),
             ),
           ),

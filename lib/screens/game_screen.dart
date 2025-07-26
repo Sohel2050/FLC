@@ -8,6 +8,7 @@ import 'package:flutter_chess_app/widgets/captured_piece_widget.dart';
 import 'package:flutter_chess_app/widgets/confirmation_dialog.dart';
 import 'package:flutter_chess_app/widgets/draw_offer_widget.dart';
 import 'package:flutter_chess_app/widgets/game_over_dialog.dart';
+import 'package:flutter_chess_app/services/friend_service.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:squares/squares.dart';
@@ -23,6 +24,7 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   late GameProvider _gameProvider;
+  final FriendService _friendService = FriendService();
 
   @override
   void initState() {
@@ -80,6 +82,19 @@ class _GameScreenState extends State<GameScreen> {
     if (gameResult == null) return;
 
     final String? userId = widget.user.uid;
+    // delete chat messages
+    if (_gameProvider.isOnlineGame) {
+      final gameRoom = _gameProvider.onlineGameRoom;
+      if (gameRoom != null) {
+        final opponentId =
+            gameRoom.player1Id == widget.user.uid
+                ? gameRoom.player2Id
+                : gameRoom.player1Id;
+        if (opponentId != null) {
+          _gameProvider.deleteChatMessages(widget.user.uid!, opponentId);
+        }
+      }
+    }
 
     AnimatedDialog.show(
       context: context,
@@ -410,6 +425,7 @@ class _GameScreenState extends State<GameScreen> {
             children: [
               ProfileImageWidget(
                 imageUrl: null,
+                countryCode: 'US',
                 radius: 20,
                 isEditable: false,
                 backgroundColor:
@@ -459,7 +475,9 @@ class _GameScreenState extends State<GameScreen> {
                   color:
                       isOpponentsTurn
                           ? Theme.of(context).colorScheme.primaryContainer
-                          : Theme.of(context).colorScheme.surfaceVariant,
+                          : Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -487,7 +505,7 @@ class _GameScreenState extends State<GameScreen> {
   ) {
     final GameRoom? gameRoom = gameProvider.onlineGameRoom;
     if (gameRoom == null) {
-      return SizedBox(); // Should not happen in online game
+      return const SizedBox(); // Should not happen in online game
     }
 
     final bool isPlayer1 = gameProvider.player == gameRoom.player1Color;
@@ -501,6 +519,8 @@ class _GameScreenState extends State<GameScreen> {
         isPlayer1 ? (gameRoom.player2Rating ?? 1200) : gameRoom.player1Rating;
     final int? opponentColor =
         isPlayer1 ? gameRoom.player2Color : gameRoom.player1Color;
+    final String? opponentId =
+        isPlayer1 ? gameRoom.player2Id : gameRoom.player1Id;
 
     final bool isOpponentsTurn = gameProvider.game.state.turn == opponentColor;
     final List<String> opponentCaptured =
@@ -519,6 +539,7 @@ class _GameScreenState extends State<GameScreen> {
             children: [
               ProfileImageWidget(
                 imageUrl: opponentPhotoUrl,
+                countryCode: 'US',
                 radius: 20,
                 isEditable: false,
                 backgroundColor:
@@ -530,9 +551,46 @@ class _GameScreenState extends State<GameScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      opponentDisplayName,
-                      style: Theme.of(context).textTheme.titleMedium,
+                    Row(
+                      children: [
+                        Text(
+                          opponentDisplayName,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(width: 8),
+                        FutureBuilder<bool>(
+                          future: _friendService.isFriend(
+                            widget.user.uid!,
+                            opponentId!,
+                          ),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const SizedBox.shrink();
+                            }
+                            final isFriend = snapshot.data ?? false;
+                            if (!isFriend) {
+                              return IconButton(
+                                icon: const Icon(Icons.person_add),
+                                onPressed: () {
+                                  _friendService.sendFriendRequest(
+                                    currentUserId: widget.user.uid!,
+                                    friendUserId: opponentId,
+                                  );
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Friend request sent to $opponentDisplayName!',
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          },
+                        ),
+                      ],
                     ),
                     Row(
                       children: [
@@ -609,6 +667,7 @@ class _GameScreenState extends State<GameScreen> {
             children: [
               ProfileImageWidget(
                 imageUrl: widget.user.photoUrl,
+                countryCode: widget.user.countryCode,
                 radius: 20,
                 isEditable: false,
                 backgroundColor: Theme.of(context).colorScheme.primaryContainer,
@@ -708,6 +767,7 @@ class _GameScreenState extends State<GameScreen> {
             children: [
               ProfileImageWidget(
                 imageUrl: null,
+                countryCode: 'US',
                 radius: 20,
                 isEditable: false,
                 backgroundColor:
@@ -802,6 +862,7 @@ class _GameScreenState extends State<GameScreen> {
             children: [
               ProfileImageWidget(
                 imageUrl: widget.user.photoUrl,
+                countryCode: widget.user.countryCode,
                 radius: 20,
                 isEditable: false,
                 backgroundColor: Theme.of(context).colorScheme.primaryContainer,

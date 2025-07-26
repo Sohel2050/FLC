@@ -31,6 +31,7 @@ class _ChatScreenState extends State<ChatScreen> {
       widget.currentUser.uid!,
       widget.otherUser.uid!,
     );
+    _chatService.markMessagesAsRead(_chatRoomId, widget.currentUser.uid!);
   }
 
   @override

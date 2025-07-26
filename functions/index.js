@@ -8,6 +8,7 @@
  */
 
 const { onDocumentWritten, onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 admin.initializeApp();
@@ -169,4 +170,25 @@ exports.deleteAbortedGames = onDocumentWritten("gameRooms/{gameId}", async (even
       }
     }, 30000);
   }
+});
+
+// Cleanup anonymous users
+exports.cleanupAnonymousUsers = onSchedule("every 24 hours", async () => {
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const usersQuery = await admin.firestore().collection("users")
+      .where("isGuest", "==", true)
+      .where("lastSeen", "<", thirtyDaysAgo)
+      .get();
+
+  const promises = [];
+  usersQuery.forEach((doc) => {
+    const user = doc.data();
+    promises.push(admin.auth().deleteUser(user.uid));
+    promises.push(doc.ref.delete());
+  });
+
+  await Promise.all(promises);
+  logger.log("Cleaned up anonymous users.");
 });

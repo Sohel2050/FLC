@@ -44,4 +44,62 @@ class ChatService {
               .toList();
         });
   }
+
+  /// Deletes all messages in a chat room between two users.
+  Future<void> deleteChatMessages(String userId1, String userId2) async {
+    try {
+      final chatRoomId = getChatRoomId(userId1, userId2);
+      final messagesRef = _firestore
+          .collection(Constants.chatRoomsCollections)
+          .doc(chatRoomId)
+          .collection(Constants.messagesCollection);
+
+      // Get all messages in the chat room
+      final snapshot = await messagesRef.get();
+
+      // Delete each message
+      for (var doc in snapshot.docs) {
+        await messagesRef.doc(doc.id).delete();
+      }
+      _logger.i('All messages in chat room $chatRoomId deleted.');
+    } catch (e) {
+      _logger.e('Error deleting chat messages: $e');
+      rethrow;
+    }
+  }
+
+  // mark messages as read
+  Future<void> markMessagesAsRead(String chatRoomId, String receiverId) async {
+    try {
+      final messagesRef = _firestore
+          .collection(Constants.chatRoomsCollections)
+          .doc(chatRoomId)
+          .collection(Constants.messagesCollection);
+
+      final querySnapshot =
+          await messagesRef
+              .where(Constants.senderId, isNotEqualTo: receiverId)
+              .where(Constants.isRead, isEqualTo: false)
+              .get();
+
+      for (var doc in querySnapshot.docs) {
+        await messagesRef.doc(doc.id).update({Constants.isRead: true});
+      }
+    } catch (e) {
+      _logger.e('Error marking messages as read: $e');
+      rethrow;
+    }
+  }
+
+  // get unread message count
+  Stream<int> getUnreadMessageCount(String chatRoomId, String currentUserId) {
+    return _firestore
+        .collection(Constants.chatRoomsCollections)
+        .doc(chatRoomId)
+        .collection(Constants.messagesCollection)
+        .where(Constants.senderId, isNotEqualTo: currentUserId)
+        .where(Constants.isRead, isEqualTo: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
 }
