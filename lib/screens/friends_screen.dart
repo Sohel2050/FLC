@@ -323,9 +323,6 @@ class _FriendsScreenState extends State<FriendsScreen>
                   itemCount: _searchResults.length,
                   itemBuilder: (context, index) {
                     final user = _searchResults[index];
-                    if (user.uid == widget.user.uid) {
-                      return const SizedBox.shrink();
-                    }
 
                     // if user is already firend we do not show the add buuton
                     final isFriend = _friendService.isFriend(

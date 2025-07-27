@@ -267,7 +267,6 @@ class _GameOverDialogState extends State<GameOverDialog> {
         ElevatedButton(
           onPressed: () {
             gameProvider.resetGame(true);
-            Navigator.of(context).pop(); // Pop dialog, return no action
           },
           child: const Text('Rematch'),
         ),
