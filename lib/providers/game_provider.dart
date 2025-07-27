@@ -1078,11 +1078,11 @@ class GameProvider extends ChangeNotifier {
       }
 
       // If it's the start of an online game, begin the 10-second countdown for White.
-      if (_isOnlineGame &&
-          _onlineGameRoom!.moves.isEmpty &&
-          _onlineGameRoom!.status == Constants.statusActive) {
-        _startFirstMoveCountdown();
-      }
+      // if (_isOnlineGame &&
+      //     _onlineGameRoom!.moves.isEmpty &&
+      //     _onlineGameRoom!.status == Constants.statusActive) {
+      //   _startFirstMoveCountdown();
+      // }
 
       setLoading(false);
       notifyListeners();
@@ -1420,9 +1420,9 @@ class GameProvider extends ChangeNotifier {
     // Handle status changes (e.g., opponent joined, game ended)
     if (updatedRoom.status == Constants.statusActive && !_game.gameOver) {
       // If the game is just starting, initiate the first move countdown
-      if (updatedRoom.moves.isEmpty) {
-        _startFirstMoveCountdown();
-      }
+      // if (updatedRoom.moves.isEmpty) {
+      //   _startFirstMoveCountdown();
+      // }
       // Ensure timer is running if game becomes active and it's our turn
       if (((_isHost && _game.state.turn == Squares.white) ||
           (!_isHost && _game.state.turn == Squares.black))) {
@@ -1540,15 +1540,15 @@ class GameProvider extends ChangeNotifier {
 
   /// Starts a 10-second countdown for the first move in an online game.
   /// If White doesn't move within this time, the game is aborted.
-  void _startFirstMoveCountdown() {
-    _firstMoveCountdownTimer?.cancel(); // Cancel any existing timer
-    _firstMoveCountdownTimer = Timer(const Duration(seconds: 10), () {
-      if (_isOnlineGame && _onlineGameRoom!.moves.isEmpty) {
-        _logger.i('White did not make a move in time. Aborting game.');
-        _abortGame();
-      }
-    });
-  }
+  // void _startFirstMoveCountdown() {
+  //   _firstMoveCountdownTimer?.cancel(); // Cancel any existing timer
+  //   _firstMoveCountdownTimer = Timer(const Duration(seconds: 10), () {
+  //     if (_isOnlineGame && _onlineGameRoom!.moves.isEmpty) {
+  //       _logger.i('White did not make a move in time. Aborting game.');
+  //       _abortGame();
+  //     }
+  //   });
+  // }
 
   /// Aborts the game.
   Future<void> _abortGame() async {
