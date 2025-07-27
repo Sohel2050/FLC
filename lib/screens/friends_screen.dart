@@ -323,6 +323,16 @@ class _FriendsScreenState extends State<FriendsScreen>
                   itemCount: _searchResults.length,
                   itemBuilder: (context, index) {
                     final user = _searchResults[index];
+                    if (user.uid == widget.user.uid) {
+                      return const SizedBox.shrink();
+                    }
+
+                    // if user is already firend we do not show the add buuton
+                    final isFriend = _friendService.isFriend(
+                      widget.user.uid!,
+                      user.uid!,
+                    );
+
                     return ListTile(
                       leading: ProfileImageWidget(
                         imageUrl: user.photoUrl,
@@ -330,11 +340,12 @@ class _FriendsScreenState extends State<FriendsScreen>
                       ),
                       title: Text(user.displayName),
                       trailing: IconButton(
-                        icon: const Icon(Icons.person_add),
+                        icon: Icon(Icons.person_add),
                         onPressed: () {
-                          _friendService.sendFriendRequest(
+                          showFriendRequestDialog(
                             currentUserId: widget.user.uid!,
                             friendUserId: user.uid!,
+                            friendName: user.displayName,
                           );
                         },
                       ),
@@ -348,6 +359,44 @@ class _FriendsScreenState extends State<FriendsScreen>
         ),
       );
     }
+  }
+
+  void showFriendRequestDialog({
+    required String currentUserId,
+    required String friendUserId,
+    required String friendName,
+  }) async {
+    await AnimatedDialog.show(
+      context: context,
+      title: 'Send Friend Request',
+      actions: [
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(true),
+
+          child: const Text('Cancel'),
+        ),
+
+        ElevatedButton(
+          onPressed: () {
+            _friendService.sendFriendRequest(
+              currentUserId: widget.user.uid!,
+              friendUserId: friendUserId,
+            );
+            // pop the dialog
+            Navigator.pop(context);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Theme.of(context).primaryColor,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Send'),
+        ),
+      ],
+      child: Text(
+        'Send a friend request to $friendName',
+        textAlign: TextAlign.center,
+      ),
+    );
   }
 
   void _showInviteDialog(ChessUser friend) async {
