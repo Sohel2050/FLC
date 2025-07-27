@@ -209,10 +209,6 @@ class _GameOverDialogState extends State<GameOverDialog> {
                 ElevatedButton(
                   onPressed: () async {
                     await gameProvider.handleRematch(true);
-                    if (context.mounted) {
-                      // The game will restart via provider update, close the dialog
-                      Navigator.of(context).pop();
-                    }
                   },
                   child: const Text('Accept'),
                 ),
