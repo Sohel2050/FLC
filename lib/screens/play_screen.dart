@@ -153,25 +153,25 @@ class _PlayScreenState extends State<PlayScreen> {
                       userRating = currentClassicalRating;
                     }
 
-                    if (currentUser.isGuest) {
-                      // Handle guest user case
-                      await AnimatedDialog.show(
-                        context: context,
-                        title: 'Guest User',
-                        child: const Text(
-                          'You need to sign in to play online games. Please sign in or create an account.',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
-                            child: const Text('OK'),
-                          ),
-                        ],
-                      );
-                      return;
-                    }
+                    // if (currentUser.isGuest) {
+                    //   // Handle guest user case
+                    //   await AnimatedDialog.show(
+                    //     context: context,
+                    //     title: 'Guest User',
+                    //     child: const Text(
+                    //       'You need to sign in to play online games. Please sign in or create an account.',
+                    //     ),
+                    //     actions: [
+                    //       TextButton(
+                    //         onPressed: () {
+                    //           Navigator.pop(context);
+                    //         },
+                    //         child: const Text('OK'),
+                    //       ),
+                    //     ],
+                    //   );
+                    //   return;
+                    // }
 
                     LoadingDialog.show(
                       context,
@@ -187,6 +187,7 @@ class _PlayScreenState extends State<PlayScreen> {
                         userId: currentUser.uid!,
                         displayName: currentUser.displayName,
                         photoUrl: currentUser.photoUrl,
+                        playerFlag: currentUser.countryCode ?? '',
                         userRating: userRating,
                         gameMode: timeControl,
                         ratingBasedSearch:
@@ -221,12 +222,12 @@ class _PlayScreenState extends State<PlayScreen> {
                       gameProvider.setLoading(false);
                       if (context.mounted) {
                         LoadingDialog.hide(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Failed to start online game: $e'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
+                        // ScaffoldMessenger.of(context).showSnackBar(
+                        //   SnackBar(
+                        //     content: Text('Failed to start online game: $e'),
+                        //     backgroundColor: Colors.red,
+                        //   ),
+                        // );
                       }
                     }
                   },

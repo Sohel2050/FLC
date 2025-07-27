@@ -932,6 +932,7 @@ class GameProvider extends ChangeNotifier {
     required String userId,
     required String displayName,
     String? photoUrl,
+    required String playerFlag,
     required int userRating,
     required String gameMode,
     required bool ratingBasedSearch,
@@ -980,6 +981,7 @@ class GameProvider extends ChangeNotifier {
           player2Id: userId,
           player2DisplayName: displayName,
           player2PhotoUrl: photoUrl,
+          player2Flag: playerFlag,
           player2Rating: userRating,
         );
         _logger.i('Joined game: ${foundGame.gameId}');
@@ -1011,6 +1013,8 @@ class GameProvider extends ChangeNotifier {
           player1Id: userId,
           player1DisplayName: displayName,
           player1PhotoUrl: photoUrl,
+          player1Flag: playerFlag,
+          player2Flag: '',
           player1Rating: userRating,
           ratingBasedSearch: ratingBasedSearch,
           initialWhitesTime: _savedWhitesTime.inMilliseconds,
@@ -1096,6 +1100,7 @@ class GameProvider extends ChangeNotifier {
     required String player2Id,
     required String player1DisplayName,
     String? player1PhotoUrl,
+    required String playerFlag,
     required int player1Rating,
   }) async {
     setLoading(true);
@@ -1112,6 +1117,7 @@ class GameProvider extends ChangeNotifier {
       player2Id: player2Id,
       player1DisplayName: player1DisplayName,
       player1PhotoUrl: player1PhotoUrl,
+      playerFlag: playerFlag,
       player1Rating: player1Rating,
       initialWhitesTime: _savedWhitesTime.inMilliseconds,
       initialBlacksTime: _savedBlacksTime.inMilliseconds,
@@ -1172,6 +1178,7 @@ class GameProvider extends ChangeNotifier {
     required String userId,
     required String displayName,
     String? photoUrl,
+    required String playerFlag,
     required int userRating,
     required String gameMode,
   }) async {
@@ -1205,6 +1212,7 @@ class GameProvider extends ChangeNotifier {
           player2Id: userId,
           player2DisplayName: displayName,
           player2PhotoUrl: photoUrl,
+          player2Flag: playerFlag,
           player2Rating: userRating,
         );
 

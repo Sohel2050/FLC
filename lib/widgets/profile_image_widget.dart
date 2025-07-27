@@ -71,7 +71,7 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
               ),
             ),
           ),
-        if (widget.countryCode != null)
+        if (widget.countryCode != null && widget.countryCode != '')
           Positioned(
             right: 0,
             bottom: 0,

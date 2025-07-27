@@ -17,6 +17,7 @@ class GameService {
     required String player2Id,
     required String player1DisplayName,
     String? player1PhotoUrl,
+    required String playerFlag,
     required int player1Rating,
     required int initialWhitesTime,
     required int initialBlacksTime,
@@ -31,6 +32,8 @@ class GameService {
       player2Id: player2Id, // Invited friend
       player1DisplayName: player1DisplayName,
       player1PhotoUrl: player1PhotoUrl,
+      player1Flag: playerFlag,
+      player2Flag: '',
       player1Color: Squares.white,
       status: Constants.statusWaiting,
       fen: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
@@ -68,6 +71,8 @@ class GameService {
     required String player1Id,
     required String player1DisplayName,
     String? player1PhotoUrl,
+    required String player1Flag,
+    required String player2Flag,
     required int player1Rating,
     required bool ratingBasedSearch,
     required int initialWhitesTime,
@@ -85,6 +90,8 @@ class GameService {
       player1Id: player1Id,
       player1DisplayName: player1DisplayName,
       player1PhotoUrl: player1PhotoUrl,
+      player1Flag: player1Flag,
+      player2Flag: player2Flag,
       player1Color: Squares.white,
       status: Constants.statusWaiting,
       fen:
@@ -206,6 +213,7 @@ class GameService {
     required String player2Id,
     required String player2DisplayName,
     String? player2PhotoUrl,
+    required String player2Flag,
     required int player2Rating,
   }) async {
     try {
@@ -217,6 +225,7 @@ class GameService {
             Constants.fieldPlayer2Id: player2Id,
             Constants.fieldPlayer2DisplayName: player2DisplayName,
             Constants.fieldPlayer2PhotoUrl: player2PhotoUrl,
+            Constants.fieldPlayer2Flag: player2Flag,
             Constants.fieldPlayer2Color: Squares.black,
             Constants.fieldPlayer2Rating: player2Rating,
             Constants.fieldStatus: Constants.statusActive,

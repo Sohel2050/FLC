@@ -60,6 +60,8 @@ class Constants {
   static const String fieldPlayer2DisplayName = 'player2DisplayName';
   static const String fieldPlayer1PhotoUrl = 'player1PhotoUrl';
   static const String fieldPlayer2PhotoUrl = 'player2PhotoUrl';
+  static const String fieldPlayer1Flag = 'player1Flag';
+  static const String fieldPlayer2Flag = 'player2Flag';
   static const String fieldPlayer1Color = 'player1Color';
   static const String fieldPlayer2Color = 'player2Color';
   static const String fieldStatus = 'status';

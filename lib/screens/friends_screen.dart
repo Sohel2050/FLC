@@ -508,6 +508,7 @@ class _FriendsScreenState extends State<FriendsScreen>
         player2Id: friend.uid!,
         player1DisplayName: widget.user.displayName,
         player1PhotoUrl: widget.user.photoUrl,
+        playerFlag: widget.user.countryCode ?? '',
         player1Rating: widget.user.classicalRating,
       );
 

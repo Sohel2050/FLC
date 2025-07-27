@@ -169,6 +169,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         userId: widget.user.uid!,
         displayName: widget.user.displayName,
         photoUrl: widget.user.photoUrl,
+        playerFlag: widget.user.countryCode ?? '',
         userRating: widget.user.classicalRating,
         gameMode: invite.gameMode,
       );

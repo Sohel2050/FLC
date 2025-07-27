@@ -10,6 +10,8 @@ class GameRoom {
   final String? player2DisplayName;
   final String? player1PhotoUrl;
   final String? player2PhotoUrl;
+  final String? player1Flag;
+  final String? player2Flag;
   final int player1Color; // Squares.white or Squares.black
   final int? player2Color; // Squares.white or Squares.black
   final String status; // "waiting", "active", "completed", "aborted"
@@ -43,6 +45,8 @@ class GameRoom {
     this.player2PhotoUrl,
     required this.player1Color,
     this.player2Color,
+    required this.player1Flag,
+    this.player2Flag,
     required this.status,
     required this.fen,
     required this.moves,
@@ -74,6 +78,8 @@ class GameRoom {
       Constants.fieldPlayer2DisplayName: player2DisplayName,
       Constants.fieldPlayer1PhotoUrl: player1PhotoUrl,
       Constants.fieldPlayer2PhotoUrl: player2PhotoUrl,
+      Constants.fieldPlayer1Flag: player1Flag,
+      Constants.fieldPlayer2Flag: player2Flag,
       Constants.fieldPlayer1Color: player1Color,
       Constants.fieldPlayer2Color: player2Color,
       Constants.fieldStatus: status,
@@ -114,6 +120,8 @@ class GameRoom {
           (map[Constants.fieldPlayer2PhotoUrl] as String?)?.isEmpty ?? true
               ? null
               : map[Constants.fieldPlayer2PhotoUrl],
+      player1Flag: map[Constants.fieldPlayer1Flag] ?? '',
+      player2Flag: map[Constants.fieldPlayer2Flag] ?? '',
       player1Color: map[Constants.fieldPlayer1Color] ?? 0,
       player2Color: map[Constants.fieldPlayer2Color],
       status: map[Constants.fieldStatus] ?? Constants.statusWaiting,
@@ -149,6 +157,8 @@ class GameRoom {
     String? player2DisplayName,
     String? player1PhotoUrl,
     String? player2PhotoUrl,
+    String? player1Flag,
+    String? player2Flag,
     int? player1Color,
     int? player2Color,
     String? status,
@@ -180,6 +190,8 @@ class GameRoom {
       player2DisplayName: player2DisplayName ?? this.player2DisplayName,
       player1PhotoUrl: player1PhotoUrl ?? this.player1PhotoUrl,
       player2PhotoUrl: player2PhotoUrl ?? this.player2PhotoUrl,
+      player1Flag: player1Flag ?? this.player1Flag,
+      player2Flag: player2Flag ?? this.player2Flag,
       player1Color: player1Color ?? this.player1Color,
       player2Color: player2Color ?? this.player2Color,
       status: status ?? this.status,

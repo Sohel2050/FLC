@@ -521,6 +521,7 @@ class _GameScreenState extends State<GameScreen> {
         isPlayer1 ? gameRoom.player2Color : gameRoom.player1Color;
     final String? opponentId =
         isPlayer1 ? gameRoom.player2Id : gameRoom.player1Id;
+    final String? opponentFlag = gameRoom.player2Flag;
 
     final bool isOpponentsTurn = gameProvider.game.state.turn == opponentColor;
     final List<String> opponentCaptured =
@@ -539,7 +540,7 @@ class _GameScreenState extends State<GameScreen> {
             children: [
               ProfileImageWidget(
                 imageUrl: opponentPhotoUrl,
-                countryCode: 'US',
+                countryCode: opponentFlag,
                 radius: 20,
                 isEditable: false,
                 backgroundColor:
@@ -573,16 +574,9 @@ class _GameScreenState extends State<GameScreen> {
                               return IconButton(
                                 icon: const Icon(Icons.person_add),
                                 onPressed: () {
-                                  _friendService.sendFriendRequest(
-                                    currentUserId: widget.user.uid!,
-                                    friendUserId: opponentId,
-                                  );
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Friend request sent to $opponentDisplayName!',
-                                      ),
-                                    ),
+                                  showFriendRequestDialog(
+                                    opponentId: opponentId,
+                                    opponentDisplayName: opponentDisplayName,
                                   );
                                 },
                               );
@@ -623,7 +617,9 @@ class _GameScreenState extends State<GameScreen> {
                   color:
                       isOpponentsTurn
                           ? Theme.of(context).colorScheme.primaryContainer
-                          : Theme.of(context).colorScheme.surfaceVariant,
+                          : Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -640,6 +636,43 @@ class _GameScreenState extends State<GameScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  void showFriendRequestDialog({
+    required String opponentId,
+    required String opponentDisplayName,
+  }) async {
+    await AnimatedDialog.show(
+      context: context,
+      title: 'Send Friend Request',
+      actions: [
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(true),
+
+          child: const Text('Cancel'),
+        ),
+
+        ElevatedButton(
+          onPressed: () {
+            _friendService.sendFriendRequest(
+              currentUserId: widget.user.uid!,
+              friendUserId: opponentId,
+            );
+            // pop the dialog
+            Navigator.pop(context);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Theme.of(context).primaryColor,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Send'),
+        ),
+      ],
+      child: Text(
+        'Send a friend request to $opponentDisplayName',
+        textAlign: TextAlign.center,
       ),
     );
   }
