@@ -265,6 +265,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   imageUrl: widget.user.photoUrl,
                   radius: 24,
                   isEditable: false,
+                  countryCode: widget.user.countryCode,
                   backgroundColor:
                       Theme.of(context).colorScheme.primaryContainer,
                 ),

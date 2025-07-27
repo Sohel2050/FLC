@@ -1,9 +1,10 @@
 import 'dart:io';
-import 'package:country_code_picker/country_code_picker.dart';
+import 'package:country_flags/country_flags.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/screens/login_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
+import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 import 'package:flutter_chess_app/widgets/play_mode_button.dart';
@@ -45,6 +46,81 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   bool get _isGuest => _currentUser.isGuest;
+
+  void _showCountrySelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        String searchQuery = '';
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            List<Map<String, String>> filteredCountries =
+                Constants.countries
+                    .where(
+                      (country) => country['name']!.toLowerCase().contains(
+                        searchQuery.toLowerCase(),
+                      ),
+                    )
+                    .toList();
+
+            return AlertDialog(
+              title: const Text('Select Country'),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: 400,
+                child: Column(
+                  children: [
+                    TextField(
+                      decoration: const InputDecoration(
+                        hintText: 'Search countries...',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          searchQuery = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filteredCountries.length,
+                        itemBuilder: (context, index) {
+                          final country = filteredCountries[index];
+                          return ListTile(
+                            leading: CountryFlag.fromCountryCode(
+                              country['code']!,
+                              height: 20,
+                              width: 30,
+                            ),
+                            title: Text(country['name']!),
+                            onTap: () {
+                              this.setState(() {
+                                _countryCode = country['code'];
+                              });
+                              Navigator.of(context).pop();
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -112,18 +188,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
 
             if (!_isGuest)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: CountryCodePicker(
-                  onChanged: (countryCode) {
-                    setState(() {
-                      _countryCode = countryCode.code;
-                    });
-                  },
-                  initialSelection: _countryCode,
-                  showCountryOnly: true,
-                  showOnlyCountryWhenClosed: true,
-                  alignLeft: false,
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 16),
+                child: InkWell(
+                  onTap: _showCountrySelectionDialog,
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.flag, color: Colors.grey),
+                        const SizedBox(width: 12),
+                        if (_countryCode != null)
+                          Row(
+                            children: [
+                              CountryFlag.fromCountryCode(
+                                _countryCode!,
+                                height: 24,
+                                width: 32,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                _getCountryName(_countryCode!),
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ],
+                          )
+                        else
+                          Text(
+                            'Select Country',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(color: Colors.grey[600]),
+                          ),
+                        const Spacer(),
+                        const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             const Divider(height: 32),
@@ -188,6 +292,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
+  }
+
+  String _getCountryName(String countryCode) {
+    final country = Constants.countries.firstWhere(
+      (country) => country['code'] == countryCode,
+      orElse: () => {'name': countryCode},
+    );
+    return country['name']!;
   }
 
   Widget _buildProfileField(
