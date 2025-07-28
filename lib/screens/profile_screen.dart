@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 import 'package:country_flags/country_flags.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +10,8 @@ import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 import 'package:flutter_chess_app/widgets/play_mode_button.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter_chess_app/providers/user_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   final ChessUser user;
@@ -149,20 +152,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onImageSelected: (file) {
                 setState(() {
                   _selectedImageFile = file;
-                  _selectedAvatar = null;
-                  if (file == null) {
-                    _imageRemoved = true;
-                  } else {
+                  // Only reset _selectedAvatar if we're actually selecting an image file
+                  if (file != null) {
+                    _selectedAvatar = null;
                     _imageRemoved = false;
+                  } else {
+                    // If file is null, only set _imageRemoved to true if we don't have a selected avatar
+                    // This prevents the callback from interfering when selecting an avatar
+                    if (_selectedAvatar == null) {
+                      _imageRemoved = true;
+                    }
                   }
                 });
               },
+
               onAvatarSelected: (avatar) {
                 setState(() {
                   _selectedAvatar = avatar;
                   _selectedImageFile = null;
                   if (avatar == null) {
-                    _imageRemoved = true;
+                    // Only set _imageRemoved to true if we don't have a selected image file
+                    if (_selectedImageFile == null) {
+                      _imageRemoved = true;
+                    }
                   } else {
                     _imageRemoved = false;
                   }
@@ -388,21 +400,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     LoadingDialog.show(context, message: 'Saving profile...');
 
     try {
-      if (_imageRemoved) {
+      // Store the current values before they get reset
+      final currentSelectedAvatar = _selectedAvatar;
+      final currentSelectedImageFile = _selectedImageFile;
+      final currentImageRemoved = _imageRemoved;
+
+      if (currentImageRemoved) {
         if (_currentUser.photoUrl != null &&
             !_currentUser.photoUrl!.startsWith('assets')) {
           LoadingDialog.updateMessage(context, 'Deleting image...');
           await userService.deleteProfileImage(_currentUser.uid!);
         }
         newPhotoUrl = null;
-      } else if (_selectedImageFile != null) {
+      } else if (currentSelectedImageFile != null) {
         LoadingDialog.updateMessage(context, 'Uploading image...');
         newPhotoUrl = await userService.uploadProfileImage(
           _currentUser.uid!,
-          _selectedImageFile!,
+          currentSelectedImageFile,
         );
-      } else if (_selectedAvatar != null) {
-        newPhotoUrl = _selectedAvatar;
+      } else if (currentSelectedAvatar != null) {
+        newPhotoUrl = currentSelectedAvatar;
       }
 
       final updatedUser = _currentUser.copyWith(
@@ -417,6 +434,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       await userService.updateUser(updatedUser);
 
+      // Update the UserProvider
+      if (mounted) {
+        log('Updating user provider: ${updatedUser.photoUrl}');
+        Provider.of<UserProvider>(context, listen: false).setUser(updatedUser);
+      }
+
+      // Now reset the state AFTER we've used the values
       setState(() {
         _currentUser = updatedUser;
         _selectedImageFile = null;
@@ -431,6 +455,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ).showSnackBar(const SnackBar(content: Text('Profile updated.')));
       }
     } catch (e) {
+      log('Error in _saveProfile: $e');
       if (mounted) {
         LoadingDialog.hide(context);
         ScaffoldMessenger.of(

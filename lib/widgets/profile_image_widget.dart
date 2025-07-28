@@ -1,4 +1,5 @@
 import 'dart:developer';
+
 import 'package:country_flags/country_flags.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/services/assets_manager.dart';
@@ -39,22 +40,83 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
   final ImagePicker _picker = ImagePicker();
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.imageUrl != null && widget.imageUrl!.startsWith('assets')) {
+      _selectedAvatar = widget.imageUrl;
+    }
+  }
+
+  // Add this debugging to your ProfileImageWidget
+
+  @override
+  void didUpdateWidget(ProfileImageWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Only reset local state if imageUrl changed AND we don't have pending selections
+    if (widget.imageUrl != oldWidget.imageUrl &&
+        _selectedImage == null &&
+        _selectedAvatar == null) {
+      // No pending selections, so it's safe to sync with the new imageUrl
+      if (widget.imageUrl != null && widget.imageUrl!.startsWith('assets')) {
+        _selectedAvatar = widget.imageUrl;
+      }
+    }
+
+    // If imageUrl changed and matches our selected avatar, clear selections (save was successful)
+    if (widget.imageUrl != oldWidget.imageUrl &&
+        _selectedAvatar != null &&
+        widget.imageUrl == _selectedAvatar) {
+      _selectedImage = null;
+      _selectedAvatar = null;
+      // Don't call callbacks here - this would reset the parent's state
+    }
+
+    // If imageUrl changed to a network URL and we had a selected image, clear selections (save was successful)
+    if (widget.imageUrl != oldWidget.imageUrl &&
+        _selectedImage != null &&
+        widget.imageUrl != null &&
+        !widget.imageUrl!.startsWith('assets') &&
+        widget.imageUrl != oldWidget.imageUrl) {
+      _selectedImage = null;
+      _selectedAvatar = null;
+      // Don't call callbacks here - this would reset the parent's state
+    }
+  }
+
+  // Also add debugging to the _chooseAvatar method:
+  Future<void> _chooseAvatar() async {
+    final selectedAvatar = await AvatarSelectionDialog.show(context: context);
+    ;
+
+    if (selectedAvatar != null) {
+      setState(() {
+        _selectedAvatar = selectedAvatar;
+        _selectedImage = null;
+      });
+      widget.onAvatarSelected?.call(selectedAvatar);
+      widget.onImageSelected?.call(null);
+    }
+  }
+
+  // And to the _removeImage method:
+  void _removeImage() {
+    setState(() {
+      _selectedImage = null;
+      _selectedAvatar = null;
+    });
+    widget.onImageSelected?.call(null);
+    widget.onAvatarSelected?.call(null);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    log('country code: ${widget.countryCode ?? 'Empty'}');
     return Stack(
       children: [
         CircleAvatar(
           radius: widget.radius,
           backgroundColor: widget.backgroundColor ?? Colors.grey[300],
           backgroundImage: _getImageProvider(),
-          // child:
-          //     _getImageProvider() == null
-          //         ? Icon(
-          //           widget.placeholderIcon,
-          //           size: widget.radius * 0.8,
-          //           color: Colors.grey[600],
-          //         )
-          //         : null,
         ),
         if (widget.isEditable)
           Positioned(
@@ -203,27 +265,6 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
       }
     } else {
       // Handle permission denied
-    }
-  }
-
-  void _removeImage() {
-    setState(() {
-      _selectedImage = null;
-      _selectedAvatar = null;
-    });
-    widget.onImageSelected?.call(null);
-    widget.onAvatarSelected?.call(null);
-  }
-
-  Future<void> _chooseAvatar() async {
-    final selectedAvatar = await AvatarSelectionDialog.show(context: context);
-    if (selectedAvatar != null) {
-      setState(() {
-        _selectedAvatar = selectedAvatar;
-        _selectedImage = null;
-      });
-      widget.onAvatarSelected?.call(selectedAvatar);
-      widget.onImageSelected?.call(null);
     }
   }
 }
