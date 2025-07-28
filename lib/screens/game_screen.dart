@@ -383,18 +383,19 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                     ),
 
+                    // TODO: uncomment this
                     // First move countdown for online games
-                    if (gameProvider.isOnlineGame &&
-                        gameProvider.onlineGameRoom != null)
-                      Center(
-                        child: FirstMoveCountdownWidget(
-                          isVisible:
-                              gameProvider.onlineGameRoom!.status ==
-                                  Constants.statusActive &&
-                              gameProvider.onlineGameRoom!.moves.isEmpty &&
-                              gameProvider.player == Squares.white,
-                        ),
-                      ),
+                    // if (gameProvider.isOnlineGame &&
+                    //     gameProvider.onlineGameRoom != null)
+                    //   Center(
+                    //     child: FirstMoveCountdownWidget(
+                    //       isVisible:
+                    //           gameProvider.onlineGameRoom!.status ==
+                    //               Constants.statusActive &&
+                    //           gameProvider.onlineGameRoom!.moves.isEmpty &&
+                    //           gameProvider.player == Squares.white,
+                    //     ),
+                    //   ),
 
                     // Current user data, time, and captured pieces
                     if (gameProvider.localMultiplayer)

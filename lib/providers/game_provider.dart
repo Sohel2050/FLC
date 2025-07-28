@@ -70,7 +70,8 @@ class GameProvider extends ChangeNotifier {
   int _player = Squares.white;
   Timer? _whitesTimer;
   Timer? _blacksTimer;
-  Timer? _firstMoveCountdownTimer;
+  // TODO: uncomment this
+  //Timer? _firstMoveCountdownTimer;
   int _whitesScore = 0;
   int _blacksScore = 0;
   String _gameId = '';
@@ -506,10 +507,12 @@ class GameProvider extends ChangeNotifier {
   void _stopTimers() {
     _whitesTimer?.cancel();
     _blacksTimer?.cancel();
-    _firstMoveCountdownTimer?.cancel();
+    // TODO: uncomment this
+    //_firstMoveCountdownTimer?.cancel();
     _whitesTimer = null;
     _blacksTimer = null;
-    _firstMoveCountdownTimer = null;
+    // TODO: uncomment this
+    //_firstMoveCountdownTimer = null;
     _playWhitesTimer = false;
     _playBlacksTimer = false;
   }
@@ -646,7 +649,7 @@ class GameProvider extends ChangeNotifier {
     }
 
     // If the first move countdown is active, cancel it.
-    _firstMoveCountdownTimer?.cancel();
+    //_firstMoveCountdownTimer?.cancel();
 
     bool result = _game.makeSquaresMove(move);
     if (result) {
@@ -1079,6 +1082,7 @@ class GameProvider extends ChangeNotifier {
         _startTimer();
       }
 
+      // TODO: uncomment this
       // If it's the start of an online game, begin the 10-second countdown for White.
       // if (_isOnlineGame &&
       //     _onlineGameRoom!.moves.isEmpty &&
@@ -1421,6 +1425,7 @@ class GameProvider extends ChangeNotifier {
 
     // Handle status changes (e.g., opponent joined, game ended)
     if (updatedRoom.status == Constants.statusActive && !_game.gameOver) {
+      // TODO: uncomment this
       // If the game is just starting, initiate the first move countdown
       // if (updatedRoom.moves.isEmpty) {
       //   _startFirstMoveCountdown();
