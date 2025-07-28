@@ -7,9 +7,12 @@ import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/captured_piece_widget.dart';
 import 'package:flutter_chess_app/widgets/confirmation_dialog.dart';
 import 'package:flutter_chess_app/widgets/draw_offer_widget.dart';
+import 'package:flutter_chess_app/widgets/first_move_countdown_widget.dart';
 import 'package:flutter_chess_app/widgets/game_over_dialog.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
+import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
+import 'package:flutter_chess_app/widgets/unread_badge_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:squares/squares.dart';
 import 'package:flutter_chess_app/screens/chat_screen.dart';
@@ -81,7 +84,6 @@ class _GameScreenState extends State<GameScreen> {
     final gameResult = _gameProvider.gameResult;
     if (gameResult == null) return;
 
-    final String? userId = widget.user.uid;
     // delete chat messages
     if (_gameProvider.isOnlineGame) {
       final gameRoom = _gameProvider.onlineGameRoom;
@@ -290,10 +292,42 @@ class _GameScreenState extends State<GameScreen> {
                 //     tooltip: 'Share Spectator Link',
                 //   ),
                 if (gameProvider.isOnlineGame)
-                  IconButton(
-                    icon: const Icon(Icons.chat),
-                    onPressed: () => _showInGameChat(context, gameProvider),
-                    tooltip: 'In-Game Chat',
+                  Builder(
+                    builder: (context) {
+                      final gameRoom = gameProvider.onlineGameRoom;
+                      if (gameRoom == null) return const SizedBox.shrink();
+
+                      final opponentId =
+                          gameRoom.player1Id == widget.user.uid
+                              ? gameRoom.player2Id
+                              : gameRoom.player1Id;
+
+                      if (opponentId == null) return const SizedBox.shrink();
+
+                      final chatRoomId = gameProvider.chatService.getChatRoomId(
+                        widget.user.uid!,
+                        opponentId,
+                      );
+
+                      return StreamBuilder<int>(
+                        stream: gameProvider.chatService.getUnreadMessageCount(
+                          chatRoomId,
+                          widget.user.uid!,
+                        ),
+                        builder: (context, snapshot) {
+                          final unreadCount = snapshot.data ?? 0;
+                          return UnreadBadgeWidget(
+                            count: unreadCount,
+                            child: IconButton(
+                              icon: const Icon(Icons.chat),
+                              onPressed:
+                                  () => _showInGameChat(context, gameProvider),
+                              tooltip: 'In-Game Chat',
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
               ],
             ),
@@ -348,6 +382,19 @@ class _GameScreenState extends State<GameScreen> {
                         promotionBehaviour: PromotionBehaviour.autoPremove,
                       ),
                     ),
+
+                    // First move countdown for online games
+                    if (gameProvider.isOnlineGame &&
+                        gameProvider.onlineGameRoom != null)
+                      Center(
+                        child: FirstMoveCountdownWidget(
+                          isVisible:
+                              gameProvider.onlineGameRoom!.status ==
+                                  Constants.statusActive &&
+                              gameProvider.onlineGameRoom!.moves.isEmpty &&
+                              gameProvider.player == Squares.white,
+                        ),
+                      ),
 
                     // Current user data, time, and captured pieces
                     if (gameProvider.localMultiplayer)

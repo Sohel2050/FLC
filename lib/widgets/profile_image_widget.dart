@@ -1,4 +1,4 @@
-import 'package:country_code_picker/country_code_picker.dart';
+import 'package:country_flags/country_flags.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/services/assets_manager.dart';
 import 'package:flutter_chess_app/widgets/avatar_selection_dialog.dart';
@@ -71,22 +71,31 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
               ),
             ),
           ),
-        if (widget.countryCode != null && widget.countryCode != '')
+        if (widget.countryCode != null &&
+            widget.countryCode != '' &&
+            !widget.isEditable)
           Positioned(
             right: 0,
             bottom: 0,
-            child: CircleAvatar(
-              radius: widget.radius * 0.3,
-              backgroundColor: Colors.transparent,
+            child: Container(
+              width: widget.radius * 0.6,
+              height: widget.radius * 0.6,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
               child: ClipOval(
-                child: CountryCodePicker(
-                  onChanged: print,
-                  initialSelection: widget.countryCode,
-                  favorite: [widget.countryCode!],
-                  showCountryOnly: true,
-                  showOnlyCountryWhenClosed: true,
-                  alignLeft: false,
-                  flagDecoration: BoxDecoration(shape: BoxShape.circle),
+                child: CountryFlag.fromCountryCode(
+                  widget.countryCode!,
+                  height: widget.radius * 0.6,
+                  width: widget.radius * 0.6,
                 ),
               ),
             ),
@@ -96,6 +105,7 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
   }
 
   ImageProvider? _getImageProvider() {
+    // Priority: selected image > selected avatar > widget imageUrl > default
     if (_selectedImage != null) {
       return FileImage(_selectedImage!);
     }

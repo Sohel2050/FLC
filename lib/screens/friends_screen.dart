@@ -111,11 +111,50 @@ class _FriendsScreenState extends State<FriendsScreen>
         title: const Text('Friends'),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'Friends'),
-            Tab(text: 'Requests'),
-            Tab(text: 'Find Players'),
-            Tab(text: 'Blocked'),
+          tabs: [
+            const Tab(text: 'Friends'),
+            Tab(
+              child: StreamBuilder<List<ChessUser>>(
+                stream:
+                    widget.user.isGuest
+                        ? Stream.value([])
+                        : _friendService.getFriendRequests(widget.user.uid!),
+                builder: (context, snapshot) {
+                  final requestCount = snapshot.data?.length ?? 0;
+                  return Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Requests'),
+                      if (requestCount > 0) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            requestCount > 99 ? '99+' : requestCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ),
+            const Tab(text: 'Find Players'),
+            const Tab(text: 'Blocked'),
           ],
         ),
       ),

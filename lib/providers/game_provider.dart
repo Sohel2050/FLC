@@ -149,6 +149,8 @@ class GameProvider extends ChangeNotifier {
   List<String> get blackCapturedPieces => _blackCapturedPieces;
   List<String> get moveHistory => _moveHistory;
 
+  ChatService get chatService => _chatService;
+
   GameService get gameService => _gameService;
 
   bool get drawOfferReceived => _drawOfferReceived;
