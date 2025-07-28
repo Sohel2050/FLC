@@ -1,5 +1,4 @@
-import 'dart:developer';
-import 'package:country_flags/country_flags.dart';
+import 'package:country_code_picker/country_code_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/services/assets_manager.dart';
 import 'package:flutter_chess_app/widgets/avatar_selection_dialog.dart';
@@ -107,6 +106,7 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
   }
 
   ImageProvider? _getImageProvider() {
+    // Priority: selected image > selected avatar > widget imageUrl > default
     if (_selectedImage != null) {
       return FileImage(_selectedImage!);
     }

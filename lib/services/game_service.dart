@@ -185,11 +185,29 @@ class GameService {
       if (snapshot.docs.isNotEmpty) {
         _logger.i('Found ${snapshot.docs.length} available games.');
 
-        // Filter out games created by the current user
+        // Filter out games created by the current user and check if creator is online
         for (final doc in snapshot.docs) {
           final gameRoom = GameRoom.fromMap(doc.data() as Map<String, dynamic>);
           if (gameRoom.player1Id != currentUserId) {
-            return gameRoom;
+            // Check if the game creator is online
+            final creatorDoc =
+                await _firestore
+                    .collection(Constants.usersCollection)
+                    .doc(gameRoom.player1Id)
+                    .get();
+
+            if (creatorDoc.exists) {
+              final creatorData = creatorDoc.data() as Map<String, dynamic>;
+              final isCreatorOnline = creatorData[Constants.isOnline] ?? false;
+
+              if (isCreatorOnline) {
+                return gameRoom;
+              } else {
+                _logger.i(
+                  'Game creator ${gameRoom.player1Id} is offline, skipping game ${gameRoom.gameId}',
+                );
+              }
+            }
           }
         }
 
