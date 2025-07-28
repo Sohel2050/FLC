@@ -1,4 +1,5 @@
-import 'package:country_code_picker/country_code_picker.dart';
+import 'dart:developer';
+import 'package:country_flags/country_flags.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/services/assets_manager.dart';
 import 'package:flutter_chess_app/widgets/avatar_selection_dialog.dart';
