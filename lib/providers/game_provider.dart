@@ -301,7 +301,7 @@ class GameProvider extends ChangeNotifier {
       _player1OnlineScore,
       _player2OnlineScore,
     );
-    notifyListeners();
+    //notifyListeners();
   }
 
   // Initialize Stockfish safely
