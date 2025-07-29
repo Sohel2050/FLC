@@ -8,7 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:permission_handler/permission_handler.dart';
 
-class ProfileImageWidget extends StatefulWidget {
+class ProfileImageWidget extends StatelessWidget {
   final String? imageUrl;
   final double radius;
   final bool isEditable;
@@ -17,6 +17,8 @@ class ProfileImageWidget extends StatefulWidget {
   final Color? backgroundColor;
   final IconData? placeholderIcon;
   final String? countryCode;
+  final File? selectedImageFile;
+  final String? selectedAvatar;
 
   const ProfileImageWidget({
     super.key,
@@ -28,85 +30,22 @@ class ProfileImageWidget extends StatefulWidget {
     this.backgroundColor,
     this.placeholderIcon = Icons.person,
     this.countryCode,
+    this.selectedImageFile,
+    this.selectedAvatar,
   });
 
-  @override
-  State<ProfileImageWidget> createState() => _ProfileImageWidgetState();
-}
-
-class _ProfileImageWidgetState extends State<ProfileImageWidget> {
-  File? _selectedImage;
-  String? _selectedAvatar;
-  final ImagePicker _picker = ImagePicker();
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.imageUrl != null && widget.imageUrl!.startsWith('assets')) {
-      _selectedAvatar = widget.imageUrl;
-    }
-  }
-
-  // Add this debugging to your ProfileImageWidget
-
-  @override
-  void didUpdateWidget(ProfileImageWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // Only reset local state if imageUrl changed AND we don't have pending selections
-    if (widget.imageUrl != oldWidget.imageUrl &&
-        _selectedImage == null &&
-        _selectedAvatar == null) {
-      // No pending selections, so it's safe to sync with the new imageUrl
-      if (widget.imageUrl != null && widget.imageUrl!.startsWith('assets')) {
-        _selectedAvatar = widget.imageUrl;
-      }
-    }
-
-    // If imageUrl changed and matches our selected avatar, clear selections (save was successful)
-    if (widget.imageUrl != oldWidget.imageUrl &&
-        _selectedAvatar != null &&
-        widget.imageUrl == _selectedAvatar) {
-      _selectedImage = null;
-      _selectedAvatar = null;
-      // Don't call callbacks here - this would reset the parent's state
-    }
-
-    // If imageUrl changed to a network URL and we had a selected image, clear selections (save was successful)
-    if (widget.imageUrl != oldWidget.imageUrl &&
-        _selectedImage != null &&
-        widget.imageUrl != null &&
-        !widget.imageUrl!.startsWith('assets') &&
-        widget.imageUrl != oldWidget.imageUrl) {
-      _selectedImage = null;
-      _selectedAvatar = null;
-      // Don't call callbacks here - this would reset the parent's state
-    }
-  }
-
-  // Also add debugging to the _chooseAvatar method:
-  Future<void> _chooseAvatar() async {
+  Future<void> _chooseAvatar(BuildContext context) async {
     final selectedAvatar = await AvatarSelectionDialog.show(context: context);
-    ;
 
     if (selectedAvatar != null) {
-      setState(() {
-        _selectedAvatar = selectedAvatar;
-        _selectedImage = null;
-      });
-      widget.onAvatarSelected?.call(selectedAvatar);
-      widget.onImageSelected?.call(null);
+      onAvatarSelected?.call(selectedAvatar);
+      onImageSelected?.call(null);
     }
   }
 
-  // And to the _removeImage method:
   void _removeImage() {
-    setState(() {
-      _selectedImage = null;
-      _selectedAvatar = null;
-    });
-    widget.onImageSelected?.call(null);
-    widget.onAvatarSelected?.call(null);
+    onImageSelected?.call(null);
+    onAvatarSelected?.call(null);
   }
 
   @override
@@ -114,42 +53,40 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
     return Stack(
       children: [
         CircleAvatar(
-          radius: widget.radius,
-          backgroundColor: widget.backgroundColor ?? Colors.grey[300],
+          radius: radius,
+          backgroundColor: backgroundColor ?? Colors.grey[300],
           backgroundImage: _getImageProvider(),
         ),
-        if (widget.isEditable)
+        if (isEditable)
           Positioned(
             right: 0,
             bottom: 0,
             child: CircleAvatar(
-              radius: widget.radius * 0.3,
+              radius: radius * 0.3,
               backgroundColor: Theme.of(context).colorScheme.primary,
               child: IconButton(
                 icon: Icon(
                   Icons.camera_alt,
-                  size: widget.radius * 0.25,
+                  size: radius * 0.25,
                   color: Colors.white,
                 ),
-                onPressed: _showImageSourceDialog,
+                onPressed: () => _showImageSourceDialog(context),
               ),
             ),
           ),
-        if (widget.countryCode != null &&
-            widget.countryCode != '' &&
-            !widget.isEditable)
+        if (countryCode != null && countryCode != '' && !isEditable)
           Positioned(
             right: 0,
             bottom: 0,
             child: Container(
-              width: widget.radius * 0.6,
-              height: widget.radius * 0.6,
+              width: radius * 0.6,
+              height: radius * 0.6,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white, width: 2),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
+                    color: Colors.black.withAlpha(25),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -157,9 +94,9 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
               ),
               child: ClipOval(
                 child: CountryFlag.fromCountryCode(
-                  widget.countryCode!,
-                  height: widget.radius * 0.6,
-                  width: widget.radius * 0.6,
+                  countryCode!,
+                  height: radius * 0.6,
+                  width: radius * 0.6,
                 ),
               ),
             ),
@@ -170,22 +107,22 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
 
   ImageProvider? _getImageProvider() {
     // Priority: selected image > selected avatar > widget imageUrl > default
-    if (_selectedImage != null) {
-      return FileImage(_selectedImage!);
+    if (selectedImageFile != null) {
+      return FileImage(selectedImageFile!);
     }
-    if (_selectedAvatar != null) {
-      return AssetImage(_selectedAvatar!);
+    if (selectedAvatar != null) {
+      return AssetImage(selectedAvatar!);
     }
-    if (widget.imageUrl != null && widget.imageUrl!.isNotEmpty) {
-      if (widget.imageUrl!.startsWith('assets')) {
-        return AssetImage(widget.imageUrl!);
+    if (imageUrl != null && imageUrl!.isNotEmpty) {
+      if (imageUrl!.startsWith('assets')) {
+        return AssetImage(imageUrl!);
       }
-      return NetworkImage(widget.imageUrl!);
+      return NetworkImage(imageUrl!);
     }
     return AssetImage(AssetsManager.userIcon);
   }
 
-  void _showImageSourceDialog() {
+  void _showImageSourceDialog(BuildContext context) {
     showModalBottomSheet(
       context: context,
       builder: (BuildContext context) {
@@ -197,7 +134,7 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
                 title: const Text('Camera'),
                 onTap: () {
                   Navigator.pop(context);
-                  _pickImage(ImageSource.camera);
+                  _pickImage(context, ImageSource.camera);
                 },
               ),
               ListTile(
@@ -205,7 +142,7 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
                 title: const Text('Gallery'),
                 onTap: () {
                   Navigator.pop(context);
-                  _pickImage(ImageSource.gallery);
+                  _pickImage(context, ImageSource.gallery);
                 },
               ),
               ListTile(
@@ -213,12 +150,12 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
                 title: const Text('Choose Avatar'),
                 onTap: () {
                   Navigator.pop(context);
-                  _chooseAvatar();
+                  _chooseAvatar(context);
                 },
               ),
-              if (widget.imageUrl != null ||
-                  _selectedImage != null ||
-                  _selectedAvatar != null)
+              if (imageUrl != null ||
+                  selectedImageFile != null ||
+                  selectedAvatar != null)
                 ListTile(
                   leading: const Icon(Icons.delete),
                   title: const Text('Remove Photo'),
@@ -234,7 +171,8 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
     );
   }
 
-  Future<void> _pickImage(ImageSource source) async {
+  Future<void> _pickImage(BuildContext context, ImageSource source) async {
+    final ImagePicker picker = ImagePicker();
     PermissionStatus status;
     if (source == ImageSource.camera) {
       status = await Permission.camera.request();
@@ -244,7 +182,7 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
 
     if (status.isGranted) {
       try {
-        final XFile? image = await _picker.pickImage(
+        final XFile? image = await picker.pickImage(
           source: source,
           maxWidth: 512,
           maxHeight: 512,
@@ -252,19 +190,23 @@ class _ProfileImageWidgetState extends State<ProfileImageWidget> {
         );
 
         if (image != null) {
-          setState(() {
-            _selectedImage = File(image.path);
-            _selectedAvatar = null;
-          });
-          widget.onImageSelected?.call(_selectedImage);
-          widget.onAvatarSelected?.call(null);
+          final imageFile = File(image.path);
+          onImageSelected?.call(imageFile);
         }
       } catch (e) {
-        print('Error picking image: $e');
-        // You can show a snackbar or dialog for error handling
+        log('Error picking image: $e');
+        if (context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Error picking image.')));
+        }
       }
     } else {
-      // Handle permission denied
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Permission denied.')));
+      }
     }
   }
 }

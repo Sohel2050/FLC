@@ -149,29 +149,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
               imageUrl: _currentUser.photoUrl,
               radius: 60,
               isEditable: !_isGuest,
+              selectedImageFile: _selectedImageFile,
+              selectedAvatar: _selectedAvatar,
               onImageSelected: (file) {
                 setState(() {
                   _selectedImageFile = file;
-                  // Only reset _selectedAvatar if we're actually selecting an image file
                   if (file != null) {
                     _selectedAvatar = null;
                     _imageRemoved = false;
                   } else {
-                    // If file is null, only set _imageRemoved to true if we don't have a selected avatar
-                    // This prevents the callback from interfering when selecting an avatar
                     if (_selectedAvatar == null) {
                       _imageRemoved = true;
                     }
                   }
                 });
               },
-
               onAvatarSelected: (avatar) {
                 setState(() {
                   _selectedAvatar = avatar;
                   _selectedImageFile = null;
                   if (avatar == null) {
-                    // Only set _imageRemoved to true if we don't have a selected image file
                     if (_selectedImageFile == null) {
                       _imageRemoved = true;
                     }
