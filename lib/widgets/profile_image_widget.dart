@@ -6,6 +6,7 @@ import 'package:flutter_chess_app/services/assets_manager.dart';
 import 'package:flutter_chess_app/widgets/avatar_selection_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 class ProfileImageWidget extends StatelessWidget {
@@ -50,13 +51,63 @@ class ProfileImageWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Widget profileImage;
+
+    // Priority: selected image > selected avatar > widget imageUrl > default
+    if (selectedImageFile != null) {
+      profileImage = CircleAvatar(
+        radius: radius,
+        backgroundImage: FileImage(selectedImageFile!),
+        backgroundColor: backgroundColor ?? Colors.grey[300],
+      );
+    } else if (selectedAvatar != null) {
+      profileImage = CircleAvatar(
+        radius: radius,
+        backgroundImage: AssetImage(selectedAvatar!),
+        backgroundColor: backgroundColor ?? Colors.grey[300],
+      );
+    } else if (imageUrl != null && imageUrl!.isNotEmpty) {
+      if (imageUrl!.startsWith('assets')) {
+        profileImage = CircleAvatar(
+          radius: radius,
+          backgroundImage: AssetImage(imageUrl!),
+          backgroundColor: backgroundColor ?? Colors.grey[300],
+        );
+      } else {
+        // Network image
+        profileImage = CachedNetworkImage(
+          imageUrl: imageUrl!,
+          imageBuilder:
+              (context, imageProvider) => CircleAvatar(
+                radius: radius,
+                backgroundImage: imageProvider,
+                backgroundColor: backgroundColor ?? Colors.grey[300],
+              ),
+          placeholder:
+              (context, url) => CircleAvatar(
+                radius: radius,
+                backgroundColor: backgroundColor ?? Colors.grey[300],
+                child: Icon(placeholderIcon, size: radius),
+              ),
+          errorWidget:
+              (context, url, error) => CircleAvatar(
+                radius: radius,
+                backgroundImage: AssetImage(AssetsManager.userIcon),
+                backgroundColor: backgroundColor ?? Colors.grey[300],
+              ),
+        );
+      }
+    } else {
+      profileImage = CircleAvatar(
+        radius: radius,
+        backgroundImage: AssetImage(AssetsManager.userIcon),
+        backgroundColor: backgroundColor ?? Colors.grey[300],
+      );
+    }
+
     return Stack(
       children: [
-        CircleAvatar(
-          radius: radius,
-          backgroundColor: backgroundColor ?? Colors.grey[300],
-          backgroundImage: _getImageProvider(),
-        ),
+        profileImage,
         if (isEditable)
           Positioned(
             right: 0,
@@ -103,23 +154,6 @@ class ProfileImageWidget extends StatelessWidget {
           ),
       ],
     );
-  }
-
-  ImageProvider? _getImageProvider() {
-    // Priority: selected image > selected avatar > widget imageUrl > default
-    if (selectedImageFile != null) {
-      return FileImage(selectedImageFile!);
-    }
-    if (selectedAvatar != null) {
-      return AssetImage(selectedAvatar!);
-    }
-    if (imageUrl != null && imageUrl!.isNotEmpty) {
-      if (imageUrl!.startsWith('assets')) {
-        return AssetImage(imageUrl!);
-      }
-      return NetworkImage(imageUrl!);
-    }
-    return AssetImage(AssetsManager.userIcon);
   }
 
   void _showImageSourceDialog(BuildContext context) {

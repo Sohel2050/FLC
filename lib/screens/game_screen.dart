@@ -27,7 +27,6 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   late GameProvider _gameProvider;
-  final FriendService _friendService = FriendService();
 
   @override
   void initState() {
@@ -278,19 +277,6 @@ class _GameScreenState extends State<GameScreen> {
                   icon: const Icon(Icons.flag),
                   tooltip: 'Resign',
                 ),
-                // if (gameProvider.isOnlineGame)
-                //   IconButton(
-                //     onPressed: () {
-                //       final gameRoom = gameProvider.onlineGameRoom;
-                //       if (gameRoom != null && gameRoom.spectatorLink != null) {
-                //         Share.share(
-                //           'Watch my chess game: ${gameRoom.spectatorLink}',
-                //         );
-                //       }
-                //     },
-                //     icon: const Icon(Icons.share),
-                //     tooltip: 'Share Spectator Link',
-                //   ),
                 if (gameProvider.isOnlineGame)
                   Builder(
                     builder: (context) {
@@ -383,19 +369,18 @@ class _GameScreenState extends State<GameScreen> {
                       ),
                     ),
 
-                    // TODO: uncomment this
                     // First move countdown for online games
-                    // if (gameProvider.isOnlineGame &&
-                    //     gameProvider.onlineGameRoom != null)
-                    //   Center(
-                    //     child: FirstMoveCountdownWidget(
-                    //       isVisible:
-                    //           gameProvider.onlineGameRoom!.status ==
-                    //               Constants.statusActive &&
-                    //           gameProvider.onlineGameRoom!.moves.isEmpty &&
-                    //           gameProvider.player == Squares.white,
-                    //     ),
-                    //   ),
+                    if (gameProvider.isOnlineGame &&
+                        gameProvider.onlineGameRoom != null)
+                      Center(
+                        child: FirstMoveCountdownWidget(
+                          isVisible:
+                              gameProvider.onlineGameRoom!.status ==
+                                  Constants.statusActive &&
+                              gameProvider.onlineGameRoom!.moves.isEmpty &&
+                              gameProvider.player == Squares.white,
+                        ),
+                      ),
 
                     // Current user data, time, and captured pieces
                     if (gameProvider.localMultiplayer)
@@ -607,31 +592,16 @@ class _GameScreenState extends State<GameScreen> {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(width: 8),
-                        FutureBuilder<bool>(
-                          future: _friendService.isFriend(
-                            widget.user.uid!,
-                            opponentId!,
-                          ),
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const SizedBox.shrink();
-                            }
-                            final isFriend = snapshot.data ?? false;
-                            if (!isFriend) {
-                              return IconButton(
-                                icon: const Icon(Icons.person_add),
-                                onPressed: () {
-                                  showFriendRequestDialog(
-                                    opponentId: opponentId,
-                                    opponentDisplayName: opponentDisplayName,
-                                  );
-                                },
+                        if (!gameProvider.isOpponentFriend)
+                          IconButton(
+                            icon: const Icon(Icons.person_add),
+                            onPressed: () {
+                              showFriendRequestDialog(
+                                opponentId: opponentId!,
+                                opponentDisplayName: opponentDisplayName,
                               );
-                            }
-                            return const SizedBox.shrink();
-                          },
-                        ),
+                            },
+                          ),
                       ],
                     ),
                     Row(
@@ -692,19 +662,18 @@ class _GameScreenState extends State<GameScreen> {
     required String opponentId,
     required String opponentDisplayName,
   }) async {
+    final friendService = FriendService();
     await AnimatedDialog.show(
       context: context,
       title: 'Send Friend Request',
       actions: [
         ElevatedButton(
           onPressed: () => Navigator.of(context).pop(true),
-
           child: const Text('Cancel'),
         ),
-
         ElevatedButton(
           onPressed: () {
-            _friendService.sendFriendRequest(
+            friendService.sendFriendRequest(
               currentUserId: widget.user.uid!,
               friendUserId: opponentId,
             );

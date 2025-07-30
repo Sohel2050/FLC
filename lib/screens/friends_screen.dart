@@ -10,6 +10,7 @@ import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/guest_widget.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
+import 'package:flutter_chess_app/widgets/unread_badge_widget.dart';
 import 'package:provider/provider.dart';
 
 class FriendsScreen extends StatefulWidget {
@@ -121,39 +122,44 @@ class _FriendsScreenState extends State<FriendsScreen>
                         : _friendService.getFriendRequests(widget.user.uid!),
                 builder: (context, snapshot) {
                   final requestCount = snapshot.data?.length ?? 0;
-                  return Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Requests'),
-                      if (requestCount > 0) ...[
-                        //const SizedBox(width: 2),
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 16,
-                              minHeight: 16,
-                            ),
-                            child: Text(
-                              requestCount > 99
-                                  ? '99+'
-                                  : requestCount.toString(),
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                  return UnreadBadgeWidget(
+                    count: requestCount,
+                    child: Text('Requests'),
                   );
+
+                  // Row(
+                  //   mainAxisSize: MainAxisSize.min,
+                  //   children: [
+                  //     const Text('Requests'),
+                  //     if (requestCount > 0) ...[
+                  //       //const SizedBox(width: 2),
+                  //       Expanded(
+                  //         child: Container(
+                  //           padding: const EdgeInsets.all(4),
+                  //           decoration: BoxDecoration(
+                  //             color: Colors.red,
+                  //             borderRadius: BorderRadius.circular(10),
+                  //           ),
+                  //           constraints: const BoxConstraints(
+                  //             minWidth: 16,
+                  //             minHeight: 16,
+                  //           ),
+                  //           child: Text(
+                  //             requestCount > 99
+                  //                 ? '99+'
+                  //                 : requestCount.toString(),
+                  //             style: const TextStyle(
+                  //               color: Colors.white,
+                  //               fontSize: 10,
+                  //               fontWeight: FontWeight.bold,
+                  //             ),
+                  //             textAlign: TextAlign.center,
+                  //           ),
+                  //         ),
+                  //       ),
+                  //     ],
+                  //   ],
+                  // );
                 },
               ),
             ),
@@ -216,48 +222,67 @@ class _FriendsScreenState extends State<FriendsScreen>
                       ),
                       builder: (context, snapshot) {
                         final unreadCount = snapshot.data ?? 0;
-                        return Stack(
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.message),
-                              onPressed: () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) => ChatScreen(
-                                          currentUser: widget.user,
-                                          otherUser: friend,
-                                        ),
-                                  ),
-                                );
-                              },
-                            ),
-                            if (unreadCount > 0)
-                              Positioned(
-                                right: 8,
-                                top: 8,
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  constraints: const BoxConstraints(
-                                    minWidth: 16,
-                                    minHeight: 16,
-                                  ),
-                                  child: Text(
-                                    '$unreadCount',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
+                        return UnreadBadgeWidget(
+                          count: unreadCount,
+                          child: IconButton(
+                            icon: const Icon(Icons.message),
+                            onPressed: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => ChatScreen(
+                                        currentUser: widget.user,
+                                        otherUser: friend,
+                                      ),
                                 ),
-                              ),
-                          ],
+                              );
+                            },
+                            tooltip: 'Chat',
+                          ),
                         );
+
+                        // Stack(
+                        //   children: [
+                        //     IconButton(
+                        //       icon: const Icon(Icons.message),
+                        //       onPressed: () {
+                        //         Navigator.of(context).push(
+                        //           MaterialPageRoute(
+                        //             builder:
+                        //                 (context) => ChatScreen(
+                        //                   currentUser: widget.user,
+                        //                   otherUser: friend,
+                        //                 ),
+                        //           ),
+                        //         );
+                        //       },
+                        //     ),
+                        //     if (unreadCount > 0)
+                        //       Positioned(
+                        //         right: 8,
+                        //         top: 8,
+                        //         child: Container(
+                        //           padding: const EdgeInsets.all(2),
+                        //           decoration: BoxDecoration(
+                        //             color: Colors.red,
+                        //             borderRadius: BorderRadius.circular(10),
+                        //           ),
+                        //           constraints: const BoxConstraints(
+                        //             minWidth: 16,
+                        //             minHeight: 16,
+                        //           ),
+                        //           child: Text(
+                        //             '$unreadCount',
+                        //             style: const TextStyle(
+                        //               color: Colors.white,
+                        //               fontSize: 10,
+                        //             ),
+                        //             textAlign: TextAlign.center,
+                        //           ),
+                        //         ),
+                        //       ),
+                        //   ],
+                        // );
                       },
                     ),
                     IconButton(

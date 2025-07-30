@@ -5,6 +5,7 @@ import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/models/saved_game_model.dart';
 import 'package:flutter_chess_app/services/captured_piece_tracker.dart';
 import 'package:flutter_chess_app/services/chat_service.dart';
+import 'package:flutter_chess_app/services/friend_service.dart';
 import 'package:flutter_chess_app/services/game_service.dart';
 import 'package:flutter_chess_app/services/saved_game_service.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
@@ -57,12 +58,14 @@ class GameProvider extends ChangeNotifier {
   final SavedGameService _savedGameService = SavedGameService();
   final UserService _userService = UserService();
   final ChatService _chatService = ChatService();
+  final FriendService _friendService = FriendService();
 
   bool _vsCPU = false;
   bool _localMultiplayer = false;
   bool _isOnlineGame = false;
   bool _isHost = false; // True if this player created the game room
   bool _isLoading = false;
+  bool _isOpponentFriend = false;
   bool _playWhitesTimer = true;
   bool _playBlacksTimer = true;
   int _gameLevel = 1;
@@ -70,8 +73,7 @@ class GameProvider extends ChangeNotifier {
   int _player = Squares.white;
   Timer? _whitesTimer;
   Timer? _blacksTimer;
-  // TODO: uncomment this
-  //Timer? _firstMoveCountdownTimer;
+  Timer? _firstMoveCountdownTimer;
   int _whitesScore = 0;
   int _blacksScore = 0;
   String _gameId = '';
@@ -125,6 +127,7 @@ class GameProvider extends ChangeNotifier {
   bool get isOnlineGame => _isOnlineGame;
   bool get isHost => _isHost;
   bool get isLoading => _isLoading;
+  bool get isOpponentFriend => _isOpponentFriend;
   bool get playWhitesTimer => _playWhitesTimer;
   bool get playBlacksTimer => _playBlacksTimer;
   int get gameLevel => _gameLevel;
@@ -507,12 +510,10 @@ class GameProvider extends ChangeNotifier {
   void _stopTimers() {
     _whitesTimer?.cancel();
     _blacksTimer?.cancel();
-    // TODO: uncomment this
-    //_firstMoveCountdownTimer?.cancel();
+    _firstMoveCountdownTimer?.cancel();
     _whitesTimer = null;
     _blacksTimer = null;
-    // TODO: uncomment this
-    //_firstMoveCountdownTimer = null;
+    _firstMoveCountdownTimer = null;
     _playWhitesTimer = false;
     _playBlacksTimer = false;
   }
@@ -966,6 +967,11 @@ class GameProvider extends ChangeNotifier {
       );
 
       if (foundGame != null) {
+        // Check if the opponent is a friend before joining
+        _isOpponentFriend = await _friendService.isFriend(
+          userId,
+          foundGame.player1Id,
+        );
         // Update message when joining
         if (context != null) {
           updateLoadingMessage(
@@ -1012,6 +1018,7 @@ class GameProvider extends ChangeNotifier {
         // No game found, create a new one
         _isHost = true;
         _player = Squares.white; // Creating player is White
+        _isOpponentFriend = false; // No opponent yet, so they can't be a friend
 
         _onlineGameRoom = await _gameService.createGameRoom(
           gameMode: gameMode,
@@ -1082,13 +1089,12 @@ class GameProvider extends ChangeNotifier {
         _startTimer();
       }
 
-      // TODO: uncomment this
       // If it's the start of an online game, begin the 10-second countdown for White.
-      // if (_isOnlineGame &&
-      //     _onlineGameRoom!.moves.isEmpty &&
-      //     _onlineGameRoom!.status == Constants.statusActive) {
-      //   _startFirstMoveCountdown();
-      // }
+      if (_isOnlineGame &&
+          _onlineGameRoom!.moves.isEmpty &&
+          _onlineGameRoom!.status == Constants.statusActive) {
+        _startFirstMoveCountdown();
+      }
 
       setLoading(false);
       notifyListeners();
@@ -1116,6 +1122,7 @@ class GameProvider extends ChangeNotifier {
 
     _isHost = true;
     _player = Squares.white; // Current user will be white
+    _isOpponentFriend = await _friendService.isFriend(player1Id, player2Id);
 
     _onlineGameRoom = await _gameService.createPrivateGameRoom(
       gameMode: gameMode,
@@ -1206,6 +1213,12 @@ class GameProvider extends ChangeNotifier {
 
       if (isAvailable != null) {
         _logger.i('Game found: ${isAvailable.gameId}');
+
+        // Check if the host is a friend
+        _isOpponentFriend = await _friendService.isFriend(
+          userId,
+          isAvailable.player1Id,
+        );
 
         // Join existing game
         _isHost = false;
@@ -1425,11 +1438,10 @@ class GameProvider extends ChangeNotifier {
 
     // Handle status changes (e.g., opponent joined, game ended)
     if (updatedRoom.status == Constants.statusActive && !_game.gameOver) {
-      // TODO: uncomment this
       // If the game is just starting, initiate the first move countdown
-      // if (updatedRoom.moves.isEmpty) {
-      //   _startFirstMoveCountdown();
-      // }
+      if (updatedRoom.moves.isEmpty) {
+        _startFirstMoveCountdown();
+      }
       // Ensure timer is running if game becomes active and it's our turn
       if (((_isHost && _game.state.turn == Squares.white) ||
           (!_isHost && _game.state.turn == Squares.black))) {
@@ -1547,15 +1559,15 @@ class GameProvider extends ChangeNotifier {
 
   /// Starts a 10-second countdown for the first move in an online game.
   /// If White doesn't move within this time, the game is aborted.
-  // void _startFirstMoveCountdown() {
-  //   _firstMoveCountdownTimer?.cancel(); // Cancel any existing timer
-  //   _firstMoveCountdownTimer = Timer(const Duration(seconds: 10), () {
-  //     if (_isOnlineGame && _onlineGameRoom!.moves.isEmpty) {
-  //       _logger.i('White did not make a move in time. Aborting game.');
-  //       _abortGame();
-  //     }
-  //   });
-  // }
+  void _startFirstMoveCountdown() {
+    _firstMoveCountdownTimer?.cancel(); // Cancel any existing timer
+    _firstMoveCountdownTimer = Timer(const Duration(seconds: 10), () {
+      if (_isOnlineGame && _onlineGameRoom!.moves.isEmpty) {
+        _logger.i('White did not make a move in time. Aborting game.');
+        _abortGame();
+      }
+    });
+  }
 
   /// Aborts the game.
   Future<void> _abortGame() async {

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:badges/badges.dart' as badges;
 
 class UnreadBadgeWidget extends StatelessWidget {
   final Widget child;
   final int count;
-  final bool showBadge;
   final Color? badgeColor;
   final Color? textColor;
   final double? badgeSize;
@@ -12,7 +12,6 @@ class UnreadBadgeWidget extends StatelessWidget {
     super.key,
     required this.child,
     required this.count,
-    this.showBadge = true,
     this.badgeColor,
     this.textColor,
     this.badgeSize,
@@ -20,39 +19,34 @@ class UnreadBadgeWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!showBadge || count <= 0) {
-      return child;
-    }
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        child,
-        Positioned(
-          right: -6,
-          top: -6,
-          child: Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: badgeColor ?? Colors.red,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            constraints: BoxConstraints(
-              minWidth: badgeSize ?? 16,
-              minHeight: badgeSize ?? 16,
-            ),
-            child: Text(
-              count > 99 ? '99+' : count.toString(),
-              style: TextStyle(
-                color: textColor ?? Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
+    return badges.Badge(
+      showBadge: count > 0,
+      ignorePointer: false,
+      onTap: () {},
+      badgeContent: Text(
+        count > 99 ? '99+' : count.toString(),
+        style: TextStyle(
+          color: textColor ?? Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
         ),
-      ],
+      ),
+      badgeAnimation: const badges.BadgeAnimation.rotation(
+        animationDuration: Duration(seconds: 1),
+        colorChangeAnimationDuration: Duration(seconds: 1),
+        loopAnimation: false,
+        curve: Curves.fastOutSlowIn,
+        colorChangeAnimationCurve: Curves.easeInCubic,
+      ),
+      badgeStyle: badges.BadgeStyle(
+        shape: badges.BadgeShape.circle,
+        badgeColor: badgeColor ?? Colors.red,
+        padding: const EdgeInsets.all(5),
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: Colors.white, width: 1),
+        elevation: 2,
+      ),
+      child: child,
     );
   }
 }
