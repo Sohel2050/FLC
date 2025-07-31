@@ -34,7 +34,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _currentUser = widget.user;
+    // Get the current user from provider, fallback to widget.user
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    _currentUser = userProvider.user ?? widget.user;
+
     _displayNameController = TextEditingController(
       text: _currentUser.displayName,
     );
