@@ -171,14 +171,14 @@ class ProfileImageWidget extends StatelessWidget {
                   _pickImage(context, ImageSource.camera);
                 },
               ),
-              ListTile(
-                leading: const Icon(Icons.photo_library),
-                title: const Text('Gallery'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickImage(context, ImageSource.gallery);
-                },
-              ),
+              // ListTile(
+              //   leading: const Icon(Icons.photo_library),
+              //   title: const Text('Gallery'),
+              //   onTap: () {
+              //     Navigator.pop(context);
+              //     _pickImage(context, ImageSource.gallery);
+              //   },
+              // ),
               ListTile(
                 leading: const Icon(Icons.person_search_rounded),
                 title: const Text('Choose Avatar'),
@@ -187,17 +187,17 @@ class ProfileImageWidget extends StatelessWidget {
                   _chooseAvatar(context);
                 },
               ),
-              if (imageUrl != null ||
-                  selectedImageFile != null ||
-                  selectedAvatar != null)
-                ListTile(
-                  leading: const Icon(Icons.delete),
-                  title: const Text('Remove Photo'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _removeImage();
-                  },
-                ),
+              // if (imageUrl != null ||
+              //     selectedImageFile != null ||
+              //     selectedAvatar != null)
+              //   ListTile(
+              //     leading: const Icon(Icons.delete),
+              //     title: const Text('Remove Photo'),
+              //     onTap: () {
+              //       Navigator.pop(context);
+              //       _removeImage();
+              //     },
+              //   ),
             ],
           ),
         );

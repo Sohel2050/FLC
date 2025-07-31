@@ -126,40 +126,6 @@ class _FriendsScreenState extends State<FriendsScreen>
                     count: requestCount,
                     child: Text('Requests'),
                   );
-
-                  // Row(
-                  //   mainAxisSize: MainAxisSize.min,
-                  //   children: [
-                  //     const Text('Requests'),
-                  //     if (requestCount > 0) ...[
-                  //       //const SizedBox(width: 2),
-                  //       Expanded(
-                  //         child: Container(
-                  //           padding: const EdgeInsets.all(4),
-                  //           decoration: BoxDecoration(
-                  //             color: Colors.red,
-                  //             borderRadius: BorderRadius.circular(10),
-                  //           ),
-                  //           constraints: const BoxConstraints(
-                  //             minWidth: 16,
-                  //             minHeight: 16,
-                  //           ),
-                  //           child: Text(
-                  //             requestCount > 99
-                  //                 ? '99+'
-                  //                 : requestCount.toString(),
-                  //             style: const TextStyle(
-                  //               color: Colors.white,
-                  //               fontSize: 10,
-                  //               fontWeight: FontWeight.bold,
-                  //             ),
-                  //             textAlign: TextAlign.center,
-                  //           ),
-                  //         ),
-                  //       ),
-                  //     ],
-                  //   ],
-                  // );
                 },
               ),
             ),
