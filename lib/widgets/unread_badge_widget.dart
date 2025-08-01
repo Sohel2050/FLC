@@ -7,6 +7,7 @@ class UnreadBadgeWidget extends StatelessWidget {
   final Color? badgeColor;
   final Color? textColor;
   final double? badgeSize;
+  final Function()? onTap;
 
   const UnreadBadgeWidget({
     super.key,
@@ -15,14 +16,16 @@ class UnreadBadgeWidget extends StatelessWidget {
     this.badgeColor,
     this.textColor,
     this.badgeSize,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return badges.Badge(
+      //position: badges.BadgePosition.topEnd(top: -10, end: -12),
       showBadge: count > 0,
       ignorePointer: false,
-      onTap: () {},
+      onTap: onTap,
       badgeContent: Text(
         count > 99 ? '99+' : count.toString(),
         style: TextStyle(

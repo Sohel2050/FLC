@@ -190,65 +190,19 @@ class _FriendsScreenState extends State<FriendsScreen>
                         final unreadCount = snapshot.data ?? 0;
                         return UnreadBadgeWidget(
                           count: unreadCount,
-                          child: IconButton(
-                            icon: const Icon(Icons.message),
-                            onPressed: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder:
-                                      (context) => ChatScreen(
-                                        currentUser: widget.user,
-                                        otherUser: friend,
-                                      ),
-                                ),
-                              );
-                            },
-                            tooltip: 'Chat',
-                          ),
+                          child: Icon(Icons.message),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder:
+                                    (context) => ChatScreen(
+                                      currentUser: widget.user,
+                                      otherUser: friend,
+                                    ),
+                              ),
+                            );
+                          },
                         );
-
-                        // Stack(
-                        //   children: [
-                        //     IconButton(
-                        //       icon: const Icon(Icons.message),
-                        //       onPressed: () {
-                        //         Navigator.of(context).push(
-                        //           MaterialPageRoute(
-                        //             builder:
-                        //                 (context) => ChatScreen(
-                        //                   currentUser: widget.user,
-                        //                   otherUser: friend,
-                        //                 ),
-                        //           ),
-                        //         );
-                        //       },
-                        //     ),
-                        //     if (unreadCount > 0)
-                        //       Positioned(
-                        //         right: 8,
-                        //         top: 8,
-                        //         child: Container(
-                        //           padding: const EdgeInsets.all(2),
-                        //           decoration: BoxDecoration(
-                        //             color: Colors.red,
-                        //             borderRadius: BorderRadius.circular(10),
-                        //           ),
-                        //           constraints: const BoxConstraints(
-                        //             minWidth: 16,
-                        //             minHeight: 16,
-                        //           ),
-                        //           child: Text(
-                        //             '$unreadCount',
-                        //             style: const TextStyle(
-                        //               color: Colors.white,
-                        //               fontSize: 10,
-                        //             ),
-                        //             textAlign: TextAlign.center,
-                        //           ),
-                        //         ),
-                        //       ),
-                        //   ],
-                        // );
                       },
                     ),
                     IconButton(
@@ -357,12 +311,6 @@ class _FriendsScreenState extends State<FriendsScreen>
                   itemCount: _searchResults.length,
                   itemBuilder: (context, index) {
                     final user = _searchResults[index];
-
-                    // if user is already firend we do not show the add buuton
-                    final isFriend = _friendService.isFriend(
-                      widget.user.uid!,
-                      user.uid!,
-                    );
 
                     return ListTile(
                       leading: ProfileImageWidget(

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/models/saved_game_model.dart';
+import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/services/captured_piece_tracker.dart';
 import 'package:flutter_chess_app/services/chat_service.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
@@ -80,8 +81,11 @@ class GameProvider extends ChangeNotifier {
   String _selectedTimeControl = '';
   GameRoom? _onlineGameRoom;
   StreamSubscription<GameRoom>? gameRoomSubscription;
+  StreamSubscription<List<ChessUser>>? _friendRequestSubscription;
 
   bool _drawOfferReceived = false;
+  bool _friendRequestReceived = false;
+  String? _friendRequestSenderId;
   bool _scoresUpdatedForCurrentGame = false;
 
   Duration _whitesTime = Duration.zero;
@@ -158,6 +162,8 @@ class GameProvider extends ChangeNotifier {
   GameService get gameService => _gameService;
 
   bool get drawOfferReceived => _drawOfferReceived;
+  bool get friendRequestReceived => _friendRequestReceived;
+  String? get friendRequestSenderId => _friendRequestSenderId;
 
   StreamSubscription<GameRoom>? get geGgameRoomSubscription =>
       gameRoomSubscription;
@@ -307,6 +313,29 @@ class GameProvider extends ChangeNotifier {
     //notifyListeners();
   }
 
+  /// Handles a friend request (accept or decline).
+  Future<void> handleFriendRequest(
+    String currentUserId,
+    String friendUserId,
+    bool accepted,
+  ) async {
+    if (accepted) {
+      await _friendService.acceptFriendRequest(
+        currentUserId: currentUserId,
+        friendUserId: friendUserId,
+      );
+      _isOpponentFriend = true;
+    } else {
+      await _friendService.declineFriendRequest(
+        currentUserId: currentUserId,
+        friendUserId: friendUserId,
+      );
+    }
+    _friendRequestReceived = false;
+    _friendRequestSenderId = null;
+    notifyListeners();
+  }
+
   // Initialize Stockfish safely
   Future<void> initializeStockfish() async {
     if (_stockfishInitialized || _localMultiplayer || _isOnlineGame) return;
@@ -334,6 +363,7 @@ class GameProvider extends ChangeNotifier {
     disposeStockfish();
     _stopTimers();
     gameRoomSubscription?.cancel();
+    _friendRequestSubscription?.cancel();
     super.dispose();
   }
 
@@ -1060,6 +1090,26 @@ class GameProvider extends ChangeNotifier {
               _logger.i('Game room $_gameId stream closed.');
             },
           );
+
+      // Set up friend request listener if not already friends
+      if (!_isOpponentFriend) {
+        _friendRequestSubscription = _friendService
+            .getFriendRequests(userId)
+            .listen((requests) {
+              final opponentId =
+                  _isHost
+                      ? _onlineGameRoom?.player2Id
+                      : _onlineGameRoom?.player1Id;
+              if (opponentId != null) {
+                final requestExists = requests.any(
+                  (req) => req.uid == opponentId,
+                );
+                _friendRequestReceived = requestExists;
+                _friendRequestSenderId = requestExists ? opponentId : null;
+                notifyListeners();
+              }
+            });
+      }
 
       // Initialize game state based on the online game room
       _whitesTime = Duration(milliseconds: _onlineGameRoom!.initialWhitesTime);

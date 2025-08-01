@@ -7,6 +7,7 @@ import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/captured_piece_widget.dart';
 import 'package:flutter_chess_app/widgets/confirmation_dialog.dart';
 import 'package:flutter_chess_app/widgets/draw_offer_widget.dart';
+import 'package:flutter_chess_app/widgets/friend_request_widget.dart';
 import 'package:flutter_chess_app/widgets/first_move_countdown_widget.dart';
 import 'package:flutter_chess_app/widgets/game_over_dialog.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
@@ -16,6 +17,7 @@ import 'package:flutter_chess_app/widgets/unread_badge_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:squares/squares.dart';
 import 'package:flutter_chess_app/screens/chat_screen.dart';
+import 'package:badges/badges.dart' as badges;
 
 class GameScreen extends StatefulWidget {
   final ChessUser user;
@@ -304,12 +306,8 @@ class _GameScreenState extends State<GameScreen> {
                           final unreadCount = snapshot.data ?? 0;
                           return UnreadBadgeWidget(
                             count: unreadCount,
-                            child: IconButton(
-                              icon: const Icon(Icons.chat),
-                              onPressed:
-                                  () => _showInGameChat(context, gameProvider),
-                              tooltip: 'In-Game Chat',
-                            ),
+                            child: Icon(Icons.chat),
+                            onTap: () => _showInGameChat(context, gameProvider),
                           );
                         },
                       );
@@ -424,6 +422,26 @@ class _GameScreenState extends State<GameScreen> {
                     child: DrawOfferWidget(
                       onAccept: () => gameProvider.handleDrawOffer(true),
                       onDecline: () => gameProvider.handleDrawOffer(false),
+                    ),
+                  ),
+                if (gameProvider.friendRequestReceived)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: FriendRequestWidget(
+                      onAccept:
+                          () => gameProvider.handleFriendRequest(
+                            widget.user.uid!,
+                            gameProvider.friendRequestSenderId!,
+                            true,
+                          ),
+                      onDecline:
+                          () => gameProvider.handleFriendRequest(
+                            widget.user.uid!,
+                            gameProvider.friendRequestSenderId!,
+                            false,
+                          ),
                     ),
                   ),
               ],
@@ -592,7 +610,8 @@ class _GameScreenState extends State<GameScreen> {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(width: 8),
-                        if (!gameProvider.isOpponentFriend)
+                        if (!gameProvider.isOpponentFriend &&
+                            !gameProvider.friendRequestReceived)
                           IconButton(
                             icon: const Icon(Icons.person_add),
                             onPressed: () {
@@ -770,7 +789,9 @@ class _GameScreenState extends State<GameScreen> {
                   color:
                       isPlayersTurn
                           ? Theme.of(context).colorScheme.primaryContainer
-                          : Theme.of(context).colorScheme.surfaceVariant,
+                          : Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
