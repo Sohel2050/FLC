@@ -1139,11 +1139,11 @@ class GameProvider extends ChangeNotifier {
         _startTimer();
       }
 
-      // If it's the start of an online game, begin the 10-second countdown for White.
+      // If it's the start of an online game, begin the 30-second countdown for White.
       if (_isOnlineGame &&
           _onlineGameRoom!.moves.isEmpty &&
           _onlineGameRoom!.status == Constants.statusActive) {
-        _startFirstMoveCountdown();
+        _startFirstMoveCountdown(forPlayer: Squares.white);
       }
 
       setLoading(false);
@@ -1490,7 +1490,7 @@ class GameProvider extends ChangeNotifier {
     if (updatedRoom.status == Constants.statusActive && !_game.gameOver) {
       // If the game is just starting, initiate the first move countdown
       if (updatedRoom.moves.isEmpty) {
-        _startFirstMoveCountdown();
+        _startFirstMoveCountdown(forPlayer: Squares.white);
       }
       // Ensure timer is running if game becomes active and it's our turn
       if (((_isHost && _game.state.turn == Squares.white) ||
@@ -1607,16 +1607,61 @@ class GameProvider extends ChangeNotifier {
     );
   }
 
-  /// Starts a 10-second countdown for the first move in an online game.
-  /// If White doesn't move within this time, the game is aborted.
-  void _startFirstMoveCountdown() {
+  /// Starts a 30-second countdown for the first move in an online game.
+  /// If the current player doesn't move within this time, the game ends in a timeout.
+  void _startFirstMoveCountdown({required int forPlayer}) {
     _firstMoveCountdownTimer?.cancel(); // Cancel any existing timer
-    _firstMoveCountdownTimer = Timer(const Duration(seconds: 10), () {
-      if (_isOnlineGame && _onlineGameRoom!.moves.isEmpty) {
-        _logger.i('White did not make a move in time. Aborting game.');
-        _abortGame();
+    _firstMoveCountdownTimer = Timer(const Duration(seconds: 30), () {
+      if (_isOnlineGame && !_game.gameOver) {
+        // Check for White's first move timeout
+        if (forPlayer == Squares.white && _onlineGameRoom!.moves.isEmpty) {
+          _logger.i(
+            'White did not make a first move in time. Game ended on timeout.',
+          );
+          _handleFirstMoveTimeout(winner: Squares.black);
+        }
+        // Check for Black's first move timeout
+        else if (forPlayer == Squares.black &&
+            _onlineGameRoom!.moves.length == 1) {
+          _logger.i(
+            'Black did not make a first move in time. Game ended on timeout.',
+          );
+          _handleFirstMoveTimeout(winner: Squares.white);
+        }
       }
     });
+  }
+
+  /// Handles the timeout for the first move.
+  Future<void> _handleFirstMoveTimeout({required int winner}) async {
+    if (!_isOnlineGame || _onlineGameRoom == null) return;
+
+    _gameResultNotifier.value = WonGameTimeout(winner: winner);
+    _stopTimers();
+
+    final winnerId =
+        winner == _onlineGameRoom!.player1Color
+            ? _onlineGameRoom!.player1Id
+            : _onlineGameRoom!.player2Id;
+
+    if (winnerId != null) {
+      await _gameService.updateGameRoom(_onlineGameRoom!.gameId, {
+        Constants.fieldStatus: Constants.statusCompleted,
+        Constants.fieldWinnerId: winnerId,
+        Constants.fieldLastMoveAt: Timestamp.now(),
+      });
+    }
+
+    final loserId =
+        winner == _onlineGameRoom!.player1Color
+            ? _onlineGameRoom!.player2Id
+            : _onlineGameRoom!.player1Id;
+    if (loserId != null) {
+      checkGameOver(userId: loserId);
+    } else {
+      checkGameOver();
+    }
+    notifyListeners();
   }
 
   /// Aborts the game.
@@ -1624,7 +1669,10 @@ class GameProvider extends ChangeNotifier {
     if (!_isOnlineGame || _onlineGameRoom == null) return;
 
     // Black wins by abortion
-    final winnerColor = Squares.black;
+    final winnerColor =
+        _onlineGameRoom!.player1Color == Squares.white
+            ? Squares.black
+            : Squares.white;
     _gameResultNotifier.value = WonGameAborted(winner: winnerColor);
     _stopTimers();
 

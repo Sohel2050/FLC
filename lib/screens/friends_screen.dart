@@ -190,9 +190,9 @@ class _FriendsScreenState extends State<FriendsScreen>
                         final unreadCount = snapshot.data ?? 0;
                         return UnreadBadgeWidget(
                           count: unreadCount,
-                          child: Icon(Icons.message),
-                          onTap: () {
-                            Navigator.of(context).push(
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder:
                                     (context) => ChatScreen(
@@ -201,7 +201,8 @@ class _FriendsScreenState extends State<FriendsScreen>
                                     ),
                               ),
                             );
-                          },
+                            },
+                            child: Icon(Icons.message)),
                         );
                       },
                     ),

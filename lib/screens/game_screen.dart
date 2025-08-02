@@ -306,8 +306,9 @@ class _GameScreenState extends State<GameScreen> {
                           final unreadCount = snapshot.data ?? 0;
                           return UnreadBadgeWidget(
                             count: unreadCount,
-                            child: Icon(Icons.chat),
-                            onTap: () => _showInGameChat(context, gameProvider),
+                            child: GestureDetector(
+                              onTap: () => _showInGameChat(context, gameProvider),
+                              child: Icon(Icons.chat),),
                           );
                         },
                       );
