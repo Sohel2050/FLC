@@ -1,9 +1,12 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/saved_game_model.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
 import 'package:flutter_chess_app/services/saved_game_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
+import 'package:flutter_chess_app/screens/game_replay_screen.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:intl/intl.dart';
 
@@ -86,6 +89,9 @@ class _SavedGamesScreenState extends State<SavedGamesScreen> {
               itemCount: savedGames.length,
               itemBuilder: (context, index) {
                 final game = savedGames[index];
+
+                log('game: ${game.toMap()}');
+
                 return Card(
                   margin: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -148,11 +154,10 @@ class _SavedGamesScreenState extends State<SavedGamesScreen> {
                       ],
                     ),
                     onTap: () {
-                      // TODO: Implement replay functionality
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Replay functionality coming soon!'),
-                          duration: Duration(seconds: 2),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => GameReplayScreen(game: game),
                         ),
                       );
                     },

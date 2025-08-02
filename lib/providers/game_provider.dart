@@ -747,6 +747,10 @@ class GameProvider extends ChangeNotifier {
 
       // If online game, update Firestore
       if (_isOnlineGame && _onlineGameRoom != null) {
+        // If it's White's first move, start the countdown for Black.
+        if (_onlineGameRoom!.moves.isEmpty) {
+          _startFirstMoveCountdown(forPlayer: Squares.black);
+        }
         final updatedMoves = List<String>.from(_onlineGameRoom!.moves);
         updatedMoves.add(move.toString()); // Store move as string
 
@@ -1488,9 +1492,13 @@ class GameProvider extends ChangeNotifier {
 
     // Handle status changes (e.g., opponent joined, game ended)
     if (updatedRoom.status == Constants.statusActive && !_game.gameOver) {
-      // If the game is just starting, initiate the first move countdown
+      // If the game is just starting, initiate the first move countdown for White.
       if (updatedRoom.moves.isEmpty) {
         _startFirstMoveCountdown(forPlayer: Squares.white);
+      }
+      // If White has made a move, but Black hasn't, start countdown for Black.
+      else if (updatedRoom.moves.length == 1) {
+        _startFirstMoveCountdown(forPlayer: Squares.black);
       }
       // Ensure timer is running if game becomes active and it's our turn
       if (((_isHost && _game.state.turn == Squares.white) ||
