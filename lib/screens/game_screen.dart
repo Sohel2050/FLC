@@ -11,13 +11,12 @@ import 'package:flutter_chess_app/widgets/friend_request_widget.dart';
 import 'package:flutter_chess_app/widgets/first_move_countdown_widget.dart';
 import 'package:flutter_chess_app/widgets/game_over_dialog.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
-import 'package:flutter_chess_app/utils/constants.dart';
+
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:flutter_chess_app/widgets/unread_badge_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:squares/squares.dart';
 import 'package:flutter_chess_app/screens/chat_screen.dart';
-import 'package:badges/badges.dart' as badges;
 
 class GameScreen extends StatefulWidget {
   final ChessUser user;
@@ -84,6 +83,12 @@ class _GameScreenState extends State<GameScreen> {
     // Only show dialog if game result is not null
     final gameResult = _gameProvider.gameResult;
     if (gameResult == null) return;
+
+    // Ensure the game is saved for all game types
+    if (!_gameProvider.isOnlineGame) {
+      // For local games (CPU or local multiplayer), manually trigger save
+      _gameProvider.checkGameOver(userId: widget.user.uid);
+    }
 
     // delete chat messages
     if (_gameProvider.isOnlineGame) {
@@ -173,7 +178,9 @@ class _GameScreenState extends State<GameScreen> {
     );
 
     if (confirmLeave == true) {
-      await _gameProvider.resignGame(); // Await resignation for online games
+      await _gameProvider.resignGame(
+        userId: widget.user.uid,
+      ); // Await resignation for online games
 
       return true;
     }
@@ -194,7 +201,9 @@ class _GameScreenState extends State<GameScreen> {
     );
 
     if (confirmResign == true) {
-      await _gameProvider.resignGame(); // Await resignation for online games
+      await _gameProvider.resignGame(
+        userId: widget.user.uid,
+      ); // Await resignation for online games
       // show game over dialog after resigning
       _handleGameOver();
     }
@@ -304,11 +313,17 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                         builder: (context, snapshot) {
                           final unreadCount = snapshot.data ?? 0;
-                          return UnreadBadgeWidget(
-                            count: unreadCount,
-                            child: GestureDetector(
-                              onTap: () => _showInGameChat(context, gameProvider),
-                              child: Icon(Icons.chat),),
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 16.0),
+                            child: UnreadBadgeWidget(
+                              count: unreadCount,
+                              child: GestureDetector(
+                                onTap:
+                                    () =>
+                                        _showInGameChat(context, gameProvider),
+                                child: Icon(Icons.chat),
+                              ),
+                            ),
                           );
                         },
                       );
@@ -373,11 +388,17 @@ class _GameScreenState extends State<GameScreen> {
                         gameProvider.onlineGameRoom != null)
                       Center(
                         child: FirstMoveCountdownWidget(
-                          isVisible:
-                              gameProvider.onlineGameRoom!.status ==
-                                  Constants.statusActive &&
-                              gameProvider.onlineGameRoom!.moves.isEmpty &&
-                              gameProvider.player == Squares.white,
+                          isVisible: gameProvider.shouldShowFirstMoveCountdown,
+                          playerToMove: gameProvider.firstMoveCountdownPlayer,
+                          onTimeout: () {
+                            // Handle timeout by calling the GameProvider method
+                            final winner =
+                                gameProvider.firstMoveCountdownPlayer ==
+                                        Squares.white
+                                    ? Squares.black
+                                    : Squares.white;
+                            gameProvider.handleFirstMoveTimeout(winner: winner);
+                          },
                         ),
                       ),
 

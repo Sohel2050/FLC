@@ -174,6 +174,27 @@ class GameProvider extends ChangeNotifier {
 
   bool get isGameOver => _game.gameOver || _gameResultNotifier.value != null;
 
+  // First move countdown getters - now handled by the widget
+
+  int get firstMoveCountdownPlayer {
+    if (!_isOnlineGame || _onlineGameRoom == null) return Squares.white;
+
+    if (_onlineGameRoom!.moves.isEmpty) {
+      return Squares.white; // White's turn for first move
+    } else if (_onlineGameRoom!.moves.length == 1) {
+      return Squares.black; // Black's turn for first move
+    }
+    return Squares.white; // Default
+  }
+
+  // Helper to check if we should show first move countdown
+  bool get shouldShowFirstMoveCountdown {
+    if (!_isOnlineGame || _onlineGameRoom == null) return false;
+
+    return _onlineGameRoom!.status == Constants.statusActive &&
+        _onlineGameRoom!.moves.length <= 1;
+  }
+
   // Calculate material advantage
   int get materialAdvantage {
     int whitePoints = _calculateMaterialPoints(_whiteCapturedPieces);
@@ -211,7 +232,7 @@ class GameProvider extends ChangeNotifier {
   }
 
   /// Resigns the current game, setting the game result to a win for the opponent.
-  Future<void> resignGame() async {
+  Future<void> resignGame({String? userId}) async {
     final winnerColor =
         _game.state.turn == Squares.white ? Squares.black : Squares.white;
     final winnerId =
@@ -227,6 +248,12 @@ class GameProvider extends ChangeNotifier {
     if (_isOnlineGame && _onlineGameRoom != null && winnerId != null) {
       await _gameService.resignGame(_onlineGameRoom!.gameId, winnerId);
     }
+
+    // Ensure the game is saved when resigned
+    if (userId != null) {
+      checkGameOver(userId: userId);
+    }
+
     notifyListeners();
   }
 
@@ -652,9 +679,15 @@ class GameProvider extends ChangeNotifier {
 
       notifyListeners();
 
-      // Save game and update user stats if userId is provided and it's not a guest game
-      if (userId != null && userId.isNotEmpty) {
-        _saveCurrentGame(userId);
+      // Save game and update user stats for all game types (not just online)
+      // For local games, we'll use a placeholder userId if none provided
+      String gameUserId = userId ?? 'local_user';
+      if (gameUserId.isNotEmpty && gameUserId != 'local_user') {
+        _saveCurrentGame(gameUserId);
+      } else if (_vsCPU || _localMultiplayer) {
+        // For CPU and local multiplayer games, save with a generic user ID
+        // This ensures all games are tracked in the saved games collection
+        _saveCurrentGame('local_user');
       }
     }
   }
@@ -679,8 +712,7 @@ class GameProvider extends ChangeNotifier {
       }
     }
 
-    // If the first move countdown is active, cancel it.
-    //_firstMoveCountdownTimer?.cancel();
+    // First move countdown is now handled by the widget
 
     bool result = _game.makeSquaresMove(move);
     if (result) {
@@ -747,12 +779,10 @@ class GameProvider extends ChangeNotifier {
 
       // If online game, update Firestore
       if (_isOnlineGame && _onlineGameRoom != null) {
-        // If it's White's first move, start the countdown for Black.
-        if (_onlineGameRoom!.moves.isEmpty) {
-          _startFirstMoveCountdown(forPlayer: Squares.black);
-        }
         final updatedMoves = List<String>.from(_onlineGameRoom!.moves);
         updatedMoves.add(move.toString()); // Store move as string
+
+        // First move countdown transitions are now handled by the widget
 
         final Map<String, dynamic> updateData = {
           Constants.fieldFen: _game.fen,
@@ -958,7 +988,8 @@ class GameProvider extends ChangeNotifier {
 
         _logger.i('Move made: $bestMove');
 
-        checkGameOver();
+        // For CPU games, we need to pass a user ID to ensure the game is saved
+        checkGameOver(userId: 'cpu_game_user');
         if (!_game.gameOver) {
           _startTimer(); // Restart timer for the next player
         }
@@ -1148,6 +1179,12 @@ class GameProvider extends ChangeNotifier {
           _onlineGameRoom!.moves.isEmpty &&
           _onlineGameRoom!.status == Constants.statusActive) {
         _startFirstMoveCountdown(forPlayer: Squares.white);
+      }
+      // If White has already moved but Black hasn't, start countdown for Black
+      else if (_isOnlineGame &&
+          _onlineGameRoom!.moves.length == 1 &&
+          _onlineGameRoom!.status == Constants.statusActive) {
+        _startFirstMoveCountdown(forPlayer: Squares.black);
       }
 
       setLoading(false);
@@ -1500,6 +1537,8 @@ class GameProvider extends ChangeNotifier {
       else if (updatedRoom.moves.length == 1) {
         _startFirstMoveCountdown(forPlayer: Squares.black);
       }
+      // If both players have made their first moves, the widget will handle hiding itself
+
       // Ensure timer is running if game becomes active and it's our turn
       if (((_isHost && _game.state.turn == Squares.white) ||
           (!_isHost && _game.state.turn == Squares.black))) {
@@ -1616,32 +1655,17 @@ class GameProvider extends ChangeNotifier {
   }
 
   /// Starts a 30-second countdown for the first move in an online game.
-  /// If the current player doesn't move within this time, the game ends in a timeout.
+  /// This is now handled by the FirstMoveCountdownWidget itself.
   void _startFirstMoveCountdown({required int forPlayer}) {
-    _firstMoveCountdownTimer?.cancel(); // Cancel any existing timer
-    _firstMoveCountdownTimer = Timer(const Duration(seconds: 30), () {
-      if (_isOnlineGame && !_game.gameOver) {
-        // Check for White's first move timeout
-        if (forPlayer == Squares.white && _onlineGameRoom!.moves.isEmpty) {
-          _logger.i(
-            'White did not make a first move in time. Game ended on timeout.',
-          );
-          _handleFirstMoveTimeout(winner: Squares.black);
-        }
-        // Check for Black's first move timeout
-        else if (forPlayer == Squares.black &&
-            _onlineGameRoom!.moves.length == 1) {
-          _logger.i(
-            'Black did not make a first move in time. Game ended on timeout.',
-          );
-          _handleFirstMoveTimeout(winner: Squares.white);
-        }
-      }
-    });
+    // The countdown is now handled by the FirstMoveCountdownWidget
+    // This method is kept for compatibility but doesn't start a timer
+    _logger.i(
+      'First move countdown should be shown for ${forPlayer == Squares.white ? 'White' : 'Black'}',
+    );
   }
 
   /// Handles the timeout for the first move.
-  Future<void> _handleFirstMoveTimeout({required int winner}) async {
+  Future<void> handleFirstMoveTimeout({required int winner}) async {
     if (!_isOnlineGame || _onlineGameRoom == null) return;
 
     _gameResultNotifier.value = WonGameTimeout(winner: winner);
@@ -1652,20 +1676,28 @@ class GameProvider extends ChangeNotifier {
             ? _onlineGameRoom!.player1Id
             : _onlineGameRoom!.player2Id;
 
-    if (winnerId != null) {
-      await _gameService.updateGameRoom(_onlineGameRoom!.gameId, {
-        Constants.fieldStatus: Constants.statusCompleted,
-        Constants.fieldWinnerId: winnerId,
-        Constants.fieldLastMoveAt: Timestamp.now(),
-      });
+    // Both players should be able to update the game status to prevent
+    // other players from joining abandoned games
+    try {
+      if (winnerId != null) {
+        await _gameService.updateGameRoom(_onlineGameRoom!.gameId, {
+          Constants.fieldStatus: Constants.statusCompleted,
+          Constants.fieldWinnerId: winnerId,
+          Constants.fieldLastMoveAt: Timestamp.now(),
+        });
+        _logger.i('Game status updated to completed due to first move timeout');
+      }
+    } catch (e) {
+      _logger.e('Error updating game status on first move timeout: $e');
+      // Continue with game over handling even if Firestore update fails
     }
 
-    final loserId =
-        winner == _onlineGameRoom!.player1Color
-            ? _onlineGameRoom!.player2Id
-            : _onlineGameRoom!.player1Id;
-    if (loserId != null) {
-      checkGameOver(userId: loserId);
+    // Determine the current user's ID for saving the game
+    final currentUserId =
+        _isHost ? _onlineGameRoom!.player1Id : _onlineGameRoom!.player2Id;
+
+    if (currentUserId != null) {
+      checkGameOver(userId: currentUserId);
     } else {
       checkGameOver();
     }
@@ -1761,6 +1793,7 @@ class GameProvider extends ChangeNotifier {
       }
     } else if (_vsCPU) {
       opponentId = 'stockfish_ai'; // A placeholder ID for AI
+      opponentDisplayName = 'CPU (Level $_gameLevel)';
     } else if (_localMultiplayer) {
       opponentId = 'local_player'; // A placeholder ID for local multiplayer
       opponentDisplayName = 'Local Player';
@@ -1801,15 +1834,19 @@ class GameProvider extends ChangeNotifier {
       await _savedGameService.saveGame(savedGame);
       _logger.i('Game saved successfully to Firestore.');
 
-      // Update user statistics
-      await _userService.updateUserStatsAfterGame(
-        userId: userId,
-        gameResult: result,
-        gameMode: _selectedTimeControl,
-        gameId: savedGame.gameId,
-        opponentId: opponentId,
-      );
-      _logger.i('User statistics updated successfully.');
+      // Update user statistics only for real users (not local/CPU placeholders)
+      if (userId != 'local_user' && userId != 'cpu_game_user') {
+        await _userService.updateUserStatsAfterGame(
+          userId: userId,
+          gameResult: result,
+          gameMode: _selectedTimeControl,
+          gameId: savedGame.gameId,
+          opponentId: opponentId,
+        );
+        _logger.i('User statistics updated successfully.');
+      } else {
+        _logger.i('Skipped user stats update for local/CPU game.');
+      }
     } catch (e) {
       _logger.e('Failed to save game or update user stats: $e');
     }

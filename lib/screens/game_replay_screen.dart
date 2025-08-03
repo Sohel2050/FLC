@@ -36,6 +36,13 @@ class _GameReplayScreenState extends State<GameReplayScreen> {
       }
     }
     _game = initialGame;
+    // Start the game at last move position
+    setState(() {
+      _goToMove(_moves.length - 1);
+    });
+  }
+
+  void _resetGame() {
     setState(() {
       _currentMoveIndex = -1;
     });
@@ -79,7 +86,7 @@ class _GameReplayScreenState extends State<GameReplayScreen> {
   Widget _buildControls() {
     return Container(
       padding: const EdgeInsets.all(16.0),
-      color: Theme.of(context).colorScheme.surfaceVariant,
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
