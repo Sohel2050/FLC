@@ -64,6 +64,7 @@ dependencies:
   country_flags: ^3.3.0
   badges: ^3.1.2
   cached_network_image: ^3.4.1
+  device_info_plus: ^10.1.0
 
 dev_dependencies:
   flutter_test:

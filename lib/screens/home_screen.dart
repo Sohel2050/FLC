@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
+import 'package:flutter_chess_app/push_notification/notification_service.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
 import 'package:flutter_chess_app/screens/profile_screen.dart';
 import 'package:flutter_chess_app/screens/rating_screen.dart';
@@ -60,11 +62,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _initializeCloudMessaging() async {
     final userService = UserService();
 
-    // Generate fcmToke
-    final fcmToken = await FirebaseMessaging.instance.getToken();
+    await NotificationService.initialize();
 
-    if (fcmToken != null) {
-      await userService.saveFcmToken(fcmToken);
+    if (Platform.isIOS) {
+      if (await NotificationService.isRunningOnIosSimulator()) {
+        print("📱 Skipping APNs token setup — running on iOS simulator.");
+        return;
+      } else {
+        // Generate fcmToke
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+
+        if (fcmToken != null) {
+          await userService.saveFcmToken(fcmToken);
+        }
+      }
+    } else {
+      // Generate fcmToke
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+
+      if (fcmToken != null) {
+        await userService.saveFcmToken(fcmToken);
+      }
     }
   }
 
