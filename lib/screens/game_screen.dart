@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/env.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
@@ -17,6 +18,7 @@ import 'package:flutter_chess_app/widgets/unread_badge_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:squares/squares.dart';
 import 'package:flutter_chess_app/screens/chat_screen.dart';
+import 'package:zego_express_engine/zego_express_engine.dart';
 
 class GameScreen extends StatefulWidget {
   final ChessUser user;
@@ -28,6 +30,11 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   late GameProvider _gameProvider;
+
+  // Audio room state variables
+  bool _isInAudioRoom = false;
+  bool _isMicrophoneEnabled = false;
+  bool _isSpeakerMuted = false;
 
   @override
   void initState() {
@@ -71,6 +78,14 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void dispose() {
     _gameProvider.gameResultNotifier.removeListener(_handleGameOver);
+
+    // Cleanup audio room if still connected
+    if (_isInAudioRoom) {
+      _cleanupZegoEngine().catchError((e) {
+        // Handle cleanup error silently in dispose
+      });
+    }
+
     super.dispose();
   }
 
@@ -632,6 +647,41 @@ class _GameScreenState extends State<GameScreen> {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(width: 8),
+                        // Audio room controls
+                        if (_isInAudioRoom) ...[
+                          // Speaker mute/unmute button
+                          IconButton(
+                            icon: Icon(
+                              _isSpeakerMuted
+                                  ? Icons.volume_off
+                                  : Icons.volume_up,
+                              size: 20,
+                            ),
+                            onPressed: _toggleSpeakerMute,
+                            tooltip:
+                                _isSpeakerMuted
+                                    ? 'Unmute Speaker'
+                                    : 'Mute Speaker',
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                          ),
+                          // Exit audio room button
+                          IconButton(
+                            icon: const Icon(
+                              Icons.call_end,
+                              size: 20,
+                              color: Colors.red,
+                            ),
+                            onPressed: _exitAudioRoom,
+                            tooltip: 'Leave Audio Room',
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                          ),
+                        ],
                         if (!gameProvider.isOpponentFriend &&
                             !gameProvider.friendRequestReceived)
                           IconButton(
@@ -768,17 +818,66 @@ class _GameScreenState extends State<GameScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      gameProvider.isOnlineGame &&
-                              gameProvider.onlineGameRoom != null
-                          ? (gameProvider.isHost
-                              ? gameProvider.onlineGameRoom!.player1DisplayName
-                              : gameProvider
+                    Row(
+                      children: [
+                        Text(
+                          gameProvider.isOnlineGame &&
+                                  gameProvider.onlineGameRoom != null
+                              ? (gameProvider.isHost
+                                  ? gameProvider
                                       .onlineGameRoom!
-                                      .player2DisplayName ??
-                                  widget.user.displayName)
-                          : widget.user.displayName,
-                      style: Theme.of(context).textTheme.titleMedium,
+                                      .player1DisplayName
+                                  : gameProvider
+                                          .onlineGameRoom!
+                                          .player2DisplayName ??
+                                      widget.user.displayName)
+                              : widget.user.displayName,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(width: 8),
+                        // Audio room controls for online games only
+                        if (gameProvider.isOnlineGame) ...[
+                          if (!_isInAudioRoom)
+                            // Join audio room button (microphone icon)
+                            IconButton(
+                              icon: Icon(
+                                Icons.mic,
+                                size: 20,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              onPressed: _showJoinAudioRoomDialog,
+                              tooltip: 'Join Audio Room',
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                            )
+                          else ...[
+                            // Microphone toggle when in audio room
+                            IconButton(
+                              icon: Icon(
+                                _isMicrophoneEnabled
+                                    ? Icons.mic
+                                    : Icons.mic_off,
+                                size: 20,
+                                color:
+                                    _isMicrophoneEnabled
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Colors.grey,
+                              ),
+                              onPressed: _toggleMicrophone,
+                              tooltip:
+                                  _isMicrophoneEnabled
+                                      ? 'Mute Microphone'
+                                      : 'Unmute Microphone',
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ],
                     ),
                     Row(
                       children: [
@@ -833,6 +932,194 @@ class _GameScreenState extends State<GameScreen> {
         ],
       ),
     );
+  }
+
+  void _showJoinAudioRoomDialog() {
+    AnimatedDialog.show(
+      context: context,
+      title: 'Join Audio Room',
+      maxWidth: 400,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Start voice chat with your opponent during the game.',
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          // Future: Add premium/ads condition here
+          Text(
+            '🎵 Premium Feature',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            _joinAudioRoom();
+          },
+          child: const Text('Join'),
+        ),
+      ],
+    );
+  }
+
+  void _joinAudioRoom() async {
+    try {
+      // TODO: Add premium/ads check here
+      // if (!userHasPremium && !hasWatchedAd) {
+      //   _showWatchAdDialog();
+      //   return;
+      // }
+
+      // Initialize Zego Express Engine
+      await _initializeZegoEngine();
+
+      setState(() {
+        _isInAudioRoom = true;
+        _isMicrophoneEnabled = false; // Start with mic disabled
+      });
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Joined audio room'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      // Handle error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to join audio room: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _exitAudioRoom() async {
+    try {
+      // Zego engine cleanup
+      await _cleanupZegoEngine();
+
+      setState(() {
+        _isInAudioRoom = false;
+        _isMicrophoneEnabled = false;
+        _isSpeakerMuted = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Left audio room'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      // Handle error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error leaving audio room: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _toggleMicrophone() async {
+    try {
+      if (_isMicrophoneEnabled) {
+        // Disable microphone in Zego
+        await ZegoExpressEngine.instance.muteMicrophone(true);
+      } else {
+        // Enable microphone in Zego
+        await ZegoExpressEngine.instance.muteMicrophone(false);
+      }
+
+      setState(() {
+        _isMicrophoneEnabled = !_isMicrophoneEnabled;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to toggle microphone: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _toggleSpeakerMute() async {
+    try {
+      if (_isSpeakerMuted) {
+        // Unmute speaker in Zego
+        await ZegoExpressEngine.instance.muteSpeaker(false);
+      } else {
+        // Mute speaker in Zego
+        await ZegoExpressEngine.instance.muteSpeaker(true);
+      }
+
+      setState(() {
+        _isSpeakerMuted = !_isSpeakerMuted;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to toggle speaker: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // 5. Add Zego engine initialization methods (placeholder implementations)
+  Future<void> _initializeZegoEngine() async {
+    // Zego Express Engine initialization
+    await ZegoExpressEngine.createEngineWithProfile(
+      ZegoEngineProfile(
+        Env.zegoAppId,
+        ZegoScenario.Default,
+        appSign: Env.zegoAppSign,
+      ),
+    );
+
+    // Join room
+    final roomID =
+        _gameProvider.onlineGameRoom?.gameId ??
+        'room_${DateTime.now().millisecondsSinceEpoch}';
+    final userID = widget.user.uid!;
+    final userName = widget.user.displayName;
+
+    await ZegoExpressEngine.instance.loginRoom(
+      roomID,
+      ZegoUser(userID, userName),
+    );
+  }
+
+  Future<void> _cleanupZegoEngine() async {
+    // Zego Express Engine cleanup
+    await ZegoExpressEngine.instance.logoutRoom();
+    await ZegoExpressEngine.destroyEngine();
   }
 
   Widget _localMultiplayerOpponentDataAndTime(
