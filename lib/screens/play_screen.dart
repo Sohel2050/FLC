@@ -4,11 +4,13 @@ import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
+import 'package:flutter_chess_app/services/admob_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/cpu_difficulty_dialog.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 import 'package:flutter_chess_app/widgets/online_players_count_widget.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 import '../models/user_model.dart';
 import '../widgets/game_mode_card.dart';
@@ -27,6 +29,43 @@ class _PlayScreenState extends State<PlayScreen> {
   int _selectedGameMode = 0;
   final CarouselSliderController _carouselController =
       CarouselSliderController();
+  NativeAd? _nativeAd;
+  bool isAdLoaded = false;
+
+  @override
+  void initState() {
+    _createNativeAd();
+    super.initState();
+  }
+
+  void _createNativeAd() {
+    _nativeAd = NativeAd(
+      adUnitId: AdMobService.nativeAdUnitId!,
+      request: const AdRequest(),
+      factoryId: 'adFactoryNative',
+      listener: NativeAdListener(
+        onAdLoaded: (ad) {
+          setState(() {
+            isAdLoaded = true;
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          _createNativeAd();
+        },
+      ),
+      nativeTemplateStyle: NativeTemplateStyle(
+        templateType: TemplateType.small,
+      ),
+    );
+    _nativeAd!.load();
+  }
+
+  @override
+  void dispose() {
+    _nativeAd?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -135,6 +174,19 @@ class _PlayScreenState extends State<PlayScreen> {
                     ),
                     child: Column(
                       children: [
+                        Container(
+                          child:
+                              isAdLoaded
+                                  ? ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      minHeight: 100.0,
+                                      maxHeight: 200.0,
+                                    ),
+                                    child: AdWidget(ad: _nativeAd!),
+                                  )
+                                  : SizedBox.shrink(),
+                        ),
+
                         MainAppButton(
                           text: 'Play Online',
                           icon: Icons.public,

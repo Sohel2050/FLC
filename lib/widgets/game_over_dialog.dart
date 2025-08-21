@@ -59,6 +59,11 @@ class _GameOverDialogState extends State<GameOverDialog> {
     );
   }
 
+  bool _isRematchAllowed() {
+    // Check if user has removeAds or has watched rewarded ad
+    return widget.user.removeAds == true || _rewardedScore > 0;
+  }
+
   String _getResultText(BuildContext context) {
     final gameProvider = Provider.of<GameProvider>(context, listen: false);
     final onlineGameRoom = gameProvider.onlineGameRoom;
@@ -128,6 +133,31 @@ class _GameOverDialogState extends State<GameOverDialog> {
         });
       }
     });
+  }
+
+  void _showRewardedAd() {
+    if (_rewardedAd != null) {
+      _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (ad) {
+          ad.dispose();
+          _createRewardedAd();
+        },
+        onAdFailedToShowFullScreenContent: (ad, error) {
+          ad.dispose();
+          _createRewardedAd();
+        },
+      );
+      _rewardedAd!.show(
+        onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+          setState(() {
+            _rewardedScore = reward.amount.toInt();
+          });
+        },
+      );
+
+      _rewardedAd = null;
+      _createRewardedAd();
+    }
   }
 
   @override
@@ -256,12 +286,26 @@ class _GameOverDialogState extends State<GameOverDialog> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              ElevatedButton(
-                onPressed: () async {
-                  await gameProvider.offerRematch();
-                },
-                child: const Text('Rematch'),
-              ),
+              _isRematchAllowed()
+                  ? ElevatedButton(
+                    onPressed: () async {
+                      await gameProvider.offerRematch();
+                    },
+                    child: const Text('Rematch'),
+                  )
+                  : Column(
+                    children: [
+                      ElevatedButton(
+                        onPressed: _rewardedAd != null ? _showRewardedAd : null,
+                        child: const Text('Watch Ad for Rematch'),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Watch an ad to enable rematch',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
               OutlinedButton(
                 onPressed:
                     () => Navigator.of(context).pop(GameOverAction.newGame),
@@ -281,12 +325,26 @@ class _GameOverDialogState extends State<GameOverDialog> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        ElevatedButton(
-          onPressed: () {
-            gameProvider.resetGame(true);
-          },
-          child: const Text('Rematch'),
-        ),
+        _isRematchAllowed()
+            ? ElevatedButton(
+              onPressed: () {
+                gameProvider.resetGame(true);
+              },
+              child: const Text('Rematch'),
+            )
+            : Column(
+              children: [
+                ElevatedButton(
+                  onPressed: _rewardedAd != null ? _showRewardedAd : null,
+                  child: const Text('Watch Ad for Rematch'),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Watch an ad to enable rematch',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
         OutlinedButton(
           onPressed: () {
             Navigator.of(context).pop(GameOverAction.newGame);

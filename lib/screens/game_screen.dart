@@ -13,7 +13,6 @@ import 'package:flutter_chess_app/widgets/friend_request_widget.dart';
 import 'package:flutter_chess_app/widgets/first_move_countdown_widget.dart';
 import 'package:flutter_chess_app/widgets/game_over_dialog.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
-
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:flutter_chess_app/widgets/unread_badge_widget.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -38,6 +37,8 @@ class _GameScreenState extends State<GameScreen> {
   bool _isInAudioRoom = false;
   bool _isMicrophoneEnabled = false;
   bool _isSpeakerMuted = false;
+
+  BannerAd? _bannerAd;
 
   @override
   void initState() {
@@ -76,8 +77,18 @@ class _GameScreenState extends State<GameScreen> {
         );
       }
     });
+    _createBannerAd();
 
     _createInterstitialAd();
+  }
+
+  void _createBannerAd() {
+    _bannerAd = BannerAd(
+      adUnitId: AdMobService.bannerAdUnitId!,
+      request: const AdRequest(),
+      size: AdSize.banner,
+      listener: AdMobService.bannerAdListener,
+    )..load();
   }
 
   void _createInterstitialAd() {
@@ -121,6 +132,9 @@ class _GameScreenState extends State<GameScreen> {
       });
     }
 
+    _bannerAd?.dispose();
+    _interstitialAd?.dispose();
+
     super.dispose();
   }
 
@@ -160,6 +174,8 @@ class _GameScreenState extends State<GameScreen> {
         }
       }
     }
+
+    Future.delayed(const Duration(milliseconds: 500));
 
     AnimatedDialog.show(
       context: context,
@@ -304,6 +320,8 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final removeAds =
+        widget.user.removeAds == null ? false : widget.user.removeAds!;
     // Access the settings provider
     final settingsProvider = context.read<SettingsProvider>();
 
@@ -525,6 +543,16 @@ class _GameScreenState extends State<GameScreen> {
                   ),
               ],
             ),
+            bottomNavigationBar:
+                _bannerAd == null
+                    ? SizedBox.shrink()
+                    : removeAds == true
+                    ? SizedBox.shrink()
+                    : Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      height: 52,
+                      child: AdWidget(ad: _bannerAd!),
+                    ),
           );
         },
       ),
