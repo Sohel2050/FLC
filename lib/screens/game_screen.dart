@@ -4,6 +4,7 @@ import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
+import 'package:flutter_chess_app/services/admob_service.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/captured_piece_widget.dart';
 import 'package:flutter_chess_app/widgets/confirmation_dialog.dart';
@@ -15,6 +16,7 @@ import 'package:flutter_chess_app/services/friend_service.dart';
 
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:flutter_chess_app/widgets/unread_badge_widget.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 import 'package:squares/squares.dart';
 import 'package:flutter_chess_app/screens/chat_screen.dart';
@@ -30,6 +32,7 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   late GameProvider _gameProvider;
+  InterstitialAd? _interstitialAd;
 
   // Audio room state variables
   bool _isInAudioRoom = false;
@@ -73,6 +76,38 @@ class _GameScreenState extends State<GameScreen> {
         );
       }
     });
+
+    _createInterstitialAd();
+  }
+
+  void _createInterstitialAd() {
+    InterstitialAd.load(
+      adUnitId: AdMobService.interstitialAdUnitId!,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          _interstitialAd = ad;
+        },
+        onAdFailedToLoad: (LoadAdError error) => _interstitialAd = null,
+      ),
+    );
+  }
+
+  void _showInterstitialAd() {
+    if (_interstitialAd != null) {
+      _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (ad) {
+          ad.dispose();
+          _createInterstitialAd();
+        },
+        onAdFailedToShowFullScreenContent: (ad, error) {
+          ad.dispose();
+          _createInterstitialAd();
+        },
+      );
+      _interstitialAd!.show();
+      _interstitialAd = null;
+    }
   }
 
   @override
@@ -90,9 +125,16 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _handleGameOver() {
+    final removeAds =
+        widget.user.removeAds == null ? false : widget.user.removeAds!;
     // Check if dialog is already showing to prevent multiple dialogs
     if (ModalRoute.of(context)?.isCurrent != true) {
       return;
+    }
+
+    // show interstitialAd
+    if (removeAds == false) {
+      _showInterstitialAd();
     }
 
     // Only show dialog if game result is not null

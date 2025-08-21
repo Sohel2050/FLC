@@ -1,8 +1,11 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/screens/chat_screen.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
+import 'package:flutter_chess_app/services/admob_service.dart';
 import 'package:flutter_chess_app/services/chat_service.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
@@ -11,6 +14,7 @@ import 'package:flutter_chess_app/widgets/guest_widget.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:flutter_chess_app/widgets/unread_badge_widget.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 
 class FriendsScreen extends StatefulWidget {
@@ -35,6 +39,7 @@ class _FriendsScreenState extends State<FriendsScreen>
   final TextEditingController _searchController = TextEditingController();
   List<ChessUser> _searchResults = [];
   bool _isSearching = false;
+  BannerAd? _bannerAd;
 
   @override
   void initState() {
@@ -44,6 +49,17 @@ class _FriendsScreenState extends State<FriendsScreen>
       length: 4,
       vsync: this,
     );
+
+    _createBannerAd();
+  }
+
+  void _createBannerAd() {
+    _bannerAd = BannerAd(
+      adUnitId: AdMobService.bannerAdUnitId!,
+      request: const AdRequest(),
+      size: AdSize.banner,
+      listener: AdMobService.bannerAdListener,
+    )..load();
   }
 
   @override
@@ -107,6 +123,8 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final removeAds =
+        widget.user.removeAds == null ? false : widget.user.removeAds!;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Friends'),
@@ -143,6 +161,16 @@ class _FriendsScreenState extends State<FriendsScreen>
           _buildBlockedUsersList(),
         ],
       ),
+      bottomNavigationBar:
+          _bannerAd == null
+              ? SizedBox.shrink()
+              : removeAds == true
+              ? SizedBox.shrink()
+              : Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                height: 52,
+                child: AdWidget(ad: _bannerAd!),
+              ),
     );
   }
 
@@ -193,16 +221,17 @@ class _FriendsScreenState extends State<FriendsScreen>
                           child: GestureDetector(
                             onTap: () {
                               Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => ChatScreen(
-                                      currentUser: widget.user,
-                                      otherUser: friend,
-                                    ),
-                              ),
-                            );
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => ChatScreen(
+                                        currentUser: widget.user,
+                                        otherUser: friend,
+                                      ),
+                                ),
+                              );
                             },
-                            child: Icon(Icons.message)),
+                            child: Icon(Icons.message),
+                          ),
                         );
                       },
                     ),
