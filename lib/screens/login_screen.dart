@@ -195,8 +195,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final UserService userService = UserService();
-
     return Scaffold(
       body: Container(
         decoration: BoxDecoration(
