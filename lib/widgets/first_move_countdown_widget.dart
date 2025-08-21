@@ -1,16 +1,19 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:squares/squares.dart';
 
 class FirstMoveCountdownWidget extends StatefulWidget {
   final bool isVisible;
   final VoidCallback? onTimeout;
   final int initialSeconds;
+  final int playerToMove;
 
   const FirstMoveCountdownWidget({
     super.key,
     required this.isVisible,
     this.onTimeout,
-    this.initialSeconds = 10,
+    this.initialSeconds = 30,
+    required this.playerToMove,
   });
 
   @override
@@ -20,7 +23,7 @@ class FirstMoveCountdownWidget extends StatefulWidget {
 
 class _FirstMoveCountdownWidgetState extends State<FirstMoveCountdownWidget> {
   Timer? _timer;
-  int _remainingSeconds = 10;
+  int _remainingSeconds = 30;
 
   @override
   void initState() {
@@ -35,7 +38,10 @@ class _FirstMoveCountdownWidgetState extends State<FirstMoveCountdownWidget> {
   void didUpdateWidget(FirstMoveCountdownWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (widget.isVisible && !oldWidget.isVisible) {
+    // Reset countdown if player changes or visibility changes
+    if (widget.isVisible &&
+        (!oldWidget.isVisible ||
+            widget.playerToMove != oldWidget.playerToMove)) {
       _remainingSeconds = widget.initialSeconds;
       _startCountdown();
     } else if (!widget.isVisible && oldWidget.isVisible) {
@@ -76,13 +82,19 @@ class _FirstMoveCountdownWidgetState extends State<FirstMoveCountdownWidget> {
       return const SizedBox.shrink();
     }
 
+    final playerName = widget.playerToMove == Squares.white ? 'White' : 'Black';
+    final color =
+        widget.playerToMove == Squares.white ? Colors.orange : Colors.red;
+
+    // Debug: Widget is showing countdown for the current player
+
     return Container(
       margin: const EdgeInsets.all(8.0),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.orange.withValues(alpha: 0.9),
+        color: color.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange),
+        border: Border.all(color: color),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -90,7 +102,7 @@ class _FirstMoveCountdownWidgetState extends State<FirstMoveCountdownWidget> {
           Icon(Icons.timer, size: 16, color: Colors.white),
           const SizedBox(width: 4),
           Text(
-            'White must move in $_remainingSeconds seconds',
+            '$playerName must move in $_remainingSeconds seconds',
             style: const TextStyle(
               color: Colors.white,
               fontSize: 12,

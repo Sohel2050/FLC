@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
-import 'package:open_settings_plus/open_settings_plus.dart';
+import 'package:flutter_chess_app/screens/privacy_policy_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:squares/squares.dart';
 import 'package:share_plus/share_plus.dart';
@@ -92,11 +92,15 @@ class OptionsScreen extends StatelessWidget {
             title: 'Notifications',
             icon: Icons.notifications,
             onTap: () async {
-              // navigate to account settings
-              // final settings = OpenSettingsPlusAndroid();
-
-              // await settings.applicationNotification();
-              ;
+              // Navigate to system notification settings
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Please check your device notification settings',
+                  ),
+                  duration: Duration(seconds: 2),
+                ),
+              );
             },
           ),
           _buildListTile(
@@ -124,7 +128,11 @@ class OptionsScreen extends StatelessWidget {
             title: 'Privacy Policy',
             icon: Icons.privacy_tip,
             onTap: () {
-              // TODO: Need to add logic to show your privacy policy
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const PrivacyPolicyScreen(),
+                ),
+              );
             },
           ),
           const Divider(),

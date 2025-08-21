@@ -5,6 +5,8 @@ import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart' as bishop;
+import 'package:flutter_chess_app/services/admob_service.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 
 enum GameOverAction { rematch, newGame, none }
@@ -29,17 +31,32 @@ class _GameOverDialogState extends State<GameOverDialog> {
   String? _rematchStatus; // e.g., 'waiting', 'rejected'
   Timer? _statusClearTimer;
   late GameProvider gameProvider;
+  RewardedAd? _rewardedAd;
+  int _rewardedScore = 0;
 
   @override
   void initState() {
     super.initState();
     gameProvider = context.read<GameProvider>();
+    _createRewardedAd();
   }
 
   @override
   void dispose() {
     _statusClearTimer?.cancel();
     super.dispose();
+  }
+
+  void _createRewardedAd() {
+    RewardedAd.load(
+      adUnitId: AdMobService.rewardedAdUnitId!,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (RewardedAd ad) => setState(() => _rewardedAd = ad),
+        onAdFailedToLoad:
+            (LoadAdError error) => setState(() => _rewardedAd = null),
+      ),
+    );
   }
 
   String _getResultText(BuildContext context) {
@@ -68,7 +85,7 @@ class _GameOverDialogState extends State<GameOverDialog> {
         winType = 'by Timeout';
       } else if (widget.result is bishop.WonGameResignation) {
         winType = 'by Resignation';
-      } else if (widget.result is WonGameAborted) {
+      } else if (widget.result is bishop.WonGameAborted) {
         return 'Game Aborted';
       } else if (widget.result is bishop.WonGameElimination) {
         winType = 'by Elimination';

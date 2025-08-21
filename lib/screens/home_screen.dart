@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
+import 'package:flutter_chess_app/providers/user_provider.dart';
+import 'package:flutter_chess_app/push_notification/notification_service.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
 import 'package:flutter_chess_app/screens/profile_screen.dart';
 import 'package:flutter_chess_app/screens/rating_screen.dart';
@@ -59,11 +62,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _initializeCloudMessaging() async {
     final userService = UserService();
 
-    // Generate fcmToke
-    final fcmToken = await FirebaseMessaging.instance.getToken();
+    await NotificationService.initialize();
 
-    if (fcmToken != null) {
-      await userService.saveFcmToken(fcmToken);
+    if (Platform.isIOS) {
+      if (await NotificationService.isRunningOnIosSimulator()) {
+        print("📱 Skipping APNs token setup — running on iOS simulator.");
+        return;
+      } else {
+        // Generate fcmToke
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+
+        if (fcmToken != null) {
+          await userService.saveFcmToken(fcmToken);
+        }
+      }
+    } else {
+      // Generate fcmToke
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+
+      if (fcmToken != null) {
+        await userService.saveFcmToken(fcmToken);
+      }
     }
   }
 
@@ -248,215 +267,238 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final gameService = GameService();
 
-    return UpgradeAlert(
-      child: Scaffold(
-        appBar: AppBar(
-          title: Row(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => ProfileScreen(user: widget.user),
-                    ),
-                  );
-                },
-                child: ProfileImageWidget(
-                  imageUrl: widget.user.photoUrl,
-                  radius: 24,
-                  isEditable: false,
-                  countryCode: widget.user.countryCode,
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primaryContainer,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
+        // Use the current user from the provider, fallback to widget.user if null
+        final currentUser = userProvider.user ?? widget.user;
+
+        return UpgradeAlert(
+          child: Scaffold(
+            appBar: AppBar(
+              title: Row(
                 children: [
-                  Text(
-                    widget.user.displayName,
-                    style: Theme.of(context).textTheme.titleMedium,
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder:
+                              (context) => ProfileScreen(user: currentUser),
+                        ),
+                      );
+                    },
+                    child: ProfileImageWidget(
+                      imageUrl: currentUser.photoUrl,
+                      radius: 24,
+                      isEditable: false,
+                      countryCode: currentUser.countryCode,
+                      backgroundColor:
+                          Theme.of(context).colorScheme.primaryContainer,
+                    ),
                   ),
-                  Text(
-                    'Rating: ${widget.user.classicalRating}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        currentUser.displayName,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      Text(
+                        'Rating: ${currentUser.classicalRating}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-          actions: [
-            // Game Invites Icon
-            if (!widget.user.isGuest)
-              StreamBuilder<List<GameRoom>>(
-                stream: gameService.streamGameInvites(widget.user.uid!),
-                builder: (context, snapshot) {
-                  final invites = snapshot.data ?? [];
-                  final hasInvites = invites.isNotEmpty;
+              actions: [
+                // Game Invites Icon
+                if (!currentUser.isGuest)
+                  StreamBuilder<List<GameRoom>>(
+                    stream: gameService.streamGameInvites(currentUser.uid!),
+                    builder: (context, snapshot) {
+                      final invites = snapshot.data ?? [];
+                      final hasInvites = invites.isNotEmpty;
 
-                  if (!hasInvites) {
-                    return SizedBox();
-                  }
+                      if (!hasInvites) {
+                        return SizedBox();
+                      }
 
-                  return Stack(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.mail_outline),
-                        onPressed: () {
-                          AnimatedDialog.show(
-                            context: context,
-                            title: 'Game Invites',
-                            maxWidth: 400,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (invites.isEmpty)
-                                  const Padding(
-                                    padding: EdgeInsets.all(32.0),
-                                    child: Text(
-                                      'No pending invites',
-                                      style: TextStyle(fontSize: 16),
-                                    ),
-                                  )
-                                else
-                                  ...invites.map(
-                                    (invite) =>
-                                        _buildInviteCard(context, invite),
-                                  ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                      if (hasInvites)
-                        Positioned(
-                          right: 8,
-                          top: 8,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 16,
-                              minHeight: 16,
-                            ),
-                            child: Text(
-                              '${invites.length}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
+                      return Stack(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.mail_outline),
+                            onPressed: () {
+                              AnimatedDialog.show(
+                                context: context,
+                                title: 'Game Invites',
+                                maxWidth: 400,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (invites.isEmpty)
+                                      const Padding(
+                                        padding: EdgeInsets.all(32.0),
+                                        child: Text(
+                                          'No pending invites',
+                                          style: TextStyle(fontSize: 16),
+                                        ),
+                                      )
+                                    else
+                                      ...invites.map(
+                                        (invite) =>
+                                            _buildInviteCard(context, invite),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
+                          if (hasInvites)
+                            Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  '${invites.length}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  onSelected: (value) {
+                    if (value == 'rules') {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const RulesInfoScreen(),
                         ),
-                    ],
-                  );
-                },
-              ),
-            PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert),
-              onSelected: (value) {
-                if (value == 'rules') {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const RulesInfoScreen(),
-                    ),
-                  );
-                } else if (value == 'stats') {
-                  if (!widget.user.isGuest) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder:
-                            (context) => StatisticsScreen(user: widget.user),
-                      ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('This feature requires an account.'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                } else if (value == 'saved') {
-                  if (!widget.user.isGuest) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder:
-                            (context) => SavedGamesScreen(user: widget.user),
-                      ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('This feature requires an account.'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                } else if (value == 'ranking') {
-                  if (!widget.user.isGuest) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const RatingScreen(),
-                      ),
-                    );
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('This feature requires an account.'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                }
+                      );
+                    } else if (value == 'stats') {
+                      if (!currentUser.isGuest) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder:
+                                (context) =>
+                                    StatisticsScreen(user: currentUser),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('This feature requires an account.'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    } else if (value == 'saved') {
+                      if (!currentUser.isGuest) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder:
+                                (context) =>
+                                    SavedGamesScreen(user: currentUser),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('This feature requires an account.'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    } else if (value == 'ranking') {
+                      if (!currentUser.isGuest) {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const RatingScreen(),
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('This feature requires an account.'),
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  itemBuilder:
+                      (context) => [
+                        const PopupMenuItem(
+                          value: 'rules',
+                          child: Text('Game Rules'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'stats',
+                          child: Text('Statistics'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'saved',
+                          child: Text('Saved Games'),
+                        ),
+                        const PopupMenuItem(
+                          value: 'ranking',
+                          child: Text('Rankings'),
+                        ),
+                      ],
+                ),
+              ],
+            ),
+            body: IndexedStack(
+              index: _selectedTab,
+              children: [
+                PlayScreen(user: currentUser),
+                FriendsScreen(user: currentUser),
+                OptionsScreen(user: currentUser),
+              ],
+            ),
+            bottomNavigationBar: NavigationBar(
+              selectedIndex: _selectedTab,
+              onDestinationSelected: (index) {
+                setState(() {
+                  _selectedTab = index;
+                });
               },
-              itemBuilder:
-                  (context) => [
-                    const PopupMenuItem(
-                      value: 'rules',
-                      child: Text('Game Rules'),
-                    ),
-                    const PopupMenuItem(
-                      value: 'stats',
-                      child: Text('Statistics'),
-                    ),
-                    const PopupMenuItem(
-                      value: 'saved',
-                      child: Text('Saved Games'),
-                    ),
-                    const PopupMenuItem(
-                      value: 'ranking',
-                      child: Text('Rankings'),
-                    ),
-                  ],
+              destinations: const [
+                NavigationDestination(
+                  icon: Icon(Icons.sports_esports),
+                  label: 'Play',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.people),
+                  label: 'Friends',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.settings),
+                  label: 'Options',
+                ),
+              ],
             ),
-          ],
-        ),
-        body: IndexedStack(index: _selectedTab, children: _screens),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _selectedTab,
-          onDestinationSelected: (index) {
-            setState(() {
-              _selectedTab = index;
-            });
-          },
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.sports_esports),
-              label: 'Play',
-            ),
-            NavigationDestination(icon: Icon(Icons.people), label: 'Friends'),
-            NavigationDestination(icon: Icon(Icons.settings), label: 'Options'),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/env.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
+import 'package:flutter_chess_app/services/admob_service.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/captured_piece_widget.dart';
 import 'package:flutter_chess_app/widgets/confirmation_dialog.dart';
 import 'package:flutter_chess_app/widgets/draw_offer_widget.dart';
+import 'package:flutter_chess_app/widgets/friend_request_widget.dart';
 import 'package:flutter_chess_app/widgets/first_move_countdown_widget.dart';
 import 'package:flutter_chess_app/widgets/game_over_dialog.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
-import 'package:flutter_chess_app/utils/constants.dart';
+
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:flutter_chess_app/widgets/unread_badge_widget.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 import 'package:squares/squares.dart';
 import 'package:flutter_chess_app/screens/chat_screen.dart';
+import 'package:zego_express_engine/zego_express_engine.dart';
 
 class GameScreen extends StatefulWidget {
   final ChessUser user;
@@ -27,6 +32,12 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   late GameProvider _gameProvider;
+  InterstitialAd? _interstitialAd;
+
+  // Audio room state variables
+  bool _isInAudioRoom = false;
+  bool _isMicrophoneEnabled = false;
+  bool _isSpeakerMuted = false;
 
   @override
   void initState() {
@@ -65,23 +76,76 @@ class _GameScreenState extends State<GameScreen> {
         );
       }
     });
+
+    _createInterstitialAd();
+  }
+
+  void _createInterstitialAd() {
+    InterstitialAd.load(
+      adUnitId: AdMobService.interstitialAdUnitId!,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          _interstitialAd = ad;
+        },
+        onAdFailedToLoad: (LoadAdError error) => _interstitialAd = null,
+      ),
+    );
+  }
+
+  void _showInterstitialAd() {
+    if (_interstitialAd != null) {
+      _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (ad) {
+          ad.dispose();
+          _createInterstitialAd();
+        },
+        onAdFailedToShowFullScreenContent: (ad, error) {
+          ad.dispose();
+          _createInterstitialAd();
+        },
+      );
+      _interstitialAd!.show();
+      _interstitialAd = null;
+    }
   }
 
   @override
   void dispose() {
     _gameProvider.gameResultNotifier.removeListener(_handleGameOver);
+
+    // Cleanup audio room if still connected
+    if (_isInAudioRoom) {
+      _cleanupZegoEngine().catchError((e) {
+        // Handle cleanup error silently in dispose
+      });
+    }
+
     super.dispose();
   }
 
   void _handleGameOver() {
+    final removeAds =
+        widget.user.removeAds == null ? false : widget.user.removeAds!;
     // Check if dialog is already showing to prevent multiple dialogs
     if (ModalRoute.of(context)?.isCurrent != true) {
       return;
     }
 
+    // show interstitialAd
+    if (removeAds == false) {
+      _showInterstitialAd();
+    }
+
     // Only show dialog if game result is not null
     final gameResult = _gameProvider.gameResult;
     if (gameResult == null) return;
+
+    // Ensure the game is saved for all game types
+    if (!_gameProvider.isOnlineGame) {
+      // For local games (CPU or local multiplayer), manually trigger save
+      _gameProvider.checkGameOver(userId: widget.user.uid);
+    }
 
     // delete chat messages
     if (_gameProvider.isOnlineGame) {
@@ -171,7 +235,9 @@ class _GameScreenState extends State<GameScreen> {
     );
 
     if (confirmLeave == true) {
-      await _gameProvider.resignGame(); // Await resignation for online games
+      await _gameProvider.resignGame(
+        userId: widget.user.uid,
+      ); // Await resignation for online games
 
       return true;
     }
@@ -192,7 +258,9 @@ class _GameScreenState extends State<GameScreen> {
     );
 
     if (confirmResign == true) {
-      await _gameProvider.resignGame(); // Await resignation for online games
+      await _gameProvider.resignGame(
+        userId: widget.user.uid,
+      ); // Await resignation for online games
       // show game over dialog after resigning
       _handleGameOver();
     }
@@ -302,13 +370,16 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                         builder: (context, snapshot) {
                           final unreadCount = snapshot.data ?? 0;
-                          return UnreadBadgeWidget(
-                            count: unreadCount,
-                            child: IconButton(
-                              icon: const Icon(Icons.chat),
-                              onPressed:
-                                  () => _showInGameChat(context, gameProvider),
-                              tooltip: 'In-Game Chat',
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 16.0),
+                            child: UnreadBadgeWidget(
+                              count: unreadCount,
+                              child: GestureDetector(
+                                onTap:
+                                    () =>
+                                        _showInGameChat(context, gameProvider),
+                                child: Icon(Icons.chat),
+                              ),
                             ),
                           );
                         },
@@ -374,11 +445,17 @@ class _GameScreenState extends State<GameScreen> {
                         gameProvider.onlineGameRoom != null)
                       Center(
                         child: FirstMoveCountdownWidget(
-                          isVisible:
-                              gameProvider.onlineGameRoom!.status ==
-                                  Constants.statusActive &&
-                              gameProvider.onlineGameRoom!.moves.isEmpty &&
-                              gameProvider.player == Squares.white,
+                          isVisible: gameProvider.shouldShowFirstMoveCountdown,
+                          playerToMove: gameProvider.firstMoveCountdownPlayer,
+                          onTimeout: () {
+                            // Handle timeout by calling the GameProvider method
+                            final winner =
+                                gameProvider.firstMoveCountdownPlayer ==
+                                        Squares.white
+                                    ? Squares.black
+                                    : Squares.white;
+                            gameProvider.handleFirstMoveTimeout(winner: winner);
+                          },
                         ),
                       ),
 
@@ -424,6 +501,26 @@ class _GameScreenState extends State<GameScreen> {
                     child: DrawOfferWidget(
                       onAccept: () => gameProvider.handleDrawOffer(true),
                       onDecline: () => gameProvider.handleDrawOffer(false),
+                    ),
+                  ),
+                if (gameProvider.friendRequestReceived)
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: FriendRequestWidget(
+                      onAccept:
+                          () => gameProvider.handleFriendRequest(
+                            widget.user.uid!,
+                            gameProvider.friendRequestSenderId!,
+                            true,
+                          ),
+                      onDecline:
+                          () => gameProvider.handleFriendRequest(
+                            widget.user.uid!,
+                            gameProvider.friendRequestSenderId!,
+                            false,
+                          ),
                     ),
                   ),
               ],
@@ -592,7 +689,43 @@ class _GameScreenState extends State<GameScreen> {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(width: 8),
-                        if (!gameProvider.isOpponentFriend)
+                        // Audio room controls
+                        if (_isInAudioRoom) ...[
+                          // Speaker mute/unmute button
+                          IconButton(
+                            icon: Icon(
+                              _isSpeakerMuted
+                                  ? Icons.volume_off
+                                  : Icons.volume_up,
+                              size: 20,
+                            ),
+                            onPressed: _toggleSpeakerMute,
+                            tooltip:
+                                _isSpeakerMuted
+                                    ? 'Unmute Speaker'
+                                    : 'Mute Speaker',
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                          ),
+                          // Exit audio room button
+                          IconButton(
+                            icon: const Icon(
+                              Icons.call_end,
+                              size: 20,
+                              color: Colors.red,
+                            ),
+                            onPressed: _exitAudioRoom,
+                            tooltip: 'Leave Audio Room',
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                          ),
+                        ],
+                        if (!gameProvider.isOpponentFriend &&
+                            !gameProvider.friendRequestReceived)
                           IconButton(
                             icon: const Icon(Icons.person_add),
                             onPressed: () {
@@ -727,17 +860,66 @@ class _GameScreenState extends State<GameScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      gameProvider.isOnlineGame &&
-                              gameProvider.onlineGameRoom != null
-                          ? (gameProvider.isHost
-                              ? gameProvider.onlineGameRoom!.player1DisplayName
-                              : gameProvider
+                    Row(
+                      children: [
+                        Text(
+                          gameProvider.isOnlineGame &&
+                                  gameProvider.onlineGameRoom != null
+                              ? (gameProvider.isHost
+                                  ? gameProvider
                                       .onlineGameRoom!
-                                      .player2DisplayName ??
-                                  widget.user.displayName)
-                          : widget.user.displayName,
-                      style: Theme.of(context).textTheme.titleMedium,
+                                      .player1DisplayName
+                                  : gameProvider
+                                          .onlineGameRoom!
+                                          .player2DisplayName ??
+                                      widget.user.displayName)
+                              : widget.user.displayName,
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(width: 8),
+                        // Audio room controls for online games only
+                        if (gameProvider.isOnlineGame) ...[
+                          if (!_isInAudioRoom)
+                            // Join audio room button (microphone icon)
+                            IconButton(
+                              icon: Icon(
+                                Icons.mic,
+                                size: 20,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              onPressed: _showJoinAudioRoomDialog,
+                              tooltip: 'Join Audio Room',
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                            )
+                          else ...[
+                            // Microphone toggle when in audio room
+                            IconButton(
+                              icon: Icon(
+                                _isMicrophoneEnabled
+                                    ? Icons.mic
+                                    : Icons.mic_off,
+                                size: 20,
+                                color:
+                                    _isMicrophoneEnabled
+                                        ? Theme.of(context).colorScheme.primary
+                                        : Colors.grey,
+                              ),
+                              onPressed: _toggleMicrophone,
+                              tooltip:
+                                  _isMicrophoneEnabled
+                                      ? 'Mute Microphone'
+                                      : 'Unmute Microphone',
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ],
                     ),
                     Row(
                       children: [
@@ -770,7 +952,9 @@ class _GameScreenState extends State<GameScreen> {
                   color:
                       isPlayersTurn
                           ? Theme.of(context).colorScheme.primaryContainer
-                          : Theme.of(context).colorScheme.surfaceVariant,
+                          : Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -790,6 +974,194 @@ class _GameScreenState extends State<GameScreen> {
         ],
       ),
     );
+  }
+
+  void _showJoinAudioRoomDialog() {
+    AnimatedDialog.show(
+      context: context,
+      title: 'Join Audio Room',
+      maxWidth: 400,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Start voice chat with your opponent during the game.',
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          // Future: Add premium/ads condition here
+          Text(
+            '🎵 Premium Feature',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            _joinAudioRoom();
+          },
+          child: const Text('Join'),
+        ),
+      ],
+    );
+  }
+
+  void _joinAudioRoom() async {
+    try {
+      // TODO: Add premium/ads check here
+      // if (!userHasPremium && !hasWatchedAd) {
+      //   _showWatchAdDialog();
+      //   return;
+      // }
+
+      // Initialize Zego Express Engine
+      await _initializeZegoEngine();
+
+      setState(() {
+        _isInAudioRoom = true;
+        _isMicrophoneEnabled = false; // Start with mic disabled
+      });
+
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Joined audio room'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      // Handle error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to join audio room: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _exitAudioRoom() async {
+    try {
+      // Zego engine cleanup
+      await _cleanupZegoEngine();
+
+      setState(() {
+        _isInAudioRoom = false;
+        _isMicrophoneEnabled = false;
+        _isSpeakerMuted = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Left audio room'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      // Handle error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error leaving audio room: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _toggleMicrophone() async {
+    try {
+      if (_isMicrophoneEnabled) {
+        // Disable microphone in Zego
+        await ZegoExpressEngine.instance.muteMicrophone(true);
+      } else {
+        // Enable microphone in Zego
+        await ZegoExpressEngine.instance.muteMicrophone(false);
+      }
+
+      setState(() {
+        _isMicrophoneEnabled = !_isMicrophoneEnabled;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to toggle microphone: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _toggleSpeakerMute() async {
+    try {
+      if (_isSpeakerMuted) {
+        // Unmute speaker in Zego
+        await ZegoExpressEngine.instance.muteSpeaker(false);
+      } else {
+        // Mute speaker in Zego
+        await ZegoExpressEngine.instance.muteSpeaker(true);
+      }
+
+      setState(() {
+        _isSpeakerMuted = !_isSpeakerMuted;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to toggle speaker: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // 5. Add Zego engine initialization methods (placeholder implementations)
+  Future<void> _initializeZegoEngine() async {
+    // Zego Express Engine initialization
+    await ZegoExpressEngine.createEngineWithProfile(
+      ZegoEngineProfile(
+        Env.zegoAppId,
+        ZegoScenario.Default,
+        appSign: Env.zegoAppSign,
+      ),
+    );
+
+    // Join room
+    final roomID =
+        _gameProvider.onlineGameRoom?.gameId ??
+        'room_${DateTime.now().millisecondsSinceEpoch}';
+    final userID = widget.user.uid!;
+    final userName = widget.user.displayName;
+
+    await ZegoExpressEngine.instance.loginRoom(
+      roomID,
+      ZegoUser(userID, userName),
+    );
+  }
+
+  Future<void> _cleanupZegoEngine() async {
+    // Zego Express Engine cleanup
+    await ZegoExpressEngine.instance.logoutRoom();
+    await ZegoExpressEngine.destroyEngine();
   }
 
   Widget _localMultiplayerOpponentDataAndTime(

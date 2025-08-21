@@ -1,8 +1,11 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/screens/chat_screen.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
+import 'package:flutter_chess_app/services/admob_service.dart';
 import 'package:flutter_chess_app/services/chat_service.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
@@ -11,6 +14,7 @@ import 'package:flutter_chess_app/widgets/guest_widget.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:flutter_chess_app/widgets/unread_badge_widget.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 
 class FriendsScreen extends StatefulWidget {
@@ -35,6 +39,7 @@ class _FriendsScreenState extends State<FriendsScreen>
   final TextEditingController _searchController = TextEditingController();
   List<ChessUser> _searchResults = [];
   bool _isSearching = false;
+  BannerAd? _bannerAd;
 
   @override
   void initState() {
@@ -44,6 +49,17 @@ class _FriendsScreenState extends State<FriendsScreen>
       length: 4,
       vsync: this,
     );
+
+    _createBannerAd();
+  }
+
+  void _createBannerAd() {
+    _bannerAd = BannerAd(
+      adUnitId: AdMobService.bannerAdUnitId!,
+      request: const AdRequest(),
+      size: AdSize.banner,
+      listener: AdMobService.bannerAdListener,
+    )..load();
   }
 
   @override
@@ -107,6 +123,8 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final removeAds =
+        widget.user.removeAds == null ? false : widget.user.removeAds!;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Friends'),
@@ -126,40 +144,6 @@ class _FriendsScreenState extends State<FriendsScreen>
                     count: requestCount,
                     child: Text('Requests'),
                   );
-
-                  // Row(
-                  //   mainAxisSize: MainAxisSize.min,
-                  //   children: [
-                  //     const Text('Requests'),
-                  //     if (requestCount > 0) ...[
-                  //       //const SizedBox(width: 2),
-                  //       Expanded(
-                  //         child: Container(
-                  //           padding: const EdgeInsets.all(4),
-                  //           decoration: BoxDecoration(
-                  //             color: Colors.red,
-                  //             borderRadius: BorderRadius.circular(10),
-                  //           ),
-                  //           constraints: const BoxConstraints(
-                  //             minWidth: 16,
-                  //             minHeight: 16,
-                  //           ),
-                  //           child: Text(
-                  //             requestCount > 99
-                  //                 ? '99+'
-                  //                 : requestCount.toString(),
-                  //             style: const TextStyle(
-                  //               color: Colors.white,
-                  //               fontSize: 10,
-                  //               fontWeight: FontWeight.bold,
-                  //             ),
-                  //             textAlign: TextAlign.center,
-                  //           ),
-                  //         ),
-                  //       ),
-                  //     ],
-                  //   ],
-                  // );
                 },
               ),
             ),
@@ -177,6 +161,16 @@ class _FriendsScreenState extends State<FriendsScreen>
           _buildBlockedUsersList(),
         ],
       ),
+      bottomNavigationBar:
+          _bannerAd == null
+              ? SizedBox.shrink()
+              : removeAds == true
+              ? SizedBox.shrink()
+              : Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                height: 52,
+                child: AdWidget(ad: _bannerAd!),
+              ),
     );
   }
 
@@ -224,9 +218,8 @@ class _FriendsScreenState extends State<FriendsScreen>
                         final unreadCount = snapshot.data ?? 0;
                         return UnreadBadgeWidget(
                           count: unreadCount,
-                          child: IconButton(
-                            icon: const Icon(Icons.message),
-                            onPressed: () {
+                          child: GestureDetector(
+                            onTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder:
@@ -237,52 +230,9 @@ class _FriendsScreenState extends State<FriendsScreen>
                                 ),
                               );
                             },
-                            tooltip: 'Chat',
+                            child: Icon(Icons.message),
                           ),
                         );
-
-                        // Stack(
-                        //   children: [
-                        //     IconButton(
-                        //       icon: const Icon(Icons.message),
-                        //       onPressed: () {
-                        //         Navigator.of(context).push(
-                        //           MaterialPageRoute(
-                        //             builder:
-                        //                 (context) => ChatScreen(
-                        //                   currentUser: widget.user,
-                        //                   otherUser: friend,
-                        //                 ),
-                        //           ),
-                        //         );
-                        //       },
-                        //     ),
-                        //     if (unreadCount > 0)
-                        //       Positioned(
-                        //         right: 8,
-                        //         top: 8,
-                        //         child: Container(
-                        //           padding: const EdgeInsets.all(2),
-                        //           decoration: BoxDecoration(
-                        //             color: Colors.red,
-                        //             borderRadius: BorderRadius.circular(10),
-                        //           ),
-                        //           constraints: const BoxConstraints(
-                        //             minWidth: 16,
-                        //             minHeight: 16,
-                        //           ),
-                        //           child: Text(
-                        //             '$unreadCount',
-                        //             style: const TextStyle(
-                        //               color: Colors.white,
-                        //               fontSize: 10,
-                        //             ),
-                        //             textAlign: TextAlign.center,
-                        //           ),
-                        //         ),
-                        //       ),
-                        //   ],
-                        // );
                       },
                     ),
                     IconButton(
@@ -391,12 +341,6 @@ class _FriendsScreenState extends State<FriendsScreen>
                   itemCount: _searchResults.length,
                   itemBuilder: (context, index) {
                     final user = _searchResults[index];
-
-                    // if user is already firend we do not show the add buuton
-                    final isFriend = _friendService.isFriend(
-                      widget.user.uid!,
-                      user.uid!,
-                    );
 
                     return ListTile(
                       leading: ProfileImageWidget(

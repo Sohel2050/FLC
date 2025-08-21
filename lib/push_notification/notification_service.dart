@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
@@ -35,26 +37,35 @@ class NotificationService {
         importance: Importance.high,
       );
 
+  static Future<bool> isRunningOnIosSimulator() async {
+    if (!Platform.isIOS) return false;
+    final deviceInfo = DeviceInfoPlugin();
+    final iosInfo = await deviceInfo.iosInfo;
+    return !iosInfo.isPhysicalDevice;
+  }
+
   static Future<void> initialize() async {
-    // Create notification channels
-    await _flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(_chatChannel);
+    // Create notification channels (Android only)
 
-    await _flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(_friendRequestChannel);
+    if (Platform.isAndroid) {
+      await _flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.createNotificationChannel(_chatChannel);
 
-    // Initialization settings for local notifications
-    const InitializationSettings initializationSettings =
-        InitializationSettings(
-          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-          iOS: DarwinInitializationSettings(),
-        );
+      await _flutterLocalNotificationsPlugin
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.createNotificationChannel(_friendRequestChannel);
+    }
+
+    // iOS: Initialize with APNs token check
+    const initializationSettings = InitializationSettings(
+      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      iOS: DarwinInitializationSettings(),
+    );
 
     await _flutterLocalNotificationsPlugin.initialize(
       initializationSettings,
@@ -62,20 +73,37 @@ class NotificationService {
       onDidReceiveBackgroundNotificationResponse: onNotificationTapped,
     );
 
-    // Request permissions for iOS
+    // Request permissions
     await _firebaseMessaging.requestPermission();
 
-    // Handle foreground messages
+    if (Platform.isIOS) {
+      if (await isRunningOnIosSimulator()) {
+        print("📱 Skipping APNs token setup — running on iOS simulator.");
+      } else {
+        try {
+          String? apnsToken = await _firebaseMessaging.getAPNSToken();
+          if (apnsToken == null) {
+            print("⚠️ No APNs token received yet.");
+          } else {
+            print("✅ APNs token received: $apnsToken");
+          }
+        } catch (e) {
+          print("❌ Error retrieving APNs token: $e");
+        }
+      }
+    }
+
+    // Foreground message handler
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       _showLocalNotification(message);
     });
 
-    // Handle background/terminated messages that are tapped
+    // Background/tapped message
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       _handleMessage(message.data);
     });
 
-    // Handle initial message if app is opened from a terminated state
+    // Initial message from terminated state
     FirebaseMessaging.instance.getInitialMessage().then((message) {
       if (message != null) {
         _handleMessage(message.data);

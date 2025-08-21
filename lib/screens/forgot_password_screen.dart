@@ -31,24 +31,41 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       });
 
       try {
-        await _userService.resetPassword(_emailController.text);
-        if (mounted) {
-          AnimatedDialog.show(
-            context: context,
-            title: 'Link Sent',
-            child: Text(
-              'A password reset link has been sent to ${_emailController.text}.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop(); // Close the dialog
-                  Navigator.of(context).pop(); // Go back to the login screen
-                },
-                child: const Text('OK'),
-              ),
-            ],
-          );
+        final email = _emailController.text;
+        final emailExists = await _userService.emailExists(email);
+
+        if (emailExists) {
+          await _userService.resetPassword(email);
+          if (mounted) {
+            AnimatedDialog.show(
+              context: context,
+              title: 'Link Sent',
+              child: Text('A password reset link has been sent to $email.'),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Close the dialog
+                    Navigator.of(context).pop(); // Go back to the login screen
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          }
+        } else {
+          if (mounted) {
+            AnimatedDialog.show(
+              context: context,
+              title: 'Error',
+              child: const Text('This email is not registered in the app.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          }
         }
       } catch (e) {
         if (mounted) {

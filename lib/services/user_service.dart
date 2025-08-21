@@ -223,6 +223,21 @@ class UserService {
     }
   }
 
+  Future<bool> emailExists(String email) async {
+    try {
+      final querySnapshot =
+          await _firestore
+              .collection(Constants.usersCollection)
+              .where(Constants.email, isEqualTo: email)
+              .limit(1)
+              .get();
+      return querySnapshot.docs.isNotEmpty;
+    } catch (e) {
+      logger.e('Error checking if email exists: $e');
+      return false;
+    }
+  }
+
   Future<void> resetPassword(String email) async {
     try {
       await _auth.sendPasswordResetEmail(email: email);

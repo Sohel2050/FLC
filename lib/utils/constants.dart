@@ -24,6 +24,8 @@ class Constants {
   static const String savedGames = 'savedGames';
   static const String preferences = 'preferences';
   static const String fcmToken = 'fcmToken';
+  static const String countryCode = 'countryCode';
+  static const String removeAds = 'removeAds';
 
   // For the guest user's display name
   static const String guestDisplayName = 'Guest';
