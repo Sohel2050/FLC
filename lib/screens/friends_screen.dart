@@ -39,6 +39,9 @@ class _FriendsScreenState extends State<FriendsScreen>
   bool _isSearching = false;
   BannerAd? _bannerAd;
 
+  // NativeAd? _nativeAd;
+  // bool isAdLoaded = false;
+
   @override
   void initState() {
     super.initState();
@@ -49,6 +52,8 @@ class _FriendsScreenState extends State<FriendsScreen>
     );
 
     _createBannerAd();
+
+    //_createNativeAd();
   }
 
   void _createBannerAd() {
@@ -67,11 +72,38 @@ class _FriendsScreenState extends State<FriendsScreen>
     }
   }
 
+  // void _createNativeAd() {
+  //   if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
+  //     return;
+  //   }
+  //   _nativeAd = NativeAd(
+  //     adUnitId: AdMobService.getNativeAdUnitId(context) ?? '',
+  //     request: const AdRequest(),
+  //     factoryId: 'adFactoryNative',
+  //     listener: NativeAdListener(
+  //       onAdLoaded: (ad) {
+  //         setState(() {
+  //           isAdLoaded = true;
+  //         });
+  //       },
+  //       onAdFailedToLoad: (ad, error) {
+  //         ad.dispose();
+  //         _createNativeAd();
+  //       },
+  //     ),
+  //     nativeTemplateStyle: NativeTemplateStyle(
+  //       templateType: TemplateType.small,
+  //     ),
+  //   );
+  //   _nativeAd!.load();
+  // }
+
   @override
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
     _bannerAd?.dispose();
+    //_nativeAd?.dispose();
     super.dispose();
   }
 
@@ -129,8 +161,6 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final removeAds =
-        widget.user.removeAds == null ? false : widget.user.removeAds!;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Friends'),
