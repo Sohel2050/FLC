@@ -52,8 +52,22 @@ class Constants {
   static const String gameHistoryCollection = 'gameHistory';
   static const String notificationsCollection = 'notifications';
   static const String invitesCollection = 'invites';
+  static const String admobConfigCollection = 'admob_config';
+  static const String config = 'config';
 
   static const String profileImagesCollection = 'profile_images';
+
+  // AdMob Config fields
+  static const String androidBannerAdId = 'androidBannerAdId';
+  static const String iosBannerAdId = 'iosBannerAdId';
+  static const String androidInterstitialAdId = 'androidInterstitialAdId';
+  static const String iosInterstitialAdId = 'iosInterstitialAdId';
+  static const String androidRewardedAdId = 'androidRewardedAdId';
+  static const String iosRewardedAdId = 'iosRewardedAdId';
+  static const String androidNativeAdId = 'androidNativeAdId';
+  static const String iosNativeAdId = 'iosNativeAdId';
+  static const String enabled = 'enabled';
+  static const String lastUpdated = 'lastUpdated';
 
   // Firestore fields
   static const String fieldPlayer1Id = 'player1Id';

@@ -49,7 +49,7 @@ class _GameOverDialogState extends State<GameOverDialog> {
 
   void _createRewardedAd() {
     RewardedAd.load(
-      adUnitId: AdMobService.rewardedAdUnitId!,
+      adUnitId: AdMobService.getRewardedAdUnitId(context)!,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (RewardedAd ad) => setState(() => _rewardedAd = ad),

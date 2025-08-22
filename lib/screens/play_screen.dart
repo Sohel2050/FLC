@@ -40,7 +40,7 @@ class _PlayScreenState extends State<PlayScreen> {
 
   void _createNativeAd() {
     _nativeAd = NativeAd(
-      adUnitId: AdMobService.nativeAdUnitId!,
+      adUnitId: AdMobService.getNativeAdUnitId(context) ?? '',
       request: const AdRequest(),
       factoryId: 'adFactoryNative',
       listener: NativeAdListener(
