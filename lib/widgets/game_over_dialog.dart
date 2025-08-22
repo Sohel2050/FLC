@@ -323,18 +323,9 @@ class _GameOverDialogState extends State<GameOverDialog> {
               },
               child: const Text('Rematch'),
             )
-            : Column(
-              children: [
-                ElevatedButton(
-                  onPressed: _rewardedAd != null ? _showRewardedAd : null,
-                  child: const Text('Watch Ad for Rematch'),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Watch an ad to enable rematch',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
+            : ElevatedButton(
+              onPressed: _rewardedAd != null ? _showRewardedAd : null,
+              child: const Text('Watch Ad for Rematch'),
             ),
         OutlinedButton(
           onPressed: () {
