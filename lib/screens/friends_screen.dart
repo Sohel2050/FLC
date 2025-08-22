@@ -52,12 +52,15 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   void _createBannerAd() {
-    _bannerAd = BannerAd(
-      adUnitId: AdMobService.bannerAdUnitId!,
-      request: const AdRequest(),
-      size: AdSize.banner,
-      listener: AdMobService.bannerAdListener,
-    )..load();
+    final bannerAdId = AdMobService.getBannerAdUnitId(context);
+    if (bannerAdId != null) {
+      _bannerAd = BannerAd(
+        adUnitId: bannerAdId,
+        request: const AdRequest(),
+        size: AdSize.banner,
+        listener: AdMobService.bannerAdListener,
+      )..load();
+    }
   }
 
   @override
@@ -122,8 +125,6 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final removeAds =
-        widget.user.removeAds == null ? false : widget.user.removeAds!;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Friends'),
@@ -163,7 +164,7 @@ class _FriendsScreenState extends State<FriendsScreen>
       bottomNavigationBar:
           _bannerAd == null
               ? SizedBox.shrink()
-              : removeAds == true
+              : !AdMobService.shouldShowAds(context, widget.user.removeAds)
               ? SizedBox.shrink()
               : Container(
                 margin: const EdgeInsets.only(bottom: 12),

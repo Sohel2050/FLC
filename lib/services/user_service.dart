@@ -310,6 +310,19 @@ class UserService {
     }
   }
 
+  /// Update user's removeAds status (for in-app purchases)
+  Future<void> updateRemoveAds(String userId, bool removeAds) async {
+    try {
+      await _firestore.collection(Constants.usersCollection).doc(userId).update(
+        {Constants.removeAds: removeAds},
+      );
+      logger.i('Updated removeAds status for user $userId to $removeAds');
+    } catch (e) {
+      logger.e('Error updating removeAds status: $e');
+      throw Exception('Failed to update ad removal status.');
+    }
+  }
+
   Future<void> deleteUserAccount(String uid) async {
     try {
       // First, delete the profile image from storage

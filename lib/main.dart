@@ -7,6 +7,8 @@ import 'package:flutter_chess_app/firebase_options.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
+import 'package:flutter_chess_app/providers/admob_provider.dart';
+import 'package:flutter_chess_app/services/migration_service.dart';
 import 'package:flutter_chess_app/push_notification/notification_service.dart';
 import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
@@ -32,6 +34,9 @@ void main() async {
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  // Run database migrations
+  await MigrationService.runMigrations();
+
   await NotificationService.initialize();
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -42,6 +47,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => GameProvider()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => AdMobProvider()),
       ],
       child: const MyApp(),
     ),

@@ -255,6 +255,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildGameStats(context, 'Games Won', _currentUser.gamesWon),
             _buildGameStats(context, 'Games Lost', _currentUser.gamesLost),
             _buildGameStats(context, 'Games Draw', _currentUser.gamesDraw),
+            const Divider(height: 32),
+
+            // In-App Purchase Section
+            if (!_isGuest)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withOpacity(0.3),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.star,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Premium Features',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleLarge?.copyWith(
+                            color: Theme.of(context).colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(
+                          _currentUser.removeAds == true
+                              ? Icons.check_circle
+                              : Icons.block,
+                          color:
+                              _currentUser.removeAds == true
+                                  ? Colors.green
+                                  : Theme.of(context).colorScheme.primary,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _currentUser.removeAds == true
+                                ? 'Ad-Free Experience (Active)'
+                                : 'Remove Ads',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                        if (_currentUser.removeAds != true)
+                          ElevatedButton(
+                            onPressed: () => _purchaseRemoveAds(userService),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.primary,
+                              foregroundColor: Colors.white,
+                              minimumSize: const Size(80, 36),
+                            ),
+                            child: const Text('Purchase'),
+                          ),
+                      ],
+                    ),
+                    if (_currentUser.removeAds != true) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Enjoy an uninterrupted chess experience without any advertisements.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
             const SizedBox(height: 32),
             if (_isGuest)
               Column(
@@ -552,6 +638,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
           MaterialPageRoute(builder: (context) => const LoginScreen()),
           (route) => false,
         );
+      }
+    }
+  }
+
+  // Purchase remove ads functionality
+  Future<void> _purchaseRemoveAds(UserService userService) async {
+    // Show confirmation dialog first
+    final confirmed = await AnimatedDialog.show<bool>(
+      context: context,
+      title: 'Remove Ads',
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Confirm'),
+        ),
+      ],
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.block, size: 48, color: Colors.orange),
+          SizedBox(height: 16),
+          Text(
+            'Purchase Ad Removal?',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: 8),
+          Text(
+            'This will remove all advertisements from the app. For now, this is a free simulation of the in-app purchase feature.',
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      LoadingDialog.show(context, message: 'Processing purchase...');
+      try {
+        // Simulate in-app purchase process
+        await Future.delayed(const Duration(seconds: 2));
+
+        // Update the user's removeAds status in Firestore
+        await userService.updateRemoveAds(_currentUser.uid!, true);
+
+        // Update the local user state
+        setState(() {
+          _currentUser = _currentUser.copyWith(removeAds: true);
+        });
+
+        // Update the UserProvider
+        if (mounted) {
+          Provider.of<UserProvider>(
+            context,
+            listen: false,
+          ).updateRemoveAds(true);
+        }
+
+        if (mounted) {
+          LoadingDialog.hide(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                '🎉 Ads removed successfully! Enjoy your ad-free experience.',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          LoadingDialog.hide(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to process purchase: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
