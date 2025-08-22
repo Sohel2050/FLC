@@ -170,7 +170,7 @@ class _PlayScreenState extends State<PlayScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
-                      vertical: 16,
+                      //vertical: 16,
                     ),
                     child: Column(
                       children: [

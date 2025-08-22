@@ -335,8 +335,6 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final removeAds =
-        widget.user.removeAds == null ? false : widget.user.removeAds!;
     // Access the settings provider
     final settingsProvider = context.read<SettingsProvider>();
 
@@ -560,8 +558,6 @@ class _GameScreenState extends State<GameScreen> {
             ),
             bottomNavigationBar:
                 _bannerAd == null
-                    ? SizedBox.shrink()
-                    : removeAds == true
                     ? SizedBox.shrink()
                     : Container(
                       margin: const EdgeInsets.only(bottom: 12),
