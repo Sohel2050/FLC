@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import '../providers/admob_provider.dart';
 
 class AdMobService {
+  static InterstitialAd? _interstitialAd;
+  static bool _isInterstitialAdReady = false;
+
   /// Get banner ad unit ID from AdMobProvider
   static String? getBannerAdUnitId(BuildContext context) {
     final adMobProvider = Provider.of<AdMobProvider>(context, listen: false);
@@ -32,6 +35,85 @@ class AdMobService {
   static bool shouldShowAds(BuildContext context, bool? userRemoveAds) {
     final adMobProvider = Provider.of<AdMobProvider>(context, listen: false);
     return adMobProvider.shouldShowAds(userRemoveAds);
+  }
+
+  /// Get the current interstitial ad instance
+  static InterstitialAd? get interstitialAd => _interstitialAd;
+
+  /// Check if interstitial ad is ready to show
+  static bool get isInterstitialAdReady => _isInterstitialAdReady;
+
+  /// Load interstitial ad without showing it immediately
+  static Future<void> loadInterstitialAd(BuildContext context) async {
+    final adUnitId = getInterstitialAdUnitId(context);
+    if (adUnitId == null) {
+      print('Interstitial ad unit ID is null');
+      return;
+    }
+
+    // Dispose existing ad if any
+    _interstitialAd?.dispose();
+    _interstitialAd = null;
+    _isInterstitialAdReady = false;
+
+    InterstitialAd.load(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          print('Interstitial ad loaded and ready to show.');
+          _interstitialAd = ad;
+          _isInterstitialAdReady = true;
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          print('Interstitial ad failed to load: $error');
+          _interstitialAd = null;
+          _isInterstitialAdReady = false;
+        },
+      ),
+    );
+  }
+
+  /// Show loaded interstitial ad
+  static void showInterstitialAd({
+    required VoidCallback onAdClosed,
+    VoidCallback? onAdFailedToShow,
+  }) {
+    if (_interstitialAd == null || !_isInterstitialAdReady) {
+      print('Interstitial ad is not ready to show');
+      onAdFailedToShow?.call();
+      return;
+    }
+
+    _interstitialAd!
+        .fullScreenContentCallback = FullScreenContentCallback<InterstitialAd>(
+      onAdShowedFullScreenContent: (InterstitialAd ad) {
+        print('Interstitial ad showed full screen content.');
+      },
+      onAdDismissedFullScreenContent: (InterstitialAd ad) {
+        print('Interstitial ad dismissed full screen content.');
+        ad.dispose();
+        _interstitialAd = null;
+        _isInterstitialAdReady = false;
+        onAdClosed();
+      },
+      onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
+        print('Interstitial ad failed to show full screen content: $error');
+        ad.dispose();
+        _interstitialAd = null;
+        _isInterstitialAdReady = false;
+        onAdFailedToShow?.call();
+      },
+    );
+
+    _interstitialAd!.show();
+  }
+
+  /// Dispose interstitial ad
+  static void disposeInterstitialAd() {
+    _interstitialAd?.dispose();
+    _interstitialAd = null;
+    _isInterstitialAdReady = false;
   }
 
   /// Backward compatibility - Legacy getters (deprecated)
@@ -92,4 +174,91 @@ class AdMobService {
     },
     onAdImpression: (Ad ad) => print('Ad impression.'),
   );
+
+  /// Load and show an interstitial ad
+  static Future<void> loadAndShowInterstitialAd({
+    required BuildContext context,
+    required VoidCallback onAdClosed,
+    VoidCallback? onAdFailedToLoad,
+  }) async {
+    final adUnitId = getInterstitialAdUnitId(context);
+    if (adUnitId == null) {
+      print('Interstitial ad unit ID is null');
+      onAdFailedToLoad?.call();
+      return;
+    }
+
+    InterstitialAd.load(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          print('Interstitial ad loaded.');
+          ad.fullScreenContentCallback = FullScreenContentCallback<
+            InterstitialAd
+          >(
+            onAdShowedFullScreenContent: (InterstitialAd ad) {
+              print('Interstitial ad showed full screen content.');
+            },
+            onAdDismissedFullScreenContent: (InterstitialAd ad) {
+              print('Interstitial ad dismissed full screen content.');
+              ad.dispose();
+              onAdClosed();
+            },
+            onAdFailedToShowFullScreenContent: (
+              InterstitialAd ad,
+              AdError error,
+            ) {
+              print(
+                'Interstitial ad failed to show full screen content: $error',
+              );
+              ad.dispose();
+              onAdFailedToLoad?.call();
+            },
+          );
+          ad.show();
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          print('Interstitial ad failed to load: $error');
+          onAdFailedToLoad?.call();
+        },
+      ),
+    );
+  }
+
+  /// Create interstitial ad load callback for custom handling
+  static InterstitialAdLoadCallback createInterstitialAdLoadCallback({
+    required Function(InterstitialAd) onAdLoaded,
+    required Function(LoadAdError) onAdFailedToLoad,
+  }) {
+    return InterstitialAdLoadCallback(
+      onAdLoaded: onAdLoaded,
+      onAdFailedToLoad: onAdFailedToLoad,
+    );
+  }
+
+  /// Create full screen content callback for interstitial ads
+  static FullScreenContentCallback<InterstitialAd>
+  createFullScreenContentCallback({
+    void Function(InterstitialAd)? onAdShowedFullScreenContent,
+    void Function(InterstitialAd)? onAdDismissedFullScreenContent,
+    void Function(InterstitialAd, AdError)? onAdFailedToShowFullScreenContent,
+  }) {
+    return FullScreenContentCallback<InterstitialAd>(
+      onAdShowedFullScreenContent: (InterstitialAd ad) {
+        print('Interstitial ad showed full screen content.');
+        onAdShowedFullScreenContent?.call(ad);
+      },
+      onAdDismissedFullScreenContent: (InterstitialAd ad) {
+        print('Interstitial ad dismissed full screen content.');
+        ad.dispose();
+        onAdDismissedFullScreenContent?.call(ad);
+      },
+      onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
+        print('Interstitial ad failed to show full screen content: $error');
+        ad.dispose();
+        onAdFailedToShowFullScreenContent?.call(ad, error);
+      },
+    );
+  }
 }

@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -9,6 +7,7 @@ import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/providers/admob_provider.dart';
 import 'package:flutter_chess_app/services/migration_service.dart';
+import 'package:flutter_chess_app/services/admob_service.dart';
 import 'package:flutter_chess_app/push_notification/notification_service.dart';
 import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
@@ -35,7 +34,7 @@ void main() async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Run database migrations
-  await MigrationService.runMigrations();
+  //await MigrationService.runMigrations();
 
   await NotificationService.initialize();
 
@@ -67,6 +66,29 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final UserService _userService = UserService();
+
+  /// Show app launch interstitial ad for non-premium users
+  void _showAppLaunchAd(ChessUser user) {
+    final adMobProvider = Provider.of<AdMobProvider>(context, listen: false);
+
+    // Check if we should show the ad
+    if (!adMobProvider.shouldShowAppLaunchAd(user.removeAds)) {
+      return;
+    }
+
+    // Load and show the ad
+    AdMobService.loadAndShowInterstitialAd(
+      context: context,
+      onAdClosed: () {
+        // Mark that we've shown the app launch ad
+        adMobProvider.markAppLaunchAdShown();
+      },
+      onAdFailedToLoad: () {
+        // Mark as shown even if failed to prevent retry loops
+        adMobProvider.markAppLaunchAdShown();
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -136,6 +158,9 @@ class _MyAppState extends State<MyApp> {
                       if (!user.isGuest) {
                         userService.updateUserStatusOnline(user.uid!, true);
                       }
+
+                      // Show app launch ad for non-premium users
+                      _showAppLaunchAd(user);
                     }
                   });
 

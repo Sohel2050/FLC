@@ -11,11 +11,15 @@ class AdMobProvider with ChangeNotifier {
   AdMobConfig? _adMobConfig;
   bool _isLoading = false;
   String? _error;
+  bool _isInterstitialAdLoading = false;
+  bool _hasShownAppLaunchAd = false;
 
   // Getters
   AdMobConfig? get adMobConfig => _adMobConfig;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  bool get isInterstitialAdLoading => _isInterstitialAdLoading;
+  bool get hasShownAppLaunchAd => _hasShownAppLaunchAd;
 
   // Platform-specific getters for convenience
   String? get bannerAdUnitId => _adMobConfig?.bannerAdUnitId;
@@ -144,5 +148,34 @@ class AdMobProvider with ChangeNotifier {
     }
 
     return true;
+  }
+
+  /// Set interstitial ad loading state
+  void setInterstitialAdLoading(bool loading) {
+    _isInterstitialAdLoading = loading;
+    notifyListeners();
+  }
+
+  /// Mark that app launch ad has been shown
+  void markAppLaunchAdShown() {
+    _hasShownAppLaunchAd = true;
+    notifyListeners();
+  }
+
+  /// Reset app launch ad flag (useful for testing or new sessions)
+  void resetAppLaunchAdFlag() {
+    _hasShownAppLaunchAd = false;
+    notifyListeners();
+  }
+
+  /// Check if app launch ad should be shown
+  bool shouldShowAppLaunchAd(bool? userRemoveAds) {
+    // Don't show if already shown in this session
+    if (_hasShownAppLaunchAd) {
+      return false;
+    }
+
+    // Check general ad conditions
+    return shouldShowAds(userRemoveAds);
   }
 }
