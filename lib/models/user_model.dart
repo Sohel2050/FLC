@@ -26,6 +26,7 @@ class ChessUser {
   final Map<String, String> preferences;
   final String fcmToken;
   final String? countryCode;
+  final bool? removeAds;
 
   ChessUser({
     this.uid,
@@ -52,6 +53,7 @@ class ChessUser {
     this.preferences = const {},
     this.fcmToken = '',
     this.countryCode,
+    this.removeAds = false,
   }) : lastSeen = lastSeen ?? DateTime.now();
 
   ChessUser copyWith({
@@ -79,6 +81,7 @@ class ChessUser {
     Map<String, String>? preferences,
     String? fcmToken,
     String? countryCode,
+    bool? removeAds,
   }) {
     return ChessUser(
       uid: uid ?? this.uid,
@@ -106,6 +109,7 @@ class ChessUser {
       preferences: preferences ?? this.preferences,
       fcmToken: fcmToken ?? this.fcmToken,
       countryCode: countryCode ?? this.countryCode,
+      removeAds: removeAds ?? this.removeAds,
     );
   }
 
@@ -138,7 +142,8 @@ class ChessUser {
       Constants.savedGames: savedGames,
       Constants.preferences: preferences,
       Constants.fcmToken: fcmToken,
-      'countryCode': countryCode,
+      Constants.countryCode: countryCode,
+      Constants.removeAds: removeAds,
     };
   }
 
@@ -171,7 +176,8 @@ class ChessUser {
       savedGames: List<String>.from(map[Constants.savedGames] ?? []),
       preferences: Map<String, String>.from(map[Constants.preferences] ?? {}),
       fcmToken: map[Constants.fcmToken] ?? '',
-      countryCode: map['countryCode'],
+      countryCode: map[Constants.countryCode],
+      removeAds: map[Constants.removeAds] ?? false,
     );
   }
 
@@ -209,6 +215,7 @@ class ChessUser {
     Map<String, String>? preferences,
     String? fcmToken,
     String? countryCode,
+    bool? removeAds,
   }) {
     return ChessUser(
       uid: uid,
@@ -236,6 +243,7 @@ class ChessUser {
       preferences: preferences ?? this.preferences,
       fcmToken: fcmToken ?? this.fcmToken,
       countryCode: countryCode ?? this.countryCode,
+      removeAds: removeAds ?? this.removeAds,
     );
   }
 }

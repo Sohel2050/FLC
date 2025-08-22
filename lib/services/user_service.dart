@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_chess_app/services/rating_service.dart';

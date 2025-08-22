@@ -12,6 +12,7 @@ import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:get_it/get_it.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'screens/login_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -26,6 +27,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  MobileAds.instance.initialize();
   setupServiceLocator();
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);

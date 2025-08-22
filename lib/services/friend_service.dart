@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
