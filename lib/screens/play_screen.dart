@@ -18,29 +18,70 @@ import '../widgets/play_mode_button.dart';
 
 class PlayScreen extends StatefulWidget {
   final ChessUser user;
+  final bool isVisible;
 
-  const PlayScreen({super.key, required this.user});
+  const PlayScreen({super.key, required this.user, this.isVisible = false});
 
   @override
   State<PlayScreen> createState() => _PlayScreenState();
 }
 
-class _PlayScreenState extends State<PlayScreen> {
+class _PlayScreenState extends State<PlayScreen>
+    with AutomaticKeepAliveClientMixin {
   int _selectedGameMode = 0;
   final CarouselSliderController _carouselController =
       CarouselSliderController();
   NativeAd? _nativeAd;
   bool isAdLoaded = false;
+  bool _hasLoadedAd = false;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
-    _createNativeAd();
     super.initState();
+    // Only load ad if screen is initially visible
+    if (widget.isVisible) {
+      _createNativeAd();
+    }
+  }
+
+  @override
+  void didUpdateWidget(PlayScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Load ad when screen becomes visible
+    if (widget.isVisible && !oldWidget.isVisible) {
+      _createNativeAd();
+    }
+    // Dispose ad when screen becomes invisible
+    else if (!widget.isVisible && oldWidget.isVisible) {
+      _disposeNativeAd();
+    }
   }
 
   void _createNativeAd() {
+    // Don't load if ads shouldn't be shown
+    if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
+      return;
+    }
+
+    final nativeAdUnitId = AdMobService.getNativeAdUnitId(context);
+    if (nativeAdUnitId == null) {
+      return;
+    }
+
+    // Dispose existing ad if any
+    if (_nativeAd != null) {
+      _nativeAd!.dispose();
+      _nativeAd = null;
+      setState(() {
+        isAdLoaded = false;
+      });
+    }
+
     _nativeAd = NativeAd(
-      adUnitId: AdMobService.getNativeAdUnitId(context) ?? '',
+      adUnitId: nativeAdUnitId,
       request: const AdRequest(),
       factoryId: 'adFactoryNative',
       listener: NativeAdListener(
@@ -48,10 +89,12 @@ class _PlayScreenState extends State<PlayScreen> {
           setState(() {
             isAdLoaded = true;
           });
+          _hasLoadedAd = true;
         },
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
-          _createNativeAd();
+          // Don't retry immediately to avoid infinite loops
+          print('Native ad failed to load: $error');
         },
       ),
       nativeTemplateStyle: NativeTemplateStyle(
@@ -61,14 +104,24 @@ class _PlayScreenState extends State<PlayScreen> {
     _nativeAd!.load();
   }
 
+  void _disposeNativeAd() {
+    _nativeAd?.dispose();
+    _nativeAd = null;
+    _hasLoadedAd = false; // Reset flag so ad can load again
+    setState(() {
+      isAdLoaded = false;
+    });
+  }
+
   @override
   void dispose() {
-    _nativeAd?.dispose();
+    _disposeNativeAd();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     final gameProvider = context.read<GameProvider>();
 
     return Scaffold(

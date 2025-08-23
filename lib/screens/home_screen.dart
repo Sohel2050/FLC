@@ -461,8 +461,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             body: IndexedStack(
               index: _selectedTab,
               children: [
-                PlayScreen(user: currentUser),
-                FriendsScreen(user: currentUser),
+                PlayScreen(user: currentUser, isVisible: _selectedTab == 0),
+                FriendsScreen(user: currentUser, isVisible: _selectedTab == 1),
                 OptionsScreen(user: currentUser),
               ],
             ),
