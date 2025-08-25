@@ -107,7 +107,7 @@ class _MyAppState extends State<MyApp> {
           labelBehavior: NavigationDestinationLabelBehavior.onlyShowSelected,
           elevation: 8,
           backgroundColor: Colors.white,
-          shadowColor: Colors.black.withOpacity(0.1),
+          shadowColor: Colors.black.withValues(alpha: 0.1),
         ),
       ),
       darkTheme: ThemeData(

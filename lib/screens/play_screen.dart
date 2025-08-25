@@ -108,9 +108,7 @@ class _PlayScreenState extends State<PlayScreen>
     _nativeAd?.dispose();
     _nativeAd = null;
     _hasLoadedAd = false; // Reset flag so ad can load again
-    setState(() {
-      isAdLoaded = false;
-    });
+    isAdLoaded = false;
   }
 
   @override
@@ -265,26 +263,6 @@ class _PlayScreenState extends State<PlayScreen>
                         } else if (title == Constants.classical) {
                           userRating = currentClassicalRating;
                         }
-
-                        // if (currentUser.isGuest) {
-                        //   // Handle guest user case
-                        //   await AnimatedDialog.show(
-                        //     context: context,
-                        //     title: 'Guest User',
-                        //     child: const Text(
-                        //       'You need to sign in to play online games. Please sign in or create an account.',
-                        //     ),
-                        //     actions: [
-                        //       TextButton(
-                        //         onPressed: () {
-                        //           Navigator.pop(context);
-                        //         },
-                        //         child: const Text('OK'),
-                        //       ),
-                        //     ],
-                        //   );
-                        //   return;
-                        // }
 
                         LoadingDialog.show(
                           context,

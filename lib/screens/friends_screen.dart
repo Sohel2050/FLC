@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
@@ -47,6 +49,7 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   NativeAd? _nativeAd;
   bool isAdLoaded = false;
+  bool _hasLoadedAd = false;
 
   @override
   void initState() {
@@ -128,18 +131,32 @@ class _FriendsScreenState extends State<FriendsScreen>
   void _disposeNativeAd() {
     _nativeAd?.dispose();
     _nativeAd = null;
-    isAdLoaded = false; // Reset flag so ad can load again
-    setState(() {
-      isAdLoaded = false;
-    });
+    _hasLoadedAd = false; // Reset flag so ad can load again
+    isAdLoaded = false;
   }
 
   void _createNativeAd() {
+    // Don't load if ads shouldn't be shown
     if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
       return;
     }
+
+    final nativeAdUnitId = AdMobService.getNativeAdUnitId(context);
+    if (nativeAdUnitId == null) {
+      return;
+    }
+
+    // Dispose existing ad if any
+    if (_nativeAd != null) {
+      _nativeAd!.dispose();
+      _nativeAd = null;
+      setState(() {
+        isAdLoaded = false;
+      });
+    }
+
     _nativeAd = NativeAd(
-      adUnitId: AdMobService.getNativeAdUnitId(context) ?? '',
+      adUnitId: nativeAdUnitId,
       request: const AdRequest(),
       factoryId: 'adFactoryNative',
       listener: NativeAdListener(
@@ -147,10 +164,12 @@ class _FriendsScreenState extends State<FriendsScreen>
           setState(() {
             isAdLoaded = true;
           });
+          _hasLoadedAd = true;
         },
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
-          _createNativeAd();
+          // Don't retry immediately to avoid infinite loops
+          print('Native ad failed to load: $error');
         },
       ),
       nativeTemplateStyle: NativeTemplateStyle(
