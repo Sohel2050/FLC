@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
-import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 
@@ -13,7 +12,6 @@ class RatingScreen extends StatefulWidget {
 }
 
 class _RatingScreenState extends State<RatingScreen> {
-  final UserService _userService = UserService();
   String _selectedRatingType =
       Constants.classicalRating; // Default to classical
 

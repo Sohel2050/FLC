@@ -1,8 +1,11 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/screens/chat_screen.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
+import 'package:flutter_chess_app/services/admob_service.dart';
 import 'package:flutter_chess_app/services/chat_service.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
@@ -11,16 +14,19 @@ import 'package:flutter_chess_app/widgets/guest_widget.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:flutter_chess_app/widgets/unread_badge_widget.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 
 class FriendsScreen extends StatefulWidget {
   final ChessUser user;
   final int initialTabIndex;
+  final bool isVisible;
 
   const FriendsScreen({
     super.key,
     required this.user,
     this.initialTabIndex = 0,
+    this.isVisible = false,
   });
 
   @override
@@ -28,13 +34,22 @@ class FriendsScreen extends StatefulWidget {
 }
 
 class _FriendsScreenState extends State<FriendsScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   late TabController _tabController;
   final FriendService _friendService = FriendService();
   final ChatService _chatService = ChatService();
   final TextEditingController _searchController = TextEditingController();
   List<ChessUser> _searchResults = [];
   bool _isSearching = false;
+  //BannerAd? _bannerAd;
+  //bool _hasLoadedAd = false;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  NativeAd? _nativeAd;
+  bool isAdLoaded = false;
+  bool _hasLoadedAd = false;
 
   @override
   void initState() {
@@ -44,12 +59,132 @@ class _FriendsScreenState extends State<FriendsScreen>
       length: 4,
       vsync: this,
     );
+
+    // Only load ad if screen is initially visible
+    if (widget.isVisible) {
+      //_createBannerAd();
+      _createNativeAd();
+    }
+  }
+
+  @override
+  void didUpdateWidget(FriendsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Load ad when screen becomes visible
+    if (widget.isVisible && !oldWidget.isVisible) {
+      //_createBannerAd();
+      _createNativeAd();
+    }
+    // Dispose ad when screen becomes invisible
+    else if (!widget.isVisible && oldWidget.isVisible) {
+      //_disposeBannerAd();
+      _createNativeAd();
+    }
+  }
+
+  // void _createBannerAd() {
+  //   // Don't load if ads shouldn't be shown
+  //   if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
+  //     return;
+  //   }
+
+  //   final bannerAdId = AdMobService.getBannerAdUnitId(context);
+  //   if (bannerAdId == null) {
+  //     return;
+  //   }
+
+  //   // Dispose existing ad if any
+  //   if (_bannerAd != null) {
+  //     _bannerAd!.dispose();
+  //     _bannerAd = null;
+  //   }
+
+  //   _bannerAd = BannerAd(
+  //     adUnitId: bannerAdId,
+  //     request: const AdRequest(),
+  //     size: AdSize.banner,
+  //     listener: BannerAdListener(
+  //       onAdLoaded: (ad) {
+  //         print('Banner ad loaded.');
+  //         _hasLoadedAd = true;
+  //       },
+  //       onAdFailedToLoad: (ad, error) {
+  //         ad.dispose();
+  //         print('Banner ad failed to load: $error');
+  //       },
+  //       onAdOpened: (ad) => print('Banner ad opened.'),
+  //       onAdClosed: (ad) {
+  //         ad.dispose();
+  //         print('Banner ad closed.');
+  //       },
+  //       onAdImpression: (ad) => print('Banner ad impression.'),
+  //     ),
+  //   )..load();
+  // }
+
+  // void _disposeBannerAd() {
+  //   _bannerAd?.dispose();
+  //   _bannerAd = null;
+  //   _hasLoadedAd = false; // Reset flag so ad can load again
+  // }
+
+  void _disposeNativeAd() {
+    _nativeAd?.dispose();
+    _nativeAd = null;
+    _hasLoadedAd = false; // Reset flag so ad can load again
+    isAdLoaded = false;
+  }
+
+  void _createNativeAd() {
+    // Don't load if ads shouldn't be shown
+    if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
+      return;
+    }
+
+    final nativeAdUnitId = AdMobService.getNativeAdUnitId(context);
+    if (nativeAdUnitId == null) {
+      return;
+    }
+
+    // Dispose existing ad if any
+    if (_nativeAd != null) {
+      _nativeAd!.dispose();
+      _nativeAd = null;
+      setState(() {
+        isAdLoaded = false;
+      });
+    }
+
+    _nativeAd = NativeAd(
+      adUnitId: nativeAdUnitId,
+      request: const AdRequest(),
+      factoryId: 'adFactoryNative',
+      listener: NativeAdListener(
+        onAdLoaded: (ad) {
+          setState(() {
+            isAdLoaded = true;
+          });
+          _hasLoadedAd = true;
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          // Don't retry immediately to avoid infinite loops
+          print('Native ad failed to load: $error');
+        },
+      ),
+      nativeTemplateStyle: NativeTemplateStyle(
+        templateType: TemplateType.small,
+      ),
+    );
+    _nativeAd!.load();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
+    //_disposeBannerAd();
+    _disposeNativeAd();
     super.dispose();
   }
 
@@ -107,6 +242,7 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     return Scaffold(
       appBar: AppBar(
         title: const Text('Friends'),
@@ -142,6 +278,18 @@ class _FriendsScreenState extends State<FriendsScreen>
           _buildFindPlayersTab(),
           _buildBlockedUsersList(),
         ],
+      ),
+      bottomNavigationBar: Container(
+        child:
+            isAdLoaded
+                ? ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: 100.0,
+                    maxHeight: 150.0,
+                  ),
+                  child: AdWidget(ad: _nativeAd!),
+                )
+                : SizedBox.shrink(),
       ),
     );
   }
@@ -193,16 +341,17 @@ class _FriendsScreenState extends State<FriendsScreen>
                           child: GestureDetector(
                             onTap: () {
                               Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder:
-                                    (context) => ChatScreen(
-                                      currentUser: widget.user,
-                                      otherUser: friend,
-                                    ),
-                              ),
-                            );
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => ChatScreen(
+                                        currentUser: widget.user,
+                                        otherUser: friend,
+                                      ),
+                                ),
+                              );
                             },
-                            child: Icon(Icons.message)),
+                            child: Icon(Icons.message),
+                          ),
                         );
                       },
                     ),

@@ -36,4 +36,28 @@ class UserProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  void updateRemoveAds(bool removeAds) {
+    if (_user != null) {
+      _user = _user!.copyWith(removeAds: removeAds);
+      notifyListeners();
+    }
+  }
+
+  void updateUserProfile({
+    String? displayName,
+    String? photoUrl,
+    String? countryCode,
+    bool? removeAds,
+  }) {
+    if (_user != null) {
+      _user = _user!.copyWith(
+        displayName: displayName,
+        photoUrl: photoUrl,
+        countryCode: countryCode,
+        removeAds: removeAds,
+      );
+      notifyListeners();
+    }
+  }
 }

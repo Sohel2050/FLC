@@ -35,8 +35,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _selectedTab = 0;
 
-  late final List<Widget> _screens;
-
   @override
   void initState() {
     super.initState();
@@ -44,12 +42,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
 
     _initializeCloudMessaging();
-
-    _screens = [
-      PlayScreen(user: widget.user),
-      FriendsScreen(user: widget.user),
-      OptionsScreen(user: widget.user),
-    ];
   }
 
   @override
@@ -469,8 +461,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             body: IndexedStack(
               index: _selectedTab,
               children: [
-                PlayScreen(user: currentUser),
-                FriendsScreen(user: currentUser),
+                PlayScreen(user: currentUser, isVisible: _selectedTab == 0),
+                FriendsScreen(user: currentUser, isVisible: _selectedTab == 1),
                 OptionsScreen(user: currentUser),
               ],
             ),

@@ -5,6 +5,8 @@ import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart' as bishop;
+import 'package:flutter_chess_app/services/admob_service.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 
 enum GameOverAction { rematch, newGame, none }
@@ -29,17 +31,37 @@ class _GameOverDialogState extends State<GameOverDialog> {
   String? _rematchStatus; // e.g., 'waiting', 'rejected'
   Timer? _statusClearTimer;
   late GameProvider gameProvider;
+  RewardedAd? _rewardedAd;
+  int _rewardedScore = 0;
 
   @override
   void initState() {
     super.initState();
     gameProvider = context.read<GameProvider>();
+    _createRewardedAd();
   }
 
   @override
   void dispose() {
     _statusClearTimer?.cancel();
     super.dispose();
+  }
+
+  void _createRewardedAd() {
+    RewardedAd.load(
+      adUnitId: AdMobService.getRewardedAdUnitId(context)!,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (RewardedAd ad) => setState(() => _rewardedAd = ad),
+        onAdFailedToLoad:
+            (LoadAdError error) => setState(() => _rewardedAd = null),
+      ),
+    );
+  }
+
+  bool _isRematchAllowed() {
+    // Check if user has removeAds or has watched rewarded ad
+    return widget.user.removeAds == true || _rewardedScore > 0;
   }
 
   String _getResultText(BuildContext context) {
@@ -111,6 +133,31 @@ class _GameOverDialogState extends State<GameOverDialog> {
         });
       }
     });
+  }
+
+  void _showRewardedAd() {
+    if (_rewardedAd != null) {
+      _rewardedAd!.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (ad) {
+          ad.dispose();
+          _createRewardedAd();
+        },
+        onAdFailedToShowFullScreenContent: (ad, error) {
+          ad.dispose();
+          _createRewardedAd();
+        },
+      );
+      _rewardedAd!.show(
+        onUserEarnedReward: (AdWithoutView ad, RewardItem reward) {
+          setState(() {
+            _rewardedScore = reward.amount.toInt();
+          });
+        },
+      );
+
+      _rewardedAd = null;
+      _createRewardedAd();
+    }
   }
 
   @override
@@ -239,12 +286,17 @@ class _GameOverDialogState extends State<GameOverDialog> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              ElevatedButton(
-                onPressed: () async {
-                  await gameProvider.offerRematch();
-                },
-                child: const Text('Rematch'),
-              ),
+              _isRematchAllowed()
+                  ? ElevatedButton(
+                    onPressed: () async {
+                      await gameProvider.offerRematch();
+                    },
+                    child: const Text('Rematch'),
+                  )
+                  : ElevatedButton(
+                    onPressed: _rewardedAd != null ? _showRewardedAd : null,
+                    child: const Text('Watch Ad for Rematch'),
+                  ),
               OutlinedButton(
                 onPressed:
                     () => Navigator.of(context).pop(GameOverAction.newGame),
@@ -264,12 +316,17 @@ class _GameOverDialogState extends State<GameOverDialog> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
-        ElevatedButton(
-          onPressed: () {
-            gameProvider.resetGame(true);
-          },
-          child: const Text('Rematch'),
-        ),
+        _isRematchAllowed()
+            ? ElevatedButton(
+              onPressed: () {
+                gameProvider.resetGame(true);
+              },
+              child: const Text('Rematch'),
+            )
+            : ElevatedButton(
+              onPressed: _rewardedAd != null ? _showRewardedAd : null,
+              child: const Text('Watch Ad for Rematch'),
+            ),
         OutlinedButton(
           onPressed: () {
             Navigator.of(context).pop(GameOverAction.newGame);

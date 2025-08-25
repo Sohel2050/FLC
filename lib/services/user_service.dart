@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:math';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:flutter_chess_app/services/rating_service.dart';
@@ -308,6 +307,19 @@ class UserService {
           .update(user.toMap());
     } catch (e) {
       throw Exception('An unknown error occurred while updating user data.');
+    }
+  }
+
+  /// Update user's removeAds status (for in-app purchases)
+  Future<void> updateRemoveAds(String userId, bool removeAds) async {
+    try {
+      await _firestore.collection(Constants.usersCollection).doc(userId).update(
+        {Constants.removeAds: removeAds},
+      );
+      logger.i('Updated removeAds status for user $userId to $removeAds');
+    } catch (e) {
+      logger.e('Error updating removeAds status: $e');
+      throw Exception('Failed to update ad removal status.');
     }
   }
 

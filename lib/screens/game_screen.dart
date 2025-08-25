@@ -4,6 +4,7 @@ import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
+import 'package:flutter_chess_app/services/admob_service.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/captured_piece_widget.dart';
 import 'package:flutter_chess_app/widgets/confirmation_dialog.dart';
@@ -12,9 +13,9 @@ import 'package:flutter_chess_app/widgets/friend_request_widget.dart';
 import 'package:flutter_chess_app/widgets/first_move_countdown_widget.dart';
 import 'package:flutter_chess_app/widgets/game_over_dialog.dart';
 import 'package:flutter_chess_app/services/friend_service.dart';
-
 import 'package:flutter_chess_app/widgets/profile_image_widget.dart';
 import 'package:flutter_chess_app/widgets/unread_badge_widget.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 import 'package:squares/squares.dart';
 import 'package:flutter_chess_app/screens/chat_screen.dart';
@@ -30,11 +31,14 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   late GameProvider _gameProvider;
+  InterstitialAd? _interstitialAd;
 
   // Audio room state variables
   bool _isInAudioRoom = false;
   bool _isMicrophoneEnabled = false;
   bool _isSpeakerMuted = false;
+
+  BannerAd? _bannerAd;
 
   @override
   void initState() {
@@ -73,6 +77,67 @@ class _GameScreenState extends State<GameScreen> {
         );
       }
     });
+    _createBannerAd();
+
+    _createInterstitialAd();
+  }
+
+  void _createBannerAd() {
+    if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
+      return; // Don't create ads for premium users or if ads are disabled
+    }
+
+    final bannerAdId = AdMobService.getBannerAdUnitId(context);
+    if (bannerAdId != null) {
+      _bannerAd = BannerAd(
+        adUnitId: bannerAdId,
+        request: const AdRequest(),
+        size: AdSize.banner,
+        listener: AdMobService.bannerAdListener,
+      )..load();
+    }
+  }
+
+  void _createInterstitialAd() {
+    if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
+      return; // Don't create ads for premium users or if ads are disabled
+    }
+
+    final interstitialAdId = AdMobService.getInterstitialAdUnitId(context);
+    if (interstitialAdId != null) {
+      InterstitialAd.load(
+        adUnitId: interstitialAdId,
+        request: const AdRequest(),
+        adLoadCallback: InterstitialAdLoadCallback(
+          onAdLoaded: (InterstitialAd ad) {
+            _interstitialAd = ad;
+          },
+          onAdFailedToLoad: (LoadAdError error) => _interstitialAd = null,
+        ),
+      );
+    }
+  }
+
+  void _showInterstitialAd() {
+    // Don't show ads for premium users
+    if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
+      return;
+    }
+
+    if (_interstitialAd != null) {
+      _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
+        onAdDismissedFullScreenContent: (ad) {
+          ad.dispose();
+          _createInterstitialAd();
+        },
+        onAdFailedToShowFullScreenContent: (ad, error) {
+          ad.dispose();
+          _createInterstitialAd();
+        },
+      );
+      _interstitialAd!.show();
+      _interstitialAd = null;
+    }
   }
 
   @override
@@ -86,6 +151,9 @@ class _GameScreenState extends State<GameScreen> {
       });
     }
 
+    _bannerAd?.dispose();
+    _interstitialAd?.dispose();
+
     super.dispose();
   }
 
@@ -94,6 +162,9 @@ class _GameScreenState extends State<GameScreen> {
     if (ModalRoute.of(context)?.isCurrent != true) {
       return;
     }
+
+    // Show interstitial ad (respects premium status internally)
+    _showInterstitialAd();
 
     // Only show dialog if game result is not null
     final gameResult = _gameProvider.gameResult;
@@ -118,6 +189,8 @@ class _GameScreenState extends State<GameScreen> {
         }
       }
     }
+
+    Future.delayed(const Duration(milliseconds: 500));
 
     AnimatedDialog.show(
       context: context,
@@ -483,6 +556,14 @@ class _GameScreenState extends State<GameScreen> {
                   ),
               ],
             ),
+            bottomNavigationBar:
+                _bannerAd == null
+                    ? SizedBox.shrink()
+                    : Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      height: 52,
+                      child: AdWidget(ad: _bannerAd!),
+                    ),
           );
         },
       ),
@@ -838,20 +919,36 @@ class _GameScreenState extends State<GameScreen> {
                         // Audio room controls for online games only
                         if (gameProvider.isOnlineGame) ...[
                           if (!_isInAudioRoom)
-                            // Join audio room button (microphone icon)
-                            IconButton(
-                              icon: Icon(
-                                Icons.mic,
-                                size: 20,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              onPressed: _showJoinAudioRoomDialog,
-                              tooltip: 'Join Audio Room',
-                              constraints: const BoxConstraints(
-                                minWidth: 32,
-                                minHeight: 32,
-                              ),
-                            )
+                            // Join audio room button (microphone icon) - Premium feature
+                            if (widget.user.removeAds == true)
+                              IconButton(
+                                icon: Icon(
+                                  Icons.mic,
+                                  size: 20,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
+                                onPressed: _showJoinAudioRoomDialog,
+                                tooltip: 'Join Audio Room (Premium)',
+                                constraints: const BoxConstraints(
+                                  minWidth: 32,
+                                  minHeight: 32,
+                                ),
+                              )
+                            else
+                              // Show locked icon for non-premium users
+                              IconButton(
+                                icon: Icon(
+                                  Icons.mic_off,
+                                  size: 20,
+                                  color: Colors.grey,
+                                ),
+                                onPressed: _showPremiumRequiredDialog,
+                                tooltip: 'Audio Room (Premium Feature)',
+                                constraints: const BoxConstraints(
+                                  minWidth: 32,
+                                  minHeight: 32,
+                                ),
+                              )
                           else ...[
                             // Microphone toggle when in audio room
                             IconButton(
@@ -947,7 +1044,6 @@ class _GameScreenState extends State<GameScreen> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
-          // Future: Add premium/ads condition here
           Text(
             '🎵 Premium Feature',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -972,13 +1068,83 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  void _showPremiumRequiredDialog() {
+    AnimatedDialog.show(
+      context: context,
+      title: 'Premium Feature',
+      maxWidth: 400,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star, size: 48, color: Colors.orange),
+          const SizedBox(height: 16),
+          const Text(
+            'Audio Room is a Premium Feature',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Upgrade to Premium to enjoy voice chat with your opponents during games.',
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.withOpacity(0.3)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.mic, color: Colors.orange, size: 20),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Live voice communication with opponents',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Later'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            // Navigate to profile screen to purchase premium
+            // Since we don't have named routes, we'll show a message for now
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Visit Profile screen to upgrade to Premium'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Upgrade'),
+        ),
+      ],
+    );
+  }
+
   void _joinAudioRoom() async {
     try {
-      // TODO: Add premium/ads check here
-      // if (!userHasPremium && !hasWatchedAd) {
-      //   _showWatchAdDialog();
-      //   return;
-      // }
+      // Check if user has premium access
+      if (widget.user.removeAds != true) {
+        _showPremiumRequiredDialog();
+        return;
+      }
 
       // Initialize Zego Express Engine
       await _initializeZegoEngine();
