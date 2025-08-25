@@ -6,6 +6,8 @@ import '../providers/admob_provider.dart';
 class AdMobService {
   static InterstitialAd? _interstitialAd;
   static bool _isInterstitialAdReady = false;
+  static RewardedAd? _rewardedAd;
+  static bool _isRewardedAdReady = false;
 
   /// Get banner ad unit ID from AdMobProvider
   static String? getBannerAdUnitId(BuildContext context) {
@@ -42,6 +44,12 @@ class AdMobService {
 
   /// Check if interstitial ad is ready to show
   static bool get isInterstitialAdReady => _isInterstitialAdReady;
+
+  /// Get the current rewarded ad instance
+  static RewardedAd? get rewardedAd => _rewardedAd;
+
+  /// Check if rewarded ad is ready to show
+  static bool get isRewardedAdReady => _isRewardedAdReady;
 
   /// Load interstitial ad without showing it immediately
   static Future<void> loadInterstitialAd(BuildContext context) async {
@@ -114,6 +122,125 @@ class AdMobService {
     _interstitialAd?.dispose();
     _interstitialAd = null;
     _isInterstitialAdReady = false;
+  }
+
+  /// Load rewarded ad without showing it immediately
+  static Future<void> loadRewardedAd(BuildContext context) async {
+    final adUnitId = getRewardedAdUnitId(context);
+    if (adUnitId == null) {
+      print('Rewarded ad unit ID is null');
+      return;
+    }
+
+    // Dispose existing ad if any
+    _rewardedAd?.dispose();
+    _rewardedAd = null;
+    _isRewardedAdReady = false;
+
+    RewardedAd.load(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (RewardedAd ad) {
+          print('Rewarded ad loaded and ready to show.');
+          _rewardedAd = ad;
+          _isRewardedAdReady = true;
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          print('Rewarded ad failed to load: $error');
+          _rewardedAd = null;
+          _isRewardedAdReady = false;
+        },
+      ),
+    );
+  }
+
+  /// Show loaded rewarded ad
+  static void showRewardedAd({
+    required OnUserEarnedRewardCallback onUserEarnedReward,
+    required VoidCallback onAdClosed,
+    VoidCallback? onAdFailedToShow,
+  }) {
+    if (_rewardedAd == null || !_isRewardedAdReady) {
+      print('Rewarded ad is not ready to show');
+      onAdFailedToShow?.call();
+      return;
+    }
+
+    _rewardedAd!
+        .fullScreenContentCallback = FullScreenContentCallback<RewardedAd>(
+      onAdShowedFullScreenContent: (RewardedAd ad) {
+        print('Rewarded ad showed full screen content.');
+      },
+      onAdDismissedFullScreenContent: (RewardedAd ad) {
+        print('Rewarded ad dismissed full screen content.');
+        ad.dispose();
+        _rewardedAd = null;
+        _isRewardedAdReady = false;
+        onAdClosed();
+      },
+      onAdFailedToShowFullScreenContent: (RewardedAd ad, AdError error) {
+        print('Rewarded ad failed to show full screen content: $error');
+        ad.dispose();
+        _rewardedAd = null;
+        _isRewardedAdReady = false;
+        onAdFailedToShow?.call();
+      },
+    );
+
+    _rewardedAd!.show(onUserEarnedReward: onUserEarnedReward);
+  }
+
+  /// Dispose rewarded ad
+  static void disposeRewardedAd() {
+    _rewardedAd?.dispose();
+    _rewardedAd = null;
+    _isRewardedAdReady = false;
+  }
+
+  /// Load and show a rewarded ad with reward callback
+  static Future<void> loadAndShowRewardedAd({
+    required BuildContext context,
+    required OnUserEarnedRewardCallback onUserEarnedReward,
+    required VoidCallback onAdClosed,
+    VoidCallback? onAdFailedToLoad,
+  }) async {
+    final adUnitId = getRewardedAdUnitId(context);
+    if (adUnitId == null) {
+      print('Rewarded ad unit ID is null');
+      onAdFailedToLoad?.call();
+      return;
+    }
+
+    RewardedAd.load(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (RewardedAd ad) {
+          print('Rewarded ad loaded.');
+          ad.fullScreenContentCallback = FullScreenContentCallback<RewardedAd>(
+            onAdShowedFullScreenContent: (RewardedAd ad) {
+              print('Rewarded ad showed full screen content.');
+            },
+            onAdDismissedFullScreenContent: (RewardedAd ad) {
+              print('Rewarded ad dismissed full screen content.');
+              ad.dispose();
+              onAdClosed();
+            },
+            onAdFailedToShowFullScreenContent: (RewardedAd ad, AdError error) {
+              print('Rewarded ad failed to show full screen content: $error');
+              ad.dispose();
+              onAdFailedToLoad?.call();
+            },
+          );
+          ad.show(onUserEarnedReward: onUserEarnedReward);
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          print('Rewarded ad failed to load: $error');
+          onAdFailedToLoad?.call();
+        },
+      ),
+    );
   }
 
   /// Backward compatibility - Legacy getters (deprecated)

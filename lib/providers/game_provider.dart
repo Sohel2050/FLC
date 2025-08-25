@@ -363,6 +363,112 @@ class GameProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Audio Room Management Methods
+
+  /// Invites the opponent to join the audio room
+  Future<void> inviteToAudioRoom(String currentUserId) async {
+    if (!_isOnlineGame || _onlineGameRoom == null) {
+      _logger.w('Audio room invitation only available in online games.');
+      return;
+    }
+
+    await _gameService.inviteToAudioRoom(
+      _onlineGameRoom!.gameId,
+      currentUserId,
+    );
+    _logger.i('Audio room invitation sent by $currentUserId');
+    notifyListeners();
+  }
+
+  /// Handles an audio room invitation (accept or decline)
+  Future<void> handleAudioRoomInvitation(
+    String currentUserId,
+    bool accepted,
+  ) async {
+    if (!_isOnlineGame || _onlineGameRoom == null) {
+      _logger.w('Cannot handle audio room invitation: Not an online game.');
+      return;
+    }
+
+    await _gameService.handleAudioRoomInvitation(
+      _onlineGameRoom!.gameId,
+      currentUserId,
+      accepted,
+    );
+    _logger.i(
+      'Audio room invitation ${accepted ? 'accepted' : 'declined'} by $currentUserId',
+    );
+    notifyListeners();
+  }
+
+  /// Joins the audio room
+  Future<void> joinAudioRoom(String currentUserId) async {
+    if (!_isOnlineGame || _onlineGameRoom == null) {
+      _logger.w('Cannot join audio room: Not an online game.');
+      return;
+    }
+
+    await _gameService.joinAudioRoom(_onlineGameRoom!.gameId, currentUserId);
+    _logger.i('User $currentUserId joined audio room');
+    notifyListeners();
+  }
+
+  /// Leaves the audio room
+  Future<void> leaveAudioRoom(String currentUserId) async {
+    if (!_isOnlineGame || _onlineGameRoom == null) {
+      _logger.w('Cannot leave audio room: Not an online game.');
+      return;
+    }
+
+    await _gameService.leaveAudioRoom(_onlineGameRoom!.gameId, currentUserId);
+    _logger.i('User $currentUserId left audio room');
+    notifyListeners();
+  }
+
+  /// Ends the audio room for all participants
+  Future<void> endAudioRoom(String currentUserId) async {
+    if (!_isOnlineGame || _onlineGameRoom == null) {
+      _logger.w('Cannot end audio room: Not an online game.');
+      return;
+    }
+
+    await _gameService.endAudioRoom(_onlineGameRoom!.gameId, currentUserId);
+    _logger.i('Audio room ended by $currentUserId');
+    notifyListeners();
+  }
+
+  /// Checks if the current user is in the audio room
+  bool isUserInAudioRoom(String userId) {
+    if (_onlineGameRoom == null) return false;
+    return _onlineGameRoom!.audioRoomParticipants.contains(userId);
+  }
+
+  /// Checks if there's a pending audio room invitation for the current user
+  bool hasAudioRoomInvitation(String userId) {
+    if (_onlineGameRoom == null) return false;
+    return _onlineGameRoom!.audioRoomStatus ==
+            Constants.audioStatusInvitePending &&
+        _onlineGameRoom!.audioRoomInvitedBy != userId;
+  }
+
+  /// Gets the user who invited to the audio room
+  String? getAudioRoomInviter() {
+    if (_onlineGameRoom == null) return null;
+    return _onlineGameRoom!.audioRoomInvitedBy;
+  }
+
+  /// Gets the current audio room status
+  String getAudioRoomStatus() {
+    if (_onlineGameRoom == null) return Constants.audioStatusNone;
+    return _onlineGameRoom!.audioRoomStatus;
+  }
+
+  /// Gets the list of audio room participants
+  List<String> getAudioRoomParticipants() {
+    if (_onlineGameRoom == null) return [];
+    return _onlineGameRoom!.audioRoomParticipants;
+  }
+
   // Initialize Stockfish safely
   Future<void> initializeStockfish() async {
     if (_stockfishInitialized || _localMultiplayer || _isOnlineGame) return;

@@ -101,6 +101,13 @@ class Constants {
   static const String fieldIsPrivate = 'isPrivate';
   static const String fieldSpectatorLink = 'spectatorLink';
 
+  // Audio room fields
+  static const String fieldAudioRoomStatus = 'audioRoomStatus';
+  static const String fieldAudioRoomInvitedBy = 'audioRoomInvitedBy';
+  static const String fieldAudioRoomParticipants = 'audioRoomParticipants';
+  static const String fieldAudioRoomCreatedAt = 'audioRoomCreatedAt';
+  static const String fieldAudioRoomUpdatedAt = 'audioRoomUpdatedAt';
+
   // Saved Game fields
   static const String fieldUserId = 'userId';
   static const String fieldOpponentId = 'opponentId';
@@ -121,6 +128,13 @@ class Constants {
   static const String statusCompleted = 'completed';
   static const String statusAborted = 'aborted';
   static const String statusDeclined = 'declined';
+
+  // Audio room statuses
+  static const String audioStatusNone = 'none';
+  static const String audioStatusInvitePending = 'invite_pending';
+  static const String audioStatusActive = 'active';
+  static const String audioStatusDeclined = 'declined';
+  static const String audioStatusEnded = 'ended';
 
   // Game results
   static const String win = 'win';

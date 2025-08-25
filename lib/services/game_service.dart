@@ -587,4 +587,176 @@ class GameService {
       // We might not want to rethrow here to avoid crashing the app if score update fails
     }
   }
+
+  // Audio Room Management Methods
+
+  /// Invites opponent to join audio room
+  Future<void> inviteToAudioRoom(String gameId, String invitingUserId) async {
+    try {
+      await _firestore
+          .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .update({
+            Constants.fieldAudioRoomStatus: Constants.audioStatusInvitePending,
+            Constants.fieldAudioRoomInvitedBy: invitingUserId,
+            Constants.fieldAudioRoomCreatedAt: Timestamp.now(),
+            Constants.fieldAudioRoomUpdatedAt: Timestamp.now(),
+          });
+      _logger.i(
+        'Audio room invitation sent for game $gameId by $invitingUserId',
+      );
+    } catch (e) {
+      _logger.e('Error inviting to audio room for game $gameId: $e');
+      rethrow;
+    }
+  }
+
+  /// Handles audio room invitation response
+  Future<void> handleAudioRoomInvitation(
+    String gameId,
+    String respondingUserId,
+    bool accepted,
+  ) async {
+    try {
+      if (accepted) {
+        // Get the inviting user ID to add both users to participants
+        final doc =
+            await _firestore
+                .collection(Constants.gameRoomsCollection)
+                .doc(gameId)
+                .get();
+
+        if (!doc.exists) {
+          throw Exception('Game room $gameId not found');
+        }
+
+        final gameRoom = GameRoom.fromMap(doc.data() as Map<String, dynamic>);
+        final invitingUserId = gameRoom.audioRoomInvitedBy;
+
+        if (invitingUserId == null) {
+          throw Exception('No audio room invitation found for game $gameId');
+        }
+
+        await _firestore
+            .collection(Constants.gameRoomsCollection)
+            .doc(gameId)
+            .update({
+              Constants.fieldAudioRoomStatus: Constants.audioStatusActive,
+              Constants.fieldAudioRoomParticipants: [
+                invitingUserId,
+                respondingUserId,
+              ],
+              Constants.fieldAudioRoomUpdatedAt: Timestamp.now(),
+            });
+        _logger.i(
+          'Audio room invitation accepted for game $gameId by $respondingUserId',
+        );
+      } else {
+        await _firestore
+            .collection(Constants.gameRoomsCollection)
+            .doc(gameId)
+            .update({
+              Constants.fieldAudioRoomStatus: Constants.audioStatusDeclined,
+              Constants.fieldAudioRoomUpdatedAt: Timestamp.now(),
+            });
+        _logger.i(
+          'Audio room invitation declined for game $gameId by $respondingUserId',
+        );
+      }
+    } catch (e) {
+      _logger.e('Error handling audio room invitation for game $gameId: $e');
+      rethrow;
+    }
+  }
+
+  /// Joins the audio room (for when user accepts invitation)
+  Future<void> joinAudioRoom(String gameId, String userId) async {
+    try {
+      final doc =
+          await _firestore
+              .collection(Constants.gameRoomsCollection)
+              .doc(gameId)
+              .get();
+
+      if (!doc.exists) {
+        throw Exception('Game room $gameId not found');
+      }
+
+      final gameRoom = GameRoom.fromMap(doc.data() as Map<String, dynamic>);
+      final participants = List<String>.from(gameRoom.audioRoomParticipants);
+
+      if (!participants.contains(userId)) {
+        participants.add(userId);
+
+        await _firestore
+            .collection(Constants.gameRoomsCollection)
+            .doc(gameId)
+            .update({
+              Constants.fieldAudioRoomParticipants: participants,
+              Constants.fieldAudioRoomUpdatedAt: Timestamp.now(),
+            });
+        _logger.i('User $userId joined audio room for game $gameId');
+      }
+    } catch (e) {
+      _logger.e('Error joining audio room for game $gameId: $e');
+      rethrow;
+    }
+  }
+
+  /// Leaves the audio room
+  Future<void> leaveAudioRoom(String gameId, String userId) async {
+    try {
+      final doc =
+          await _firestore
+              .collection(Constants.gameRoomsCollection)
+              .doc(gameId)
+              .get();
+
+      if (!doc.exists) {
+        throw Exception('Game room $gameId not found');
+      }
+
+      final gameRoom = GameRoom.fromMap(doc.data() as Map<String, dynamic>);
+      final participants = List<String>.from(gameRoom.audioRoomParticipants);
+
+      participants.remove(userId);
+
+      // If no participants left, end the audio room
+      final newStatus =
+          participants.isEmpty
+              ? Constants.audioStatusEnded
+              : Constants.audioStatusActive;
+
+      await _firestore
+          .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .update({
+            Constants.fieldAudioRoomParticipants: participants,
+            Constants.fieldAudioRoomStatus: newStatus,
+            Constants.fieldAudioRoomUpdatedAt: Timestamp.now(),
+          });
+      _logger.i('User $userId left audio room for game $gameId');
+    } catch (e) {
+      _logger.e('Error leaving audio room for game $gameId: $e');
+      rethrow;
+    }
+  }
+
+  /// Ends the audio room for all participants
+  Future<void> endAudioRoom(String gameId, String userId) async {
+    try {
+      await _firestore
+          .collection(Constants.gameRoomsCollection)
+          .doc(gameId)
+          .update({
+            Constants.fieldAudioRoomStatus: Constants.audioStatusEnded,
+            Constants.fieldAudioRoomParticipants: [],
+            Constants.fieldAudioRoomUpdatedAt: Timestamp.now(),
+          });
+      _logger.i('Audio room ended for game $gameId by $userId');
+    } catch (e) {
+      _logger.e('Error ending audio room for game $gameId: $e');
+      rethrow;
+    }
+  }
 }

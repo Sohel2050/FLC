@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/env.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
@@ -5,7 +6,11 @@ import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/services/admob_service.dart';
+import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
+import 'package:flutter_chess_app/widgets/audio_access_dialog.dart';
+import 'package:flutter_chess_app/widgets/audio_controls_widget.dart';
+import 'package:flutter_chess_app/widgets/audio_room_invitation_dialog.dart';
 import 'package:flutter_chess_app/widgets/captured_piece_widget.dart';
 import 'package:flutter_chess_app/widgets/confirmation_dialog.dart';
 import 'package:flutter_chess_app/widgets/draw_offer_widget.dart';
@@ -37,6 +42,10 @@ class _GameScreenState extends State<GameScreen> {
   bool _isInAudioRoom = false;
   bool _isMicrophoneEnabled = false;
   bool _isSpeakerMuted = false;
+  bool _hasTemporaryAudioAccess = false; // For rewarded ad access
+  bool _isZegoEngineInitialized = false;
+  String? _currentAudioRoomId;
+  StreamSubscription<GameRoom>? _audioRoomSubscription;
 
   BannerAd? _bannerAd;
 
@@ -78,8 +87,12 @@ class _GameScreenState extends State<GameScreen> {
       }
     });
     _createBannerAd();
-
     _createInterstitialAd();
+
+    // Set up audio room monitoring for online games
+    if (_gameProvider.isOnlineGame && _gameProvider.onlineGameRoom != null) {
+      _setupAudioRoomListener();
+    }
   }
 
   void _createBannerAd() {
@@ -151,10 +164,210 @@ class _GameScreenState extends State<GameScreen> {
       });
     }
 
+    // Cancel audio room subscription
+    _audioRoomSubscription?.cancel();
+
     _bannerAd?.dispose();
     _interstitialAd?.dispose();
 
     super.dispose();
+  }
+
+  void _setupAudioRoomListener() {
+    if (_gameProvider.onlineGameRoom == null) return;
+
+    _audioRoomSubscription = _gameProvider.gameService
+        .streamGameRoom(_gameProvider.onlineGameRoom!.gameId)
+        .listen(
+          (gameRoom) => _handleAudioRoomUpdates(gameRoom),
+          onError: (error) {
+            _gameProvider.logger.e(
+              'Error listening to audio room updates: $error',
+            );
+          },
+        );
+  }
+
+  void _handleAudioRoomUpdates(GameRoom gameRoom) {
+    final currentUserId = widget.user.uid!;
+    final audioRoomStatus = gameRoom.audioRoomStatus;
+    final audioRoomParticipants = gameRoom.audioRoomParticipants;
+    final audioRoomInvitedBy = gameRoom.audioRoomInvitedBy;
+
+    // Handle audio room invitation
+    if (audioRoomStatus == Constants.audioStatusInvitePending &&
+        audioRoomInvitedBy != currentUserId) {
+      _showAudioRoomInvitation(gameRoom);
+    }
+
+    // Handle when audio room becomes active
+    if (audioRoomStatus == Constants.audioStatusActive &&
+        audioRoomParticipants.contains(currentUserId) &&
+        !_isInAudioRoom) {
+      _autoJoinAudioRoom();
+    }
+
+    // Handle when user is removed from audio room (disconnection/leave)
+    if ((audioRoomStatus == Constants.audioStatusEnded ||
+            !audioRoomParticipants.contains(currentUserId)) &&
+        _isInAudioRoom) {
+      _autoLeaveAudioRoom();
+    }
+
+    // Notify user when opponent starts audio
+    if (audioRoomStatus == Constants.audioStatusInvitePending &&
+        audioRoomInvitedBy != currentUserId) {
+      _showAudioStartedNotification(gameRoom);
+    }
+  }
+
+  void _showAudioRoomInvitation(GameRoom gameRoom) async {
+    final invitingUserId = gameRoom.audioRoomInvitedBy;
+    if (invitingUserId == null) return;
+
+    // Get inviting user details
+    final invitingUser =
+        gameRoom.player1Id == invitingUserId
+            ? ChessUser(
+              uid: gameRoom.player1Id,
+              displayName: gameRoom.player1DisplayName,
+              photoUrl: gameRoom.player1PhotoUrl,
+              countryCode: gameRoom.player1Flag,
+            )
+            : ChessUser(
+              uid: gameRoom.player2Id,
+              displayName: gameRoom.player2DisplayName ?? 'Opponent',
+              photoUrl: gameRoom.player2PhotoUrl,
+              countryCode: gameRoom.player2Flag,
+            );
+
+    final result = await AudioRoomInvitationDialog.show(
+      context: context,
+      invitingUser: invitingUser,
+    );
+
+    if (result == AudioRoomAction.join) {
+      await _handleAudioRoomJoin();
+    } else if (result == AudioRoomAction.reject) {
+      await _gameProvider.handleAudioRoomInvitation(widget.user.uid!, false);
+    }
+  }
+
+  void _showAudioStartedNotification(GameRoom gameRoom) {
+    final invitingUserName =
+        gameRoom.player1Id == gameRoom.audioRoomInvitedBy
+            ? gameRoom.player1DisplayName
+            : gameRoom.player2DisplayName ?? 'Opponent';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.mic, color: Colors.white),
+            SizedBox(width: 8),
+            Expanded(child: Text('$invitingUserName started audio room')),
+          ],
+        ),
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        duration: Duration(seconds: 3),
+        action: SnackBarAction(
+          label: 'Join',
+          textColor: Colors.white,
+          onPressed: _handleAudioRoomJoin,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleAudioRoomJoin() async {
+    // Check if user has premium or temporary access
+    if (!_hasAudioAccess()) {
+      final result = await AudioAccessDialog.show(context: context);
+
+      if (result == AudioAccessAction.watchAd) {
+        _hasTemporaryAudioAccess = true;
+      } else if (result == AudioAccessAction.premium) {
+        // Navigate to premium screen or show premium info
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Visit Profile screen to upgrade to Premium'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      } else {
+        return; // User cancelled
+      }
+    }
+
+    try {
+      // Accept the audio room invitation
+      await _gameProvider.handleAudioRoomInvitation(widget.user.uid!, true);
+
+      // Initialize ZegoCloud if not already done
+      await _initializeZegoEngineIfNeeded();
+
+      setState(() {
+        _isInAudioRoom = true;
+        _isMicrophoneEnabled = false; // Start with mic disabled
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Joined audio room'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to join audio room: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _autoJoinAudioRoom() async {
+    if (_isInAudioRoom) return;
+
+    try {
+      await _initializeZegoEngineIfNeeded();
+
+      setState(() {
+        _isInAudioRoom = true;
+        _isMicrophoneEnabled = false;
+      });
+    } catch (e) {
+      _gameProvider.logger.e('Failed to auto-join audio room: $e');
+    }
+  }
+
+  Future<void> _autoLeaveAudioRoom() async {
+    if (!_isInAudioRoom) return;
+
+    try {
+      await _cleanupZegoEngine();
+
+      setState(() {
+        _isInAudioRoom = false;
+        _isMicrophoneEnabled = false;
+        _isSpeakerMuted = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Audio room ended'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      _gameProvider.logger.e('Failed to auto-leave audio room: $e');
+    }
+  }
+
+  bool _hasAudioAccess() {
+    return widget.user.removeAds == true || _hasTemporaryAudioAccess;
   }
 
   void _handleGameOver() {
@@ -728,40 +941,33 @@ class _GameScreenState extends State<GameScreen> {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(width: 8),
-                        // Audio room controls
-                        if (_isInAudioRoom) ...[
-                          // Speaker mute/unmute button
-                          IconButton(
-                            icon: Icon(
-                              _isSpeakerMuted
-                                  ? Icons.volume_off
-                                  : Icons.volume_up,
-                              size: 20,
-                            ),
-                            onPressed: _toggleSpeakerMute,
-                            tooltip:
-                                _isSpeakerMuted
-                                    ? 'Unmute Speaker'
-                                    : 'Mute Speaker',
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
-                            ),
+                        // Audio room controls for online games only
+                        if (gameProvider.isOnlineGame) ...[
+                          AudioControlsWidget(
+                            isInAudioRoom: _isInAudioRoom,
+                            isMicrophoneEnabled: _isMicrophoneEnabled,
+                            isSpeakerMuted: _isSpeakerMuted,
+                            participants:
+                                gameProvider.getAudioRoomParticipants(),
+                            onToggleMicrophone: _toggleMicrophone,
+                            onToggleSpeaker: _toggleSpeakerMute,
+                            onLeaveAudio: _leaveAudioRoom,
                           ),
-                          // Exit audio room button
-                          IconButton(
-                            icon: const Icon(
-                              Icons.call_end,
-                              size: 20,
-                              color: Colors.red,
+                          const SizedBox(width: 4),
+                          if (!_isInAudioRoom)
+                            IconButton(
+                              icon: Icon(
+                                Icons.mic,
+                                size: 20,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                              onPressed: _showAudioRoomInvitationDialog,
+                              tooltip: 'Start Audio Room',
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
                             ),
-                            onPressed: _exitAudioRoom,
-                            tooltip: 'Leave Audio Room',
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
-                            ),
-                          ),
                         ],
                         if (!gameProvider.isOpponentFriend &&
                             !gameProvider.friendRequestReceived)
@@ -918,61 +1124,31 @@ class _GameScreenState extends State<GameScreen> {
                         const SizedBox(width: 8),
                         // Audio room controls for online games only
                         if (gameProvider.isOnlineGame) ...[
+                          AudioControlsWidget(
+                            isInAudioRoom: _isInAudioRoom,
+                            isMicrophoneEnabled: _isMicrophoneEnabled,
+                            isSpeakerMuted: _isSpeakerMuted,
+                            participants:
+                                gameProvider.getAudioRoomParticipants(),
+                            onToggleMicrophone: _toggleMicrophone,
+                            onToggleSpeaker: _toggleSpeakerMute,
+                            onLeaveAudio: _leaveAudioRoom,
+                          ),
+                          const SizedBox(width: 4),
                           if (!_isInAudioRoom)
-                            // Join audio room button (microphone icon) - Premium feature
-                            if (widget.user.removeAds == true)
-                              IconButton(
-                                icon: Icon(
-                                  Icons.mic,
-                                  size: 20,
-                                  color: Theme.of(context).colorScheme.primary,
-                                ),
-                                onPressed: _showJoinAudioRoomDialog,
-                                tooltip: 'Join Audio Room (Premium)',
-                                constraints: const BoxConstraints(
-                                  minWidth: 32,
-                                  minHeight: 32,
-                                ),
-                              )
-                            else
-                              // Show locked icon for non-premium users
-                              IconButton(
-                                icon: Icon(
-                                  Icons.mic_off,
-                                  size: 20,
-                                  color: Colors.grey,
-                                ),
-                                onPressed: _showPremiumRequiredDialog,
-                                tooltip: 'Audio Room (Premium Feature)',
-                                constraints: const BoxConstraints(
-                                  minWidth: 32,
-                                  minHeight: 32,
-                                ),
-                              )
-                          else ...[
-                            // Microphone toggle when in audio room
                             IconButton(
                               icon: Icon(
-                                _isMicrophoneEnabled
-                                    ? Icons.mic
-                                    : Icons.mic_off,
+                                Icons.mic,
                                 size: 20,
-                                color:
-                                    _isMicrophoneEnabled
-                                        ? Theme.of(context).colorScheme.primary
-                                        : Colors.grey,
+                                color: Theme.of(context).colorScheme.primary,
                               ),
-                              onPressed: _toggleMicrophone,
-                              tooltip:
-                                  _isMicrophoneEnabled
-                                      ? 'Mute Microphone'
-                                      : 'Unmute Microphone',
+                              onPressed: _showAudioRoomInvitationDialog,
+                              tooltip: 'Start Audio Room',
                               constraints: const BoxConstraints(
                                 minWidth: 32,
                                 minHeight: 32,
                               ),
                             ),
-                          ],
                         ],
                       ],
                     ),
@@ -1031,180 +1207,27 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  void _showJoinAudioRoomDialog() {
-    AnimatedDialog.show(
-      context: context,
-      title: 'Join Audio Room',
-      maxWidth: 400,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Start voice chat with your opponent during the game.',
-            textAlign: TextAlign.center,
+  void _showPremiumRequiredDialog() async {
+    final result = await AudioAccessDialog.show(context: context);
+
+    if (result == AudioAccessAction.watchAd) {
+      _hasTemporaryAudioAccess = true;
+      // User watched ad, they can now use audio features
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Audio room access granted! You can now use voice chat.',
           ),
-          const SizedBox(height: 16),
-          Text(
-            '🎵 Premium Feature',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          backgroundColor: Colors.green,
         ),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-            _joinAudioRoom();
-          },
-          child: const Text('Join'),
+      );
+    } else if (result == AudioAccessAction.premium) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Visit Profile screen to upgrade to Premium'),
+          duration: Duration(seconds: 3),
         ),
-      ],
-    );
-  }
-
-  void _showPremiumRequiredDialog() {
-    AnimatedDialog.show(
-      context: context,
-      title: 'Premium Feature',
-      maxWidth: 400,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.star, size: 48, color: Colors.orange),
-          const SizedBox(height: 16),
-          const Text(
-            'Audio Room is a Premium Feature',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Upgrade to Premium to enjoy voice chat with your opponents during games.',
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.orange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.orange.withOpacity(0.3)),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.mic, color: Colors.orange, size: 20),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Live voice communication with opponents',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Later'),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-            // Navigate to profile screen to purchase premium
-            // Since we don't have named routes, we'll show a message for now
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Visit Profile screen to upgrade to Premium'),
-                duration: Duration(seconds: 3),
-              ),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.orange,
-            foregroundColor: Colors.white,
-          ),
-          child: const Text('Upgrade'),
-        ),
-      ],
-    );
-  }
-
-  void _joinAudioRoom() async {
-    try {
-      // Check if user has premium access
-      if (widget.user.removeAds != true) {
-        _showPremiumRequiredDialog();
-        return;
-      }
-
-      // Initialize Zego Express Engine
-      await _initializeZegoEngine();
-
-      setState(() {
-        _isInAudioRoom = true;
-        _isMicrophoneEnabled = false; // Start with mic disabled
-      });
-
-      // Show success message
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Joined audio room'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      // Handle error
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to join audio room: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  void _exitAudioRoom() async {
-    try {
-      // Zego engine cleanup
-      await _cleanupZegoEngine();
-
-      setState(() {
-        _isInAudioRoom = false;
-        _isMicrophoneEnabled = false;
-        _isSpeakerMuted = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Left audio room'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      // Handle error
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error leaving audio room: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      );
     }
   }
 
@@ -1260,32 +1283,171 @@ class _GameScreenState extends State<GameScreen> {
 
   // 5. Add Zego engine initialization methods (placeholder implementations)
   Future<void> _initializeZegoEngine() async {
-    // Zego Express Engine initialization
-    await ZegoExpressEngine.createEngineWithProfile(
-      ZegoEngineProfile(
-        Env.zegoAppId,
-        ZegoScenario.Default,
-        appSign: Env.zegoAppSign,
-      ),
-    );
+    if (_isZegoEngineInitialized) return;
 
-    // Join room
-    final roomID =
-        _gameProvider.onlineGameRoom?.gameId ??
-        'room_${DateTime.now().millisecondsSinceEpoch}';
-    final userID = widget.user.uid!;
-    final userName = widget.user.displayName;
+    try {
+      // Zego Express Engine initialization
+      await ZegoExpressEngine.createEngineWithProfile(
+        ZegoEngineProfile(
+          Env.zegoAppId,
+          ZegoScenario.Default,
+          appSign: Env.zegoAppSign,
+        ),
+      );
 
-    await ZegoExpressEngine.instance.loginRoom(
-      roomID,
-      ZegoUser(userID, userName),
-    );
+      // Join room
+      final roomID =
+          _gameProvider.onlineGameRoom?.gameId ??
+          'room_${DateTime.now().millisecondsSinceEpoch}';
+      final userID = widget.user.uid!;
+      final userName = widget.user.displayName;
+
+      await ZegoExpressEngine.instance.loginRoom(
+        roomID,
+        ZegoUser(userID, userName),
+      );
+
+      _isZegoEngineInitialized = true;
+      _currentAudioRoomId = roomID;
+    } catch (e) {
+      _gameProvider.logger.e('Failed to initialize ZegoCloud engine: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _initializeZegoEngineIfNeeded() async {
+    if (!_isZegoEngineInitialized) {
+      await _initializeZegoEngine();
+    }
   }
 
   Future<void> _cleanupZegoEngine() async {
-    // Zego Express Engine cleanup
-    await ZegoExpressEngine.instance.logoutRoom();
-    await ZegoExpressEngine.destroyEngine();
+    try {
+      if (_isZegoEngineInitialized) {
+        // Zego Express Engine cleanup
+        await ZegoExpressEngine.instance.logoutRoom();
+        await ZegoExpressEngine.destroyEngine();
+
+        _isZegoEngineInitialized = false;
+        _currentAudioRoomId = null;
+      }
+    } catch (e) {
+      _gameProvider.logger.e('Error during ZegoCloud cleanup: $e');
+    }
+  }
+
+  Future<void> _leaveAudioRoom() async {
+    try {
+      if (_gameProvider.isOnlineGame) {
+        await _gameProvider.leaveAudioRoom(widget.user.uid!);
+      }
+
+      await _cleanupZegoEngine();
+
+      setState(() {
+        _isInAudioRoom = false;
+        _isMicrophoneEnabled = false;
+        _isSpeakerMuted = false;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error leaving audio room: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _showAudioRoomInvitationDialog() {
+    if (!_gameProvider.isOnlineGame) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Audio room is only available in online games'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    AnimatedDialog.show(
+      context: context,
+      title: 'Start Audio Room?',
+      maxWidth: 400,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.mic,
+            size: 48,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Invite your opponent to voice chat',
+            style: TextStyle(fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Your opponent will receive an invitation to join the audio room.',
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.of(context).pop();
+            _sendAudioRoomInvitation();
+          },
+          child: const Text('Invite'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _sendAudioRoomInvitation() async {
+    // Check if user has access first
+    if (!_hasAudioAccess()) {
+      final result = await AudioAccessDialog.show(context: context);
+
+      if (result == AudioAccessAction.watchAd) {
+        _hasTemporaryAudioAccess = true;
+      } else if (result == AudioAccessAction.premium) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Visit Profile screen to upgrade to Premium'),
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      } else {
+        return; // User cancelled
+      }
+    }
+
+    try {
+      await _gameProvider.inviteToAudioRoom(widget.user.uid!);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Audio room invitation sent!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to send invitation: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _localMultiplayerOpponentDataAndTime(

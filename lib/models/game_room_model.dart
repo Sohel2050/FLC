@@ -34,6 +34,15 @@ class GameRoom {
   final bool isPrivate;
   final String? spectatorLink;
 
+  // Audio room fields
+  final String audioRoomStatus; // none, invite_pending, active, declined, ended
+  final String?
+  audioRoomInvitedBy; // UID of the player who invited to audio room
+  final List<String>
+  audioRoomParticipants; // List of UIDs currently in audio room
+  final Timestamp? audioRoomCreatedAt;
+  final Timestamp? audioRoomUpdatedAt;
+
   GameRoom({
     required this.gameId,
     required this.gameMode,
@@ -66,6 +75,11 @@ class GameRoom {
     this.rematchOfferedBy,
     this.isPrivate = false,
     this.spectatorLink,
+    this.audioRoomStatus = Constants.audioStatusNone,
+    this.audioRoomInvitedBy,
+    this.audioRoomParticipants = const [],
+    this.audioRoomCreatedAt,
+    this.audioRoomUpdatedAt,
   });
 
   Map<String, dynamic> toMap() {
@@ -101,6 +115,11 @@ class GameRoom {
       Constants.fieldRematchOfferedBy: rematchOfferedBy,
       Constants.fieldIsPrivate: isPrivate,
       Constants.fieldSpectatorLink: spectatorLink,
+      Constants.fieldAudioRoomStatus: audioRoomStatus,
+      Constants.fieldAudioRoomInvitedBy: audioRoomInvitedBy,
+      Constants.fieldAudioRoomParticipants: audioRoomParticipants,
+      Constants.fieldAudioRoomCreatedAt: audioRoomCreatedAt,
+      Constants.fieldAudioRoomUpdatedAt: audioRoomUpdatedAt,
     };
   }
 
@@ -145,6 +164,14 @@ class GameRoom {
       rematchOfferedBy: map[Constants.fieldRematchOfferedBy],
       isPrivate: map[Constants.fieldIsPrivate] ?? false,
       spectatorLink: map[Constants.fieldSpectatorLink],
+      audioRoomStatus:
+          map[Constants.fieldAudioRoomStatus] ?? Constants.audioStatusNone,
+      audioRoomInvitedBy: map[Constants.fieldAudioRoomInvitedBy],
+      audioRoomParticipants: List<String>.from(
+        map[Constants.fieldAudioRoomParticipants] ?? [],
+      ),
+      audioRoomCreatedAt: map[Constants.fieldAudioRoomCreatedAt],
+      audioRoomUpdatedAt: map[Constants.fieldAudioRoomUpdatedAt],
     );
   }
 
@@ -180,6 +207,11 @@ class GameRoom {
     String? rematchOfferedBy,
     bool? isPrivate,
     String? spectatorLink,
+    String? audioRoomStatus,
+    String? audioRoomInvitedBy,
+    List<String>? audioRoomParticipants,
+    Timestamp? audioRoomCreatedAt,
+    Timestamp? audioRoomUpdatedAt,
   }) {
     return GameRoom(
       gameId: gameId ?? this.gameId,
@@ -213,6 +245,12 @@ class GameRoom {
       rematchOfferedBy: rematchOfferedBy ?? this.rematchOfferedBy,
       isPrivate: isPrivate ?? this.isPrivate,
       spectatorLink: spectatorLink ?? this.spectatorLink,
+      audioRoomStatus: audioRoomStatus ?? this.audioRoomStatus,
+      audioRoomInvitedBy: audioRoomInvitedBy ?? this.audioRoomInvitedBy,
+      audioRoomParticipants:
+          audioRoomParticipants ?? this.audioRoomParticipants,
+      audioRoomCreatedAt: audioRoomCreatedAt ?? this.audioRoomCreatedAt,
+      audioRoomUpdatedAt: audioRoomUpdatedAt ?? this.audioRoomUpdatedAt,
     );
   }
 }
