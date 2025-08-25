@@ -10,6 +10,7 @@ import 'package:flutter_chess_app/screens/profile_screen.dart';
 import 'package:flutter_chess_app/screens/rating_screen.dart';
 import 'package:flutter_chess_app/screens/saved_games_screen.dart';
 import 'package:flutter_chess_app/screens/statistics_screen.dart';
+import 'package:flutter_chess_app/screens/zego_audio_test_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
@@ -305,6 +306,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ],
               ),
               actions: [
+                IconButton(
+                  icon: const Icon(Icons.star_border),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) => ZegoAudioTestScreen(
+                              userId: widget.user.uid!,
+                              userName: widget.user.displayName,
+                            ),
+                      ),
+                    );
+                  },
+                ),
+
                 // Game Invites Icon
                 if (!currentUser.isGuest)
                   StreamBuilder<List<GameRoom>>(
