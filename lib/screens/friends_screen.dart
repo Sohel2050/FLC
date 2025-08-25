@@ -39,14 +39,14 @@ class _FriendsScreenState extends State<FriendsScreen>
   final TextEditingController _searchController = TextEditingController();
   List<ChessUser> _searchResults = [];
   bool _isSearching = false;
-  BannerAd? _bannerAd;
-  bool _hasLoadedAd = false;
+  //BannerAd? _bannerAd;
+  //bool _hasLoadedAd = false;
 
   @override
   bool get wantKeepAlive => true;
 
-  // NativeAd? _nativeAd;
-  // bool isAdLoaded = false;
+  NativeAd? _nativeAd;
+  bool isAdLoaded = false;
 
   @override
   void initState() {
@@ -59,10 +59,9 @@ class _FriendsScreenState extends State<FriendsScreen>
 
     // Only load ad if screen is initially visible
     if (widget.isVisible) {
-      _createBannerAd();
+      //_createBannerAd();
+      _createNativeAd();
     }
-
-    //_createNativeAd();
   }
 
   @override
@@ -70,92 +69,103 @@ class _FriendsScreenState extends State<FriendsScreen>
     super.didUpdateWidget(oldWidget);
     // Load ad when screen becomes visible
     if (widget.isVisible && !oldWidget.isVisible) {
-      _createBannerAd();
+      //_createBannerAd();
+      _createNativeAd();
     }
     // Dispose ad when screen becomes invisible
     else if (!widget.isVisible && oldWidget.isVisible) {
-      _disposeBannerAd();
+      //_disposeBannerAd();
+      _createNativeAd();
     }
   }
 
-  void _createBannerAd() {
-    // Don't load if ads shouldn't be shown
-    if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
-      return;
-    }
-
-    final bannerAdId = AdMobService.getBannerAdUnitId(context);
-    if (bannerAdId == null) {
-      return;
-    }
-
-    // Dispose existing ad if any
-    if (_bannerAd != null) {
-      _bannerAd!.dispose();
-      _bannerAd = null;
-    }
-
-    _bannerAd = BannerAd(
-      adUnitId: bannerAdId,
-      request: const AdRequest(),
-      size: AdSize.banner,
-      listener: BannerAdListener(
-        onAdLoaded: (ad) {
-          print('Banner ad loaded.');
-          _hasLoadedAd = true;
-        },
-        onAdFailedToLoad: (ad, error) {
-          ad.dispose();
-          print('Banner ad failed to load: $error');
-        },
-        onAdOpened: (ad) => print('Banner ad opened.'),
-        onAdClosed: (ad) {
-          ad.dispose();
-          print('Banner ad closed.');
-        },
-        onAdImpression: (ad) => print('Banner ad impression.'),
-      ),
-    )..load();
-  }
-
-  void _disposeBannerAd() {
-    _bannerAd?.dispose();
-    _bannerAd = null;
-    _hasLoadedAd = false; // Reset flag so ad can load again
-  }
-
-  // void _createNativeAd() {
+  // void _createBannerAd() {
+  //   // Don't load if ads shouldn't be shown
   //   if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
   //     return;
   //   }
-  //   _nativeAd = NativeAd(
-  //     adUnitId: AdMobService.getNativeAdUnitId(context) ?? '',
+
+  //   final bannerAdId = AdMobService.getBannerAdUnitId(context);
+  //   if (bannerAdId == null) {
+  //     return;
+  //   }
+
+  //   // Dispose existing ad if any
+  //   if (_bannerAd != null) {
+  //     _bannerAd!.dispose();
+  //     _bannerAd = null;
+  //   }
+
+  //   _bannerAd = BannerAd(
+  //     adUnitId: bannerAdId,
   //     request: const AdRequest(),
-  //     factoryId: 'adFactoryNative',
-  //     listener: NativeAdListener(
+  //     size: AdSize.banner,
+  //     listener: BannerAdListener(
   //       onAdLoaded: (ad) {
-  //         setState(() {
-  //           isAdLoaded = true;
-  //         });
+  //         print('Banner ad loaded.');
+  //         _hasLoadedAd = true;
   //       },
   //       onAdFailedToLoad: (ad, error) {
   //         ad.dispose();
-  //         _createNativeAd();
+  //         print('Banner ad failed to load: $error');
   //       },
+  //       onAdOpened: (ad) => print('Banner ad opened.'),
+  //       onAdClosed: (ad) {
+  //         ad.dispose();
+  //         print('Banner ad closed.');
+  //       },
+  //       onAdImpression: (ad) => print('Banner ad impression.'),
   //     ),
-  //     nativeTemplateStyle: NativeTemplateStyle(
-  //       templateType: TemplateType.small,
-  //     ),
-  //   );
-  //   _nativeAd!.load();
+  //   )..load();
   // }
+
+  // void _disposeBannerAd() {
+  //   _bannerAd?.dispose();
+  //   _bannerAd = null;
+  //   _hasLoadedAd = false; // Reset flag so ad can load again
+  // }
+
+  void _disposeNativeAd() {
+    _nativeAd?.dispose();
+    _nativeAd = null;
+    isAdLoaded = false; // Reset flag so ad can load again
+    setState(() {
+      isAdLoaded = false;
+    });
+  }
+
+  void _createNativeAd() {
+    if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
+      return;
+    }
+    _nativeAd = NativeAd(
+      adUnitId: AdMobService.getNativeAdUnitId(context) ?? '',
+      request: const AdRequest(),
+      factoryId: 'adFactoryNative',
+      listener: NativeAdListener(
+        onAdLoaded: (ad) {
+          setState(() {
+            isAdLoaded = true;
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          _createNativeAd();
+        },
+      ),
+      nativeTemplateStyle: NativeTemplateStyle(
+        templateType: TemplateType.small,
+      ),
+    );
+    _nativeAd!.load();
+  }
 
   @override
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
-    _disposeBannerAd();
-    //_nativeAd?.dispose();
+    //_disposeBannerAd();
+    _disposeNativeAd();
     super.dispose();
   }
 
@@ -250,14 +260,18 @@ class _FriendsScreenState extends State<FriendsScreen>
           _buildBlockedUsersList(),
         ],
       ),
-      bottomNavigationBar:
-          _bannerAd == null
-              ? SizedBox.shrink()
-              : Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                height: 52,
-                child: AdWidget(ad: _bannerAd!),
-              ),
+      bottomNavigationBar: Container(
+        child:
+            isAdLoaded
+                ? ConstrainedBox(
+                  constraints: BoxConstraints(
+                    minHeight: 100.0,
+                    maxHeight: 150.0,
+                  ),
+                  child: AdWidget(ad: _nativeAd!),
+                )
+                : SizedBox.shrink(),
+      ),
     );
   }
 
