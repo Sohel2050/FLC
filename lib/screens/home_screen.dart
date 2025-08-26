@@ -330,21 +330,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 ],
               ),
               actions: [
-                IconButton(
-                  icon: const Icon(Icons.star_border),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder:
-                            (context) => ZegoAudioTestScreen(
-                              userId: widget.user.uid!,
-                              userName: widget.user.displayName,
-                            ),
-                      ),
-                    );
-                  },
-                ),
+                // IconButton(
+                //   icon: const Icon(Icons.star_border),
+                //   onPressed: () {
+                //     Navigator.push(
+                //       context,
+                //       MaterialPageRoute(
+                //         builder:
+                //             (context) => ZegoAudioTestScreen(
+                //               userId: widget.user.uid!,
+                //               userName: widget.user.displayName,
+                //             ),
+                //       ),
+                //     );
+                //   },
+                // ),
 
                 // Game Invites Icon
                 if (!currentUser.isGuest)
