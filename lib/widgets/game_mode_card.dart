@@ -61,7 +61,7 @@ class GameModeCard extends StatelessWidget {
             padding: EdgeInsets.all(isSmallScreen ? 12.0 : 16.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   title,
