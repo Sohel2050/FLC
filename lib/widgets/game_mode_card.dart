@@ -17,11 +17,14 @@ class GameModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
+
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        margin: const EdgeInsets.all(8.0),
+        margin: EdgeInsets.all(isSmallScreen ? 6.0 : 8.0),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16.0),
           image: DecorationImage(
@@ -36,7 +39,7 @@ class GameModeCard extends StatelessWidget {
                         context,
                       ).colorScheme.primary.withValues(alpha: 0.5)
                       : Colors.black.withValues(alpha: 0.2),
-              blurRadius: 10,
+              blurRadius: isSelected ? 12 : 8,
               offset: const Offset(0, 5),
             ),
           ],
@@ -55,7 +58,7 @@ class GameModeCard extends StatelessWidget {
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: EdgeInsets.all(isSmallScreen ? 12.0 : 16.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.end,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,13 +68,15 @@ class GameModeCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
+                    fontSize: isSmallScreen ? 18 : null,
                   ),
                 ),
-                const SizedBox(height: 4),
+                SizedBox(height: isSmallScreen ? 2 : 4),
                 Text(
                   timeControl,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: isSmallScreen ? 12 : null,
                   ),
                 ),
               ],

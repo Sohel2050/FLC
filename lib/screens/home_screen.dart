@@ -42,13 +42,34 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     WidgetsBinding.instance.addObserver(this);
 
+    // Set user online immediately when home screen loads
+    _setUserOnline();
+
     _initializeCloudMessaging();
   }
 
   @override
   void dispose() {
+    // Set user offline when home screen is disposed
+    _setUserOffline();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  // Set user online status
+  void _setUserOnline() {
+    if (!widget.user.isGuest && widget.user.uid != null) {
+      final userService = UserService();
+      userService.updateUserStatusOnline(widget.user.uid!, true);
+    }
+  }
+
+  // Set user offline status
+  void _setUserOffline() {
+    if (!widget.user.isGuest && widget.user.uid != null) {
+      final userService = UserService();
+      userService.updateUserStatusOnline(widget.user.uid!, false);
+    }
   }
 
   // Initialize cloud messaging
@@ -83,21 +104,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
 
+    // Only update status for logged-in users
+    if (widget.user.isGuest || widget.user.uid == null) {
+      return;
+    }
+
     final userService = UserService();
 
     switch (state) {
       case AppLifecycleState.resumed:
-        if (!widget.user.isGuest) {
-          userService.updateUserStatusOnline(widget.user.uid!, true);
-        }
+        // App comes to foreground - set user online
+        userService.updateUserStatusOnline(widget.user.uid!, true);
         break;
       case AppLifecycleState.inactive:
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
-        if (!widget.user.isGuest) {
-          userService.updateUserStatusOnline(widget.user.uid!, false);
-        }
+        // App goes to background or is minimized - set user offline
+        userService.updateUserStatusOnline(widget.user.uid!, false);
         break;
     }
   }

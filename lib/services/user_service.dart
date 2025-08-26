@@ -58,8 +58,25 @@ class UserService {
     return _firestore
         .collection(Constants.usersCollection)
         .where(Constants.isOnline, isEqualTo: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.length);
+        .where(
+          Constants.isGuest,
+          isEqualTo: false,
+        ) // Exclude guest users from count
+        .snapshots(
+          includeMetadataChanges: false,
+        ) // Only get actual data changes
+        .map((snapshot) {
+          try {
+            return snapshot.docs.length;
+          } catch (e) {
+            logger.e('Error processing online players count: $e');
+            return 0;
+          }
+        })
+        .handleError((error) {
+          logger.e('Error in online players count stream: $error');
+          return 0;
+        });
   }
 
   // Update user status to online
@@ -69,8 +86,12 @@ class UserService {
         Constants.isOnline: isOnline,
         Constants.lastSeen: FieldValue.serverTimestamp(),
       });
+      logger.i(
+        'User $uid status updated to ${isOnline ? "online" : "offline"}',
+      );
     } catch (e) {
-      throw Exception('An unknown error occurred while updating user status.');
+      logger.e('Error updating user status for $uid: $e');
+      // Don't throw error to prevent app crashes - this is a background operation
     }
   }
 

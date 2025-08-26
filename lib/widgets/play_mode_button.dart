@@ -18,6 +18,9 @@ class MainAppButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
+
     return SizedBox(
       width: isFullWidth ? double.infinity : null,
       child: ElevatedButton(
@@ -31,7 +34,10 @@ class MainAppButton extends StatelessWidget {
               isPrimary
                   ? Theme.of(context).colorScheme.onPrimary
                   : Theme.of(context).colorScheme.onSecondaryContainer,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: EdgeInsets.symmetric(
+            horizontal: isSmallScreen ? 20 : 24,
+            vertical: isSmallScreen ? 12 : 16,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -40,11 +46,15 @@ class MainAppButton extends StatelessWidget {
           mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (icon != null) ...[Icon(icon), const SizedBox(width: 8)],
+            if (icon != null) ...[
+              Icon(icon, size: isSmallScreen ? 20 : 24),
+              SizedBox(width: isSmallScreen ? 6 : 8),
+            ],
             Text(
               text,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
+                fontSize: isSmallScreen ? 14 : null,
                 color:
                     isPrimary
                         ? Theme.of(context).colorScheme.onPrimary

@@ -121,187 +121,325 @@ class _PlayScreenState extends State<PlayScreen>
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     final gameProvider = context.read<GameProvider>();
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
 
     return Scaffold(
-      body: Column(
-        children: [
-          // Game Modes Carousel
-          Column(
-            children: [
-              // Container for online people count
-              OnlinePlayersCountWidget(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Online Players Count - Fixed height
+            OnlinePlayersCountWidget(),
+
+            // Game Modes Carousel - Responsive height
+            SizedBox(
+              height: isSmallScreen ? 180 : 220,
+              child: Column(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back_ios),
-                    onPressed: () => _carouselController.previousPage(),
-                  ),
-                  Expanded(
-                    child: CarouselSlider.builder(
-                      carouselController: _carouselController,
-                      options: CarouselOptions(
-                        height: 220,
-                        viewportFraction: 0.8,
-                        enlargeCenterPage: true,
-                        onPageChanged: (index, reason) {
-                          setState(() {
-                            _selectedGameMode = index;
-                          });
-                        },
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_ios),
+                        onPressed: () => _carouselController.previousPage(),
                       ),
-                      itemCount: Constants.gameModes.length,
-                      itemBuilder: (context, index, realIndex) {
-                        final mode = Constants.gameModes[index];
-                        return SizedBox(
-                          width: MediaQuery.of(context).size.width * 0.8,
-                          child: GameModeCard(
-                            title: mode[Constants.title],
-                            timeControl: mode[Constants.timeControl],
-                            isSelected: _selectedGameMode == index,
-                            onTap: () {
+                      Expanded(
+                        child: CarouselSlider.builder(
+                          carouselController: _carouselController,
+                          options: CarouselOptions(
+                            height: isSmallScreen ? 140 : 170,
+                            viewportFraction: 0.8,
+                            enlargeCenterPage: true,
+                            onPageChanged: (index, reason) {
                               setState(() {
                                 _selectedGameMode = index;
                               });
-                              _carouselController.animateToPage(index);
                             },
                           ),
-                        );
-                      },
-                    ),
+                          itemCount: Constants.gameModes.length,
+                          itemBuilder: (context, index, realIndex) {
+                            final mode = Constants.gameModes[index];
+                            return SizedBox(
+                              width: MediaQuery.of(context).size.width * 0.8,
+                              child: GameModeCard(
+                                title: mode[Constants.title],
+                                timeControl: mode[Constants.timeControl],
+                                isSelected: _selectedGameMode == index,
+                                onTap: () {
+                                  setState(() {
+                                    _selectedGameMode = index;
+                                  });
+                                  _carouselController.animateToPage(index);
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.arrow_forward_ios),
+                        onPressed: () => _carouselController.nextPage(),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.arrow_forward_ios),
-                    onPressed: () => _carouselController.nextPage(),
+                  const SizedBox(height: 8),
+                  // Carousel indicators
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children:
+                        Constants.gameModes.asMap().entries.map((entry) {
+                          return GestureDetector(
+                            onTap:
+                                () => _carouselController.animateToPage(
+                                  entry.key,
+                                ),
+                            child: Container(
+                              width: 8.0,
+                              height: 8.0,
+                              margin: const EdgeInsets.symmetric(
+                                vertical: 4.0,
+                                horizontal: 3.0,
+                              ),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: (Theme.of(context).brightness ==
+                                            Brightness.dark
+                                        ? Colors.white
+                                        : Colors.black)
+                                    .withValues(
+                                      alpha:
+                                          _selectedGameMode == entry.key
+                                              ? 0.9
+                                              : 0.4,
+                                    ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children:
-                    Constants.gameModes.asMap().entries.map((entry) {
-                      return GestureDetector(
-                        onTap:
-                            () => _carouselController.animateToPage(entry.key),
-                        child: Container(
-                          width: 12.0,
-                          height: 12.0,
-                          margin: const EdgeInsets.symmetric(
-                            vertical: 8.0,
-                            horizontal: 4.0,
-                          ),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: (Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? Colors.white
-                                    : Colors.black)
-                                .withValues(
-                                  alpha:
-                                      _selectedGameMode == entry.key
-                                          ? 0.9
-                                          : 0.4,
-                                ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+            ),
 
-          // Play Buttons
-          Expanded(
-            child: SingleChildScrollView(
+            // Flexible content area for buttons and ads
+            Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
+                  horizontal: 20,
+                  vertical: 8,
                 ),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  spacing: 16.0,
                   children: [
-                    Container(
-                      child:
-                          isAdLoaded
-                              ? ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: 100.0,
-                                  maxHeight: 150.0,
-                                ),
-                                child: AdWidget(ad: _nativeAd!),
-                              )
-                              : SizedBox.shrink(),
-                    ),
+                    // Ad container - Fixed height when ad is loaded
+                    if (isAdLoaded)
+                      Container(
+                        constraints: BoxConstraints(
+                          minHeight: isSmallScreen ? 80 : 100,
+                          maxHeight: isSmallScreen ? 120 : 140,
+                        ),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: AdWidget(ad: _nativeAd!),
+                      ),
 
-                    MainAppButton(
-                      text: 'Play Online',
-                      icon: Icons.public,
-                      onPressed: () async {
-                        final selectedMode =
-                            Constants.gameModes[_selectedGameMode];
-                        final timeControl = selectedMode[Constants.timeControl];
-                        final title = selectedMode[Constants.title];
-                        final userProvider = context.read<UserProvider>();
-                        final currentUser = userProvider.user;
-                        final currentClassicalRating =
-                            currentUser!.classicalRating;
-                        final currentUserTempoRating = currentUser.tempoRating;
-                        final currentUserBlitzRating = currentUser.blitzRating;
+                    // Play buttons - Always visible with proper spacing
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          MainAppButton(
+                            text: 'Play Online',
+                            icon: Icons.public,
+                            onPressed: () async {
+                              final selectedMode =
+                                  Constants.gameModes[_selectedGameMode];
+                              final timeControl =
+                                  selectedMode[Constants.timeControl];
+                              final title = selectedMode[Constants.title];
+                              final userProvider = context.read<UserProvider>();
+                              final currentUser = userProvider.user;
+                              final currentClassicalRating =
+                                  currentUser!.classicalRating;
+                              final currentUserTempoRating =
+                                  currentUser.tempoRating;
+                              final currentUserBlitzRating =
+                                  currentUser.blitzRating;
 
-                        var userRating = currentClassicalRating;
+                              var userRating = currentClassicalRating;
 
-                        // Get the user rating according to the selected game mode
-                        if (title == Constants.blitz3 ||
-                            title == Constants.blitz5) {
-                          userRating = currentUserBlitzRating;
-                        } else if (title == Constants.tempo) {
-                          userRating = currentUserTempoRating;
-                        } else if (title == Constants.classical) {
-                          userRating = currentClassicalRating;
-                        }
+                              // Get the user rating according to the selected game mode
+                              if (title == Constants.blitz3 ||
+                                  title == Constants.blitz5) {
+                                userRating = currentUserBlitzRating;
+                              } else if (title == Constants.tempo) {
+                                userRating = currentUserTempoRating;
+                              } else if (title == Constants.classical) {
+                                userRating = currentClassicalRating;
+                              }
 
-                        LoadingDialog.show(
-                          context,
-                          message: 'Searching for opponent...',
-                          barrierDismissible: false,
-                          showOnlineCount: true,
-                          showCancelButton: true,
-                          onCancel: () => gameProvider.cancelOnlineGameSearch(),
-                        );
-
-                        try {
-                          await gameProvider.startOnlineGameSearch(
-                            userId: currentUser.uid!,
-                            displayName: currentUser.displayName,
-                            photoUrl: currentUser.photoUrl,
-                            playerFlag: currentUser.countryCode ?? '',
-                            userRating: userRating,
-                            gameMode: timeControl,
-                            ratingBasedSearch:
-                                context
-                                    .read<SettingsProvider>()
-                                    .ratingBasedSearch,
-                            context: context,
-                          );
-
-                          if (context.mounted) {
-                            // Wait for game to become active before navigating
-                            await gameProvider.waitForGameToStart();
-
-                            gameProvider.setLoading(false);
-
-                            if (context.mounted) {
-                              // Hide loading dialog
-                              LoadingDialog.hide(context);
-                              // Lets have a small delay to ensure UI is updated
-                              await Future.delayed(
-                                const Duration(milliseconds: 500),
+                              LoadingDialog.show(
+                                context,
+                                message: 'Searching for opponent...',
+                                barrierDismissible: false,
+                                showOnlineCount: true,
+                                showCancelButton: true,
+                                onCancel:
+                                    () => gameProvider.cancelOnlineGameSearch(),
                               );
-                              // Navigate to GameScreen after game is ready
+
+                              try {
+                                await gameProvider.startOnlineGameSearch(
+                                  userId: currentUser.uid!,
+                                  displayName: currentUser.displayName,
+                                  photoUrl: currentUser.photoUrl,
+                                  playerFlag: currentUser.countryCode ?? '',
+                                  userRating: userRating,
+                                  gameMode: timeControl,
+                                  ratingBasedSearch:
+                                      context
+                                          .read<SettingsProvider>()
+                                          .ratingBasedSearch,
+                                  context: context,
+                                );
+
+                                if (context.mounted) {
+                                  // Wait for game to become active before navigating
+                                  await gameProvider.waitForGameToStart();
+
+                                  gameProvider.setLoading(false);
+
+                                  if (context.mounted) {
+                                    // Hide loading dialog
+                                    LoadingDialog.hide(context);
+                                    // Lets have a small delay to ensure UI is updated
+                                    await Future.delayed(
+                                      const Duration(milliseconds: 500),
+                                    );
+                                    // Navigate to GameScreen after game is ready
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (context) =>
+                                                GameScreen(user: widget.user),
+                                      ),
+                                    );
+                                  }
+                                }
+                              } catch (e) {
+                                gameProvider.setLoading(false);
+                                if (context.mounted) {
+                                  LoadingDialog.hide(context);
+                                  // ScaffoldMessenger.of(context).showSnackBar(
+                                  //   SnackBar(
+                                  //     content: Text('Failed to start online game: $e'),
+                                  //     backgroundColor: Colors.red,
+                                  //   ),
+                                  // );
+                                }
+                              }
+                            },
+                            isFullWidth: true,
+                          ),
+
+                          MainAppButton(
+                            text: 'Play vs CPU',
+                            icon: Icons.computer,
+                            onPressed: () async {
+                              final selectedMode =
+                                  Constants.gameModes[_selectedGameMode];
+                              final timeControl =
+                                  selectedMode[Constants.timeControl];
+
+                              // Will show loading while initializing Stockfish
+                              gameProvider.setLoading(true);
+                              LoadingDialog.show(
+                                context,
+                                message: 'Initializing Stockfish engine...',
+                                barrierDismissible: false,
+                              );
+
+                              try {
+                                // Save game settings to provider
+                                await gameProvider.setVsCPU(true);
+
+                                // Initialize Stockfish before showing dialog
+                                await gameProvider.initializeStockfish();
+
+                                gameProvider.setLoading(false);
+
+                                if (context.mounted) {
+                                  // Hide loading dialog
+                                  LoadingDialog.hide(context);
+
+                                  // Show CPU difficulty selection dialog
+                                  final result = await AnimatedDialog.show(
+                                    context: context,
+                                    title: 'Play vs CPU',
+                                    maxWidth: 400,
+                                    child: CPUDifficultyDialog(
+                                      onConfirm: (difficulty, playerColor) {
+                                        gameProvider.setGameLevel(difficulty);
+                                        gameProvider.setPlayer(playerColor);
+                                        gameProvider.setTimeControl(
+                                          timeControl,
+                                        );
+
+                                        // Return the values instead of navigating here
+                                        Navigator.of(context).pop({
+                                          'difficulty': difficulty,
+                                          'playerColor': playerColor,
+                                        });
+                                      },
+                                    ),
+                                  );
+
+                                  // Navigate after dialog is closed with result
+                                  if (result != null && result is Map) {
+                                    if (context.mounted) {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) =>
+                                                  GameScreen(user: widget.user),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                }
+                              } catch (e) {
+                                gameProvider.setLoading(false);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        'Failed to initialize chess engine: $e',
+                                      ),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              }
+                            },
+                            isPrimary: false,
+                            isFullWidth: true,
+                          ),
+
+                          MainAppButton(
+                            text: 'Local Multiplayer',
+                            icon: Icons.people,
+                            onPressed: () {
+                              final selectedMode =
+                                  Constants.gameModes[_selectedGameMode];
+                              final timeControl =
+                                  selectedMode[Constants.timeControl];
+
+                              gameProvider.setVsCPU(
+                                false,
+                              ); // Ensure vsCPU is false
+                              gameProvider.setLocalMultiplayer(true);
+                              gameProvider.setTimeControl(timeControl);
+
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -310,133 +448,19 @@ class _PlayScreenState extends State<PlayScreen>
                                           GameScreen(user: widget.user),
                                 ),
                               );
-                            }
-                          }
-                        } catch (e) {
-                          gameProvider.setLoading(false);
-                          if (context.mounted) {
-                            LoadingDialog.hide(context);
-                            // ScaffoldMessenger.of(context).showSnackBar(
-                            //   SnackBar(
-                            //     content: Text('Failed to start online game: $e'),
-                            //     backgroundColor: Colors.red,
-                            //   ),
-                            // );
-                          }
-                        }
-                      },
-                      isFullWidth: true,
-                    ),
-
-                    MainAppButton(
-                      text: 'Play vs CPU',
-                      icon: Icons.computer,
-                      onPressed: () async {
-                        final selectedMode =
-                            Constants.gameModes[_selectedGameMode];
-                        final timeControl = selectedMode[Constants.timeControl];
-
-                        // Will show loading while initializing Stockfish
-                        gameProvider.setLoading(true);
-                        LoadingDialog.show(
-                          context,
-                          message: 'Initializing Stockfish engine...',
-                          barrierDismissible: false,
-                        );
-
-                        try {
-                          // Save game settings to provider
-                          await gameProvider.setVsCPU(true);
-
-                          // Initialize Stockfish before showing dialog
-                          await gameProvider.initializeStockfish();
-
-                          gameProvider.setLoading(false);
-
-                          if (context.mounted) {
-                            // Hide loading dialog
-                            LoadingDialog.hide(context);
-
-                            // Show CPU difficulty selection dialog
-                            final result = await AnimatedDialog.show(
-                              context: context,
-                              title: 'Play vs CPU',
-                              maxWidth: 400,
-                              child: CPUDifficultyDialog(
-                                onConfirm: (difficulty, playerColor) {
-                                  gameProvider.setGameLevel(difficulty);
-                                  gameProvider.setPlayer(playerColor);
-                                  gameProvider.setTimeControl(timeControl);
-
-                                  // Return the values instead of navigating here
-                                  Navigator.of(context).pop({
-                                    'difficulty': difficulty,
-                                    'playerColor': playerColor,
-                                  });
-                                },
-                              ),
-                            );
-
-                            // Navigate after dialog is closed with result
-                            if (result != null && result is Map) {
-                              if (context.mounted) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder:
-                                        (context) =>
-                                            GameScreen(user: widget.user),
-                                  ),
-                                );
-                              }
-                            }
-                          }
-                        } catch (e) {
-                          gameProvider.setLoading(false);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Failed to initialize chess engine: $e',
-                                ),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      isPrimary: false,
-                      isFullWidth: true,
-                    ),
-
-                    MainAppButton(
-                      text: 'Local Multiplayer',
-                      icon: Icons.people,
-                      onPressed: () {
-                        final selectedMode =
-                            Constants.gameModes[_selectedGameMode];
-                        final timeControl = selectedMode[Constants.timeControl];
-
-                        gameProvider.setVsCPU(false); // Ensure vsCPU is false
-                        gameProvider.setLocalMultiplayer(true);
-                        gameProvider.setTimeControl(timeControl);
-
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => GameScreen(user: widget.user),
+                            },
+                            isPrimary: false,
+                            isFullWidth: true,
                           ),
-                        );
-                      },
-                      isPrimary: false,
-                      isFullWidth: true,
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

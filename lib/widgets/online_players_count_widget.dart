@@ -1,12 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
 
-class OnlinePlayersCountWidget extends StatelessWidget {
+class OnlinePlayersCountWidget extends StatefulWidget {
   const OnlinePlayersCountWidget({super.key});
 
   @override
+  State<OnlinePlayersCountWidget> createState() =>
+      _OnlinePlayersCountWidgetState();
+}
+
+class _OnlinePlayersCountWidgetState extends State<OnlinePlayersCountWidget> {
+  final UserService _userService = UserService();
+  Stream<int>? _onlineCountStream;
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize stream immediately
+    _onlineCountStream = _userService.getOnlinePlayersCountStream();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final userService = UserService();
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
@@ -21,19 +36,48 @@ class OnlinePlayersCountWidget extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.people, color: Colors.white),
+            Icon(
+              Icons.people,
+              color: Theme.of(context).colorScheme.onPrimaryContainer,
+              size: 20,
+            ),
             const SizedBox(width: 8.0),
             StreamBuilder<int>(
-              stream: userService.getOnlinePlayersCountStream(),
+              stream: _onlineCountStream,
               builder: (context, snapshot) {
+                // Show loading indicator while waiting for data
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const SizedBox();
+                  return SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
+                  );
                 }
+
+                // Handle errors by showing 0 but log the error
+                if (snapshot.hasError) {
+                  debugPrint(
+                    'Error in online players count stream: ${snapshot.error}',
+                  );
+                  return Text(
+                    '0',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      fontSize: 16.0,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  );
+                }
+
+                // Display the actual count
                 final onlineCount = snapshot.data ?? 0;
                 return Text(
                   '$onlineCount',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onPrimaryContainer,
                     fontSize: 16.0,
                     fontWeight: FontWeight.bold,
                   ),
