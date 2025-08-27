@@ -29,39 +29,41 @@ class AudioControlsWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.8),
+        color: Theme.of(
+          context,
+        ).colorScheme.primaryContainer.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           // Audio indicator
-          Container(
-            padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              color: Colors.green,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Icon(
-              Icons.radio_button_checked,
-              size: 12,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(width: 8),
+          // Container(
+          //   padding: const EdgeInsets.all(4),
+          //   decoration: BoxDecoration(
+          //     color: Colors.green,
+          //     borderRadius: BorderRadius.circular(4),
+          //   ),
+          //   child: Icon(
+          //     Icons.radio_button_checked,
+          //     size: 12,
+          //     color: Colors.white,
+          //   ),
+          // ),
+          // const SizedBox(width: 8),
 
-          // Participants count
-          Text(
-            '${participants.length}',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: Theme.of(context).colorScheme.onPrimaryContainer,
-            ),
-          ),
-          const SizedBox(width: 8),
+          // // Participants count
+          // Text(
+          //   '${participants.length}',
+          //   style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          //     fontWeight: FontWeight.w600,
+          //     color: Theme.of(context).colorScheme.onPrimaryContainer,
+          //   ),
+          // ),
+          // const SizedBox(width: 8),
 
           // Microphone control
           _buildControlButton(
@@ -111,7 +113,7 @@ class AudioControlsWidget extends StatelessWidget {
             ? Theme.of(context).colorScheme.error
             : isEnabled
             ? Theme.of(context).colorScheme.primary
-            : Theme.of(context).colorScheme.surfaceVariant;
+            : Theme.of(context).colorScheme.surfaceContainerHighest;
 
     final iconColor =
         isDestructive
