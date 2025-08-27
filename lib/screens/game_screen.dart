@@ -6,6 +6,7 @@ import 'package:flutter_chess_app/models/game_room_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/services/admob_service.dart';
+import 'package:flutter_chess_app/services/permission_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/audio_access_dialog.dart';
@@ -46,6 +47,10 @@ class _GameScreenState extends State<GameScreen> {
   bool _isZegoEngineInitialized = false;
   String? _currentAudioRoomId;
   StreamSubscription<GameRoom>? _audioRoomSubscription;
+
+  // Audio stream management
+  String? _publishStreamId;
+  Set<String> _playingStreams = <String>{};
 
   BannerAd? _bannerAd;
 
@@ -280,6 +285,28 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _handleAudioRoomJoin() async {
+    // Check microphone permission first
+    final permissionService = PermissionService();
+    final permissionResult = await permissionService
+        .requestMicrophonePermission(context);
+
+    if (permissionResult == PermissionResult.denied) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Microphone permission is required for voice chat'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    } else if (permissionResult == PermissionResult.permanentlyDenied) {
+      await permissionService.handlePermanentlyDeniedPermission(
+        context,
+        'Microphone',
+      );
+      return;
+    }
+
     // Check if user has premium or temporary access
     if (!_hasAudioAccess()) {
       final result = await AudioAccessDialog.show(context: context);
@@ -307,6 +334,14 @@ class _GameScreenState extends State<GameScreen> {
       // Initialize ZegoCloud if not already done
       await _initializeZegoEngineIfNeeded();
 
+      // Check if there are existing participants and start playing their streams
+      final participants = _gameProvider.getAudioRoomParticipants();
+      for (final participantId in participants) {
+        if (participantId != widget.user.uid) {
+          await _startPlayingOpponentStream(participantId);
+        }
+      }
+
       setState(() {
         _isInAudioRoom = true;
         _isMicrophoneEnabled = false; // Start with mic disabled
@@ -331,8 +366,28 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _autoJoinAudioRoom() async {
     if (_isInAudioRoom) return;
 
+    // Check microphone permission before auto-joining
+    final permissionService = PermissionService();
+    final hasPermission =
+        await permissionService.isMicrophonePermissionGranted();
+
+    if (!hasPermission) {
+      _gameProvider.logger.w(
+        'Cannot auto-join audio room: microphone permission not granted',
+      );
+      return;
+    }
+
     try {
       await _initializeZegoEngineIfNeeded();
+
+      // Check if there are existing participants and start playing their streams
+      final participants = _gameProvider.getAudioRoomParticipants();
+      for (final participantId in participants) {
+        if (participantId != widget.user.uid) {
+          await _startPlayingOpponentStream(participantId);
+        }
+      }
 
       setState(() {
         _isInAudioRoom = true;
@@ -941,34 +996,6 @@ class _GameScreenState extends State<GameScreen> {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(width: 8),
-                        // Audio room controls for online games only
-                        if (gameProvider.isOnlineGame) ...[
-                          AudioControlsWidget(
-                            isInAudioRoom: _isInAudioRoom,
-                            isMicrophoneEnabled: _isMicrophoneEnabled,
-                            isSpeakerMuted: _isSpeakerMuted,
-                            participants:
-                                gameProvider.getAudioRoomParticipants(),
-                            onToggleMicrophone: _toggleMicrophone,
-                            onToggleSpeaker: _toggleSpeakerMute,
-                            onLeaveAudio: _leaveAudioRoom,
-                          ),
-                          const SizedBox(width: 4),
-                          if (!_isInAudioRoom)
-                            IconButton(
-                              icon: Icon(
-                                Icons.mic,
-                                size: 20,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              onPressed: _showAudioRoomInvitationDialog,
-                              tooltip: 'Start Audio Room',
-                              constraints: const BoxConstraints(
-                                minWidth: 32,
-                                minHeight: 32,
-                              ),
-                            ),
-                        ],
                         if (!gameProvider.isOpponentFriend &&
                             !gameProvider.friendRequestReceived)
                           IconButton(
@@ -1232,61 +1259,151 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _toggleMicrophone() async {
-    try {
-      if (_isMicrophoneEnabled) {
-        // Disable microphone in Zego
-        await ZegoExpressEngine.instance.muteMicrophone(true);
-      } else {
-        // Enable microphone in Zego
-        await ZegoExpressEngine.instance.muteMicrophone(false);
-      }
-
-      setState(() {
-        _isMicrophoneEnabled = !_isMicrophoneEnabled;
-      });
-    } catch (e) {
+    // Ensure engine is initialized before attempting to control microphone
+    if (!_isZegoEngineInitialized) {
+      _gameProvider.logger.w(
+        'Attempted to toggle microphone before ZegoCloud engine initialization',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to toggle microphone: $e'),
-            backgroundColor: Colors.red,
+          const SnackBar(
+            content: Text(
+              'Voice chat not initialized. Please try joining the audio room again.',
+            ),
+            backgroundColor: Colors.orange,
           ),
         );
       }
+      return;
+    }
+
+    // Check if microphone permission is still granted
+    final permissionService = PermissionService();
+    final hasPermission =
+        await permissionService.isMicrophonePermissionGranted();
+
+    if (!hasPermission) {
+      _gameProvider.logger.w('Microphone permission revoked during runtime');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Microphone permission is required for voice chat'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Store the current state to revert if operation fails
+    final bool previousState = _isMicrophoneEnabled;
+    final bool newState = !_isMicrophoneEnabled;
+
+    try {
+      // Update UI state optimistically
+      setState(() {
+        _isMicrophoneEnabled = newState;
+      });
+
+      // Apply the change to ZegoCloud
+      await ZegoExpressEngine.instance.muteMicrophone(!newState);
+
+      _gameProvider.logger.i(
+        newState ? 'Microphone unmuted' : 'Microphone muted',
+      );
+
+      // Verify the state was applied correctly by checking ZegoCloud state
+      // Note: ZegoCloud doesn't provide a direct way to query microphone state,
+      // so we rely on the success of the API call
+    } catch (e) {
+      // Revert UI state on failure
+      if (mounted) {
+        setState(() {
+          _isMicrophoneEnabled = previousState;
+        });
+      }
+
+      // Handle the error with user-friendly feedback
+      _handleAudioControlFailure(
+        '${newState ? 'unmute' : 'mute'} microphone',
+        e,
+        previousState,
+      );
     }
   }
 
   void _toggleSpeakerMute() async {
-    try {
-      if (_isSpeakerMuted) {
-        // Unmute speaker in Zego
-        await ZegoExpressEngine.instance.muteSpeaker(false);
-      } else {
-        // Mute speaker in Zego
-        await ZegoExpressEngine.instance.muteSpeaker(true);
-      }
-
-      setState(() {
-        _isSpeakerMuted = !_isSpeakerMuted;
-      });
-    } catch (e) {
+    // Ensure engine is initialized before attempting to control speaker
+    if (!_isZegoEngineInitialized) {
+      _gameProvider.logger.w(
+        'Attempted to toggle speaker before ZegoCloud engine initialization',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to toggle speaker: $e'),
-            backgroundColor: Colors.red,
+          const SnackBar(
+            content: Text(
+              'Voice chat not initialized. Please try joining the audio room again.',
+            ),
+            backgroundColor: Colors.orange,
           ),
         );
       }
+      return;
+    }
+
+    // Store the current state to revert if operation fails
+    final bool previousState = _isSpeakerMuted;
+    final bool newState = !_isSpeakerMuted;
+
+    try {
+      // Update UI state optimistically
+      setState(() {
+        _isSpeakerMuted = newState;
+      });
+
+      // Apply the change to ZegoCloud
+      await ZegoExpressEngine.instance.muteSpeaker(newState);
+
+      _gameProvider.logger.i(newState ? 'Speaker muted' : 'Speaker unmuted');
+
+      // Verify the state was applied correctly by checking ZegoCloud state
+      // Note: ZegoCloud doesn't provide a direct way to query speaker state,
+      // so we rely on the success of the API call
+    } catch (e) {
+      // Revert UI state on failure
+      if (mounted) {
+        setState(() {
+          _isSpeakerMuted = previousState;
+        });
+      }
+
+      // Handle the error with user-friendly feedback
+      _handleAudioControlFailure(
+        '${newState ? 'mute' : 'unmute'} speaker',
+        e,
+        previousState,
+      );
     }
   }
 
-  // 5. Add Zego engine initialization methods (placeholder implementations)
+  // 5. Add Zego engine initialization methods
   Future<void> _initializeZegoEngine() async {
     if (_isZegoEngineInitialized) return;
 
+    // Check microphone permission before initializing ZegoCloud engine
+    final permissionService = PermissionService();
+    final hasPermission =
+        await permissionService.isMicrophonePermissionGranted();
+
+    if (!hasPermission) {
+      throw Exception('Microphone permission is required for voice chat');
+    }
+
     try {
-      // Zego Express Engine initialization
+      _gameProvider.logger.i('Starting ZegoCloud engine initialization...');
+
+      // Step 1: Create engine with profile
       await ZegoExpressEngine.createEngineWithProfile(
         ZegoEngineProfile(
           Env.zegoAppId,
@@ -1294,46 +1411,361 @@ class _GameScreenState extends State<GameScreen> {
           appSign: Env.zegoAppSign,
         ),
       );
+      _gameProvider.logger.i('ZegoCloud engine created successfully');
 
-      // Join room
+      // Step 2: Set up stream event listeners before login
+      _setupZegoStreamEventListeners();
+
+      // Step 3: Login to room
       final roomID =
           _gameProvider.onlineGameRoom?.gameId ??
           'room_${DateTime.now().millisecondsSinceEpoch}';
       final userID = widget.user.uid!;
-      final userName = widget.user.displayName;
+      final userName = widget.user.displayName ?? 'User';
 
       await ZegoExpressEngine.instance.loginRoom(
         roomID,
         ZegoUser(userID, userName),
       );
+      _gameProvider.logger.i(
+        'Successfully logged into ZegoCloud room: $roomID',
+      );
+
+      // Step 4: Start publishing stream for sending audio
+      _publishStreamId = '${userID}_audio_stream';
+      await ZegoExpressEngine.instance.startPublishingStream(_publishStreamId!);
+      _gameProvider.logger.i(
+        'Started publishing audio stream: $_publishStreamId',
+      );
 
       _isZegoEngineInitialized = true;
       _currentAudioRoomId = roomID;
+
+      // Initialize audio states to default values
+      await _initializeAudioStates();
+
+      // Sync audio states to ensure consistency
+      await _syncAudioStates();
+
+      _gameProvider.logger.i(
+        'ZegoCloud engine initialization completed successfully',
+      );
     } catch (e) {
       _gameProvider.logger.e('Failed to initialize ZegoCloud engine: $e');
+
+      // Cleanup on failure
+      try {
+        await _cleanupZegoEngineOnFailure();
+      } catch (cleanupError) {
+        _gameProvider.logger.e(
+          'Error during cleanup after initialization failure: $cleanupError',
+        );
+      }
+
+      _isZegoEngineInitialized = false;
+      _currentAudioRoomId = null;
+      _publishStreamId = null;
+
+      // Show user-friendly error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to initialize voice chat: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+
       rethrow;
     }
   }
 
   Future<void> _initializeZegoEngineIfNeeded() async {
     if (!_isZegoEngineInitialized) {
-      await _initializeZegoEngine();
+      try {
+        await _initializeZegoEngine();
+      } catch (e) {
+        _gameProvider.logger.e(
+          'Failed to initialize ZegoCloud engine when needed: $e',
+        );
+        throw Exception('Voice chat initialization failed. Please try again.');
+      }
+    }
+  }
+
+  /// Initialize audio states to ensure UI reflects ZegoCloud state
+  Future<void> _initializeAudioStates() async {
+    try {
+      // Set initial microphone state (start with microphone disabled for better UX)
+      await ZegoExpressEngine.instance.muteMicrophone(true);
+
+      // Set initial speaker state (start with speaker enabled)
+      await ZegoExpressEngine.instance.muteSpeaker(false);
+
+      // Update UI state to match ZegoCloud state
+      if (mounted) {
+        setState(() {
+          _isMicrophoneEnabled = false; // Microphone starts muted
+          _isSpeakerMuted = false; // Speaker starts unmuted
+        });
+      }
+
+      _gameProvider.logger.i(
+        'Audio states initialized: mic=muted, speaker=unmuted',
+      );
+    } catch (e) {
+      _gameProvider.logger.w('Failed to initialize audio states: $e');
+      // Don't throw error as this is not critical for engine initialization
+    }
+  }
+
+  /// Synchronize UI state with ZegoCloud audio state
+  /// This method can be called to ensure UI reflects actual ZegoCloud state
+  Future<void> _syncAudioStates() async {
+    if (!_isZegoEngineInitialized) {
+      _gameProvider.logger.w(
+        'Cannot sync audio states: ZegoCloud engine not initialized',
+      );
+      return;
+    }
+
+    try {
+      // Note: ZegoCloud SDK doesn't provide direct methods to query current audio states
+      // So we rely on our internal state tracking and the success of API calls
+      // If there are discrepancies, they will be corrected when users interact with controls
+
+      _gameProvider.logger.i(
+        'Audio states synced: mic=${_isMicrophoneEnabled ? 'enabled' : 'disabled'}, '
+        'speaker=${_isSpeakerMuted ? 'muted' : 'unmuted'}',
+      );
+    } catch (e) {
+      _gameProvider.logger.w('Failed to sync audio states: $e');
+    }
+  }
+
+  /// Handle audio control failures with appropriate user feedback and recovery
+  void _handleAudioControlFailure(
+    String operation,
+    dynamic error,
+    bool revertToState,
+  ) {
+    _gameProvider.logger.e('Audio control failure - $operation: $error');
+
+    if (mounted) {
+      // Show user-friendly error message
+      String userMessage;
+      if (error.toString().contains('permission')) {
+        userMessage = 'Microphone permission required for voice chat';
+      } else if (error.toString().contains('network') ||
+          error.toString().contains('connection')) {
+        userMessage =
+            'Network error. Please check your connection and try again';
+      } else if (error.toString().contains('engine') ||
+          error.toString().contains('initialize')) {
+        userMessage =
+            'Voice chat not ready. Please try rejoining the audio room';
+      } else {
+        userMessage = 'Failed to $operation. Please try again';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 8),
+              Expanded(child: Text(userMessage)),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Retry',
+            textColor: Colors.white,
+            onPressed: () {
+              // Provide retry option for critical operations
+              if (operation.contains('microphone')) {
+                _toggleMicrophone();
+              } else if (operation.contains('speaker')) {
+                _toggleSpeakerMute();
+              }
+            },
+          ),
+        ),
+      );
+    }
+  }
+
+  void _setupZegoStreamEventListeners() {
+    // Listen for remote users joining/leaving the room
+    ZegoExpressEngine.onRoomUserUpdate = (roomID, updateType, userList) {
+      _gameProvider.logger.i(
+        'Room user update - Room: $roomID, Type: $updateType, Users: ${userList.map((u) => u.userID).join(', ')}',
+      );
+
+      for (final user in userList) {
+        if (user.userID != widget.user.uid) {
+          if (updateType == ZegoUpdateType.Add) {
+            // User joined - start playing their stream
+            _startPlayingOpponentStream(user.userID);
+          } else {
+            // User left - stop playing their stream
+            _stopPlayingOpponentStream(user.userID);
+          }
+        }
+      }
+    };
+
+    // Listen for stream updates (when users start/stop publishing)
+    ZegoExpressEngine.onRoomStreamUpdate = (
+      roomID,
+      updateType,
+      streamList,
+      extendedData,
+    ) {
+      _gameProvider.logger.i(
+        'Stream update - Room: $roomID, Type: $updateType, Streams: ${streamList.map((s) => s.streamID).join(', ')}',
+      );
+
+      for (final stream in streamList) {
+        final streamUserId = _extractUserIdFromStreamId(stream.streamID);
+        if (streamUserId != widget.user.uid) {
+          if (updateType == ZegoUpdateType.Add) {
+            // New stream available - start playing it
+            _startPlayingStream(stream.streamID);
+          } else {
+            // Stream ended - stop playing it
+            _stopPlayingStream(stream.streamID);
+          }
+        }
+      }
+    };
+  }
+
+  String _extractUserIdFromStreamId(String streamId) {
+    // Stream IDs are in format: "userId_audio_stream"
+    return streamId.split('_').first;
+  }
+
+  Future<void> _startPlayingOpponentStream(String opponentUserId) async {
+    final streamId = '${opponentUserId}_audio_stream';
+    await _startPlayingStream(streamId);
+  }
+
+  Future<void> _startPlayingStream(String streamId) async {
+    if (_playingStreams.contains(streamId)) {
+      _gameProvider.logger.i('Already playing stream: $streamId');
+      return;
+    }
+
+    try {
+      await ZegoExpressEngine.instance.startPlayingStream(streamId);
+      _playingStreams.add(streamId);
+      _gameProvider.logger.i('Started playing audio stream: $streamId');
+    } catch (e) {
+      _gameProvider.logger.e('Failed to start playing stream $streamId: $e');
+    }
+  }
+
+  Future<void> _stopPlayingOpponentStream(String opponentUserId) async {
+    final streamId = '${opponentUserId}_audio_stream';
+    await _stopPlayingStream(streamId);
+  }
+
+  Future<void> _stopPlayingStream(String streamId) async {
+    if (!_playingStreams.contains(streamId)) {
+      return;
+    }
+
+    try {
+      await ZegoExpressEngine.instance.stopPlayingStream(streamId);
+      _playingStreams.remove(streamId);
+      _gameProvider.logger.i('Stopped playing audio stream: $streamId');
+    } catch (e) {
+      _gameProvider.logger.e('Failed to stop playing stream $streamId: $e');
     }
   }
 
   Future<void> _cleanupZegoEngine() async {
     try {
       if (_isZegoEngineInitialized) {
-        // Zego Express Engine cleanup
-        await ZegoExpressEngine.instance.logoutRoom();
-        await ZegoExpressEngine.destroyEngine();
+        _gameProvider.logger.i('Starting ZegoCloud engine cleanup...');
+
+        // Step 1: Stop all playing streams
+        final playingStreamsCopy = Set<String>.from(_playingStreams);
+        for (final streamId in playingStreamsCopy) {
+          try {
+            await _stopPlayingStream(streamId);
+          } catch (e) {
+            _gameProvider.logger.w(
+              'Error stopping playing stream $streamId: $e',
+            );
+          }
+        }
+
+        // Step 2: Stop publishing stream
+        if (_publishStreamId != null) {
+          try {
+            await ZegoExpressEngine.instance.stopPublishingStream();
+            _gameProvider.logger.i(
+              'Stopped publishing audio stream: $_publishStreamId',
+            );
+            _publishStreamId = null;
+          } catch (e) {
+            _gameProvider.logger.w('Error stopping publishing stream: $e');
+          }
+        }
+
+        // Step 3: Logout from room
+        try {
+          await ZegoExpressEngine.instance.logoutRoom();
+          _gameProvider.logger.i('Successfully logged out from ZegoCloud room');
+        } catch (e) {
+          _gameProvider.logger.w('Error logging out from room: $e');
+        }
+
+        // Step 4: Clear event listeners
+        ZegoExpressEngine.onRoomUserUpdate = null;
+        ZegoExpressEngine.onRoomStreamUpdate = null;
+
+        // Step 5: Destroy engine
+        try {
+          await ZegoExpressEngine.destroyEngine();
+          _gameProvider.logger.i('ZegoCloud engine destroyed successfully');
+        } catch (e) {
+          _gameProvider.logger.w('Error destroying engine: $e');
+        }
 
         _isZegoEngineInitialized = false;
         _currentAudioRoomId = null;
+        _playingStreams.clear();
+
+        _gameProvider.logger.i('ZegoCloud engine cleanup completed');
       }
     } catch (e) {
       _gameProvider.logger.e('Error during ZegoCloud cleanup: $e');
+
+      // Force reset state even if cleanup failed
+      _isZegoEngineInitialized = false;
+      _currentAudioRoomId = null;
+      _publishStreamId = null;
+      _playingStreams.clear();
     }
+  }
+
+  Future<void> _cleanupZegoEngineOnFailure() async {
+    try {
+      if (_isZegoEngineInitialized) {
+        await ZegoExpressEngine.destroyEngine();
+      }
+    } catch (e) {
+      _gameProvider.logger.w('Error during failure cleanup: $e');
+    }
+
+    // Clear event listeners
+    ZegoExpressEngine.onRoomUserUpdate = null;
+    ZegoExpressEngine.onRoomStreamUpdate = null;
   }
 
   Future<void> _leaveAudioRoom() async {
@@ -1412,6 +1844,28 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _sendAudioRoomInvitation() async {
+    // Check microphone permission first
+    final permissionService = PermissionService();
+    final permissionResult = await permissionService
+        .requestMicrophonePermission(context);
+
+    if (permissionResult == PermissionResult.denied) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Microphone permission is required for voice chat'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    } else if (permissionResult == PermissionResult.permanentlyDenied) {
+      await permissionService.handlePermanentlyDeniedPermission(
+        context,
+        'Microphone',
+      );
+      return;
+    }
+
     // Check if user has access first
     if (!_hasAudioAccess()) {
       final result = await AudioAccessDialog.show(context: context);

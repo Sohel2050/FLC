@@ -3,11 +3,11 @@ import 'dart:developer';
 import 'package:country_flags/country_flags.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/services/assets_manager.dart';
+import 'package:flutter_chess_app/services/permission_service.dart';
 import 'package:flutter_chess_app/widgets/avatar_selection_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class ProfileImageWidget extends StatelessWidget {
   final String? imageUrl;
@@ -171,14 +171,14 @@ class ProfileImageWidget extends StatelessWidget {
                   _pickImage(context, ImageSource.camera);
                 },
               ),
-              // ListTile(
-              //   leading: const Icon(Icons.photo_library),
-              //   title: const Text('Gallery'),
-              //   onTap: () {
-              //     Navigator.pop(context);
-              //     _pickImage(context, ImageSource.gallery);
-              //   },
-              // ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(context, ImageSource.gallery);
+                },
+              ),
               ListTile(
                 leading: const Icon(Icons.person_search_rounded),
                 title: const Text('Choose Avatar'),
@@ -187,17 +187,17 @@ class ProfileImageWidget extends StatelessWidget {
                   _chooseAvatar(context);
                 },
               ),
-              // if (imageUrl != null ||
-              //     selectedImageFile != null ||
-              //     selectedAvatar != null)
-              //   ListTile(
-              //     leading: const Icon(Icons.delete),
-              //     title: const Text('Remove Photo'),
-              //     onTap: () {
-              //       Navigator.pop(context);
-              //       _removeImage();
-              //     },
-              //   ),
+              if (imageUrl != null ||
+                  selectedImageFile != null ||
+                  selectedAvatar != null)
+                ListTile(
+                  leading: const Icon(Icons.delete),
+                  title: const Text('Remove Photo'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _removeImage();
+                  },
+                ),
             ],
           ),
         );
@@ -206,40 +206,82 @@ class ProfileImageWidget extends StatelessWidget {
   }
 
   Future<void> _pickImage(BuildContext context, ImageSource source) async {
-    final ImagePicker picker = ImagePicker();
-    PermissionStatus status;
+    final permissionService = PermissionService();
+    PermissionResult permissionResult;
+
+    // Request appropriate permission based on source
     if (source == ImageSource.camera) {
-      status = await Permission.camera.request();
+      permissionResult = await permissionService.requestCameraPermission(
+        context,
+      );
     } else {
-      status = await Permission.photos.request();
+      permissionResult = await permissionService.requestStoragePermission(
+        context,
+      );
     }
 
-    if (status.isGranted) {
-      try {
-        final XFile? image = await picker.pickImage(
-          source: source,
-          maxWidth: 512,
-          maxHeight: 512,
-          imageQuality: 80,
+    // Handle permission result
+    if (permissionResult == PermissionResult.granted) {
+      await _performImagePicking(context, source);
+    } else if (permissionResult == PermissionResult.permanentlyDenied) {
+      if (context.mounted) {
+        final permissionName =
+            source == ImageSource.camera ? 'Camera' : 'Photos';
+        await permissionService.handlePermanentlyDeniedPermission(
+          context,
+          permissionName,
         );
-
-        if (image != null) {
-          final imageFile = File(image.path);
-          onImageSelected?.call(imageFile);
-        }
-      } catch (e) {
-        log('Error picking image: $e');
-        if (context.mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Error picking image.')));
-        }
       }
     } else {
+      // Permission denied - show fallback message
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Permission denied.')));
+        final permissionName =
+            source == ImageSource.camera ? 'camera' : 'photo library';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Permission to access $permissionName was denied. You can still choose from available avatars.',
+            ),
+            action: SnackBarAction(
+              label: 'Choose Avatar',
+              onPressed: () => _chooseAvatar(context),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _performImagePicking(
+    BuildContext context,
+    ImageSource source,
+  ) async {
+    final ImagePicker picker = ImagePicker();
+
+    try {
+      final XFile? image = await picker.pickImage(
+        source: source,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 80,
+      );
+
+      if (image != null) {
+        final imageFile = File(image.path);
+        onImageSelected?.call(imageFile);
+      }
+    } catch (e) {
+      log('Error picking image: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Error selecting image. Please try again.'),
+            action: SnackBarAction(
+              label: 'Choose Avatar',
+              onPressed: () => _chooseAvatar(context),
+            ),
+          ),
+        );
       }
     }
   }

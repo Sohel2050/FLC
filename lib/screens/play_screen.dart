@@ -34,6 +34,7 @@ class _PlayScreenState extends State<PlayScreen>
   NativeAd? _nativeAd;
   bool isAdLoaded = false;
   bool _hasLoadedAd = false;
+  bool _isLoadingAd = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -41,8 +42,10 @@ class _PlayScreenState extends State<PlayScreen>
   @override
   void initState() {
     super.initState();
-    // Only load ad if screen is initially visible
+    debugPrint('PlayScreen: initState called, isVisible: ${widget.isVisible}');
+    // Load ad immediately if screen is initially visible (default tab)
     if (widget.isVisible) {
+      debugPrint('PlayScreen: Loading ad on initState');
       _createNativeAd();
     }
   }
@@ -50,17 +53,31 @@ class _PlayScreenState extends State<PlayScreen>
   @override
   void didUpdateWidget(PlayScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Load ad when screen becomes visible
-    if (widget.isVisible && !oldWidget.isVisible) {
+    debugPrint(
+      'PlayScreen: didUpdateWidget - old: ${oldWidget.isVisible}, new: ${widget.isVisible}',
+    );
+
+    // Load ad when screen becomes visible and hasn't loaded yet
+    if (widget.isVisible &&
+        !oldWidget.isVisible &&
+        !_hasLoadedAd &&
+        !_isLoadingAd) {
+      debugPrint('PlayScreen: Loading ad on visibility change');
       _createNativeAd();
     }
-    // Dispose ad when screen becomes invisible
+    // Dispose ad when screen becomes invisible to free memory
     else if (!widget.isVisible && oldWidget.isVisible) {
+      debugPrint('PlayScreen: Disposing ad on visibility change');
       _disposeNativeAd();
     }
   }
 
   void _createNativeAd() {
+    // Prevent multiple simultaneous ad loads
+    if (_isLoadingAd || (_hasLoadedAd && _nativeAd != null)) {
+      return;
+    }
+
     // Don't load if ads shouldn't be shown
     if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
       return;
@@ -68,16 +85,22 @@ class _PlayScreenState extends State<PlayScreen>
 
     final nativeAdUnitId = AdMobService.getNativeAdUnitId(context);
     if (nativeAdUnitId == null) {
+      debugPrint('PlayScreen: Native ad unit ID is null');
       return;
     }
+
+    // Set loading flag to prevent duplicate requests
+    _isLoadingAd = true;
 
     // Dispose existing ad if any
     if (_nativeAd != null) {
       _nativeAd!.dispose();
       _nativeAd = null;
-      setState(() {
-        isAdLoaded = false;
-      });
+      if (mounted) {
+        setState(() {
+          isAdLoaded = false;
+        });
+      }
     }
 
     _nativeAd = NativeAd(
@@ -86,15 +109,27 @@ class _PlayScreenState extends State<PlayScreen>
       factoryId: 'adFactoryNative',
       listener: NativeAdListener(
         onAdLoaded: (ad) {
-          setState(() {
-            isAdLoaded = true;
-          });
+          debugPrint('PlayScreen: Native ad loaded successfully');
+          _isLoadingAd = false;
           _hasLoadedAd = true;
+          if (mounted) {
+            setState(() {
+              isAdLoaded = true;
+            });
+          }
         },
         onAdFailedToLoad: (ad, error) {
+          debugPrint('PlayScreen: Native ad failed to load: $error');
           ad.dispose();
+          _isLoadingAd = false;
+          _hasLoadedAd = false;
+          if (mounted) {
+            setState(() {
+              isAdLoaded = false;
+            });
+          }
           // Don't retry immediately to avoid infinite loops
-          print('Native ad failed to load: $error');
+          // The ad will be retried when the screen becomes visible again
         },
       ),
       nativeTemplateStyle: NativeTemplateStyle(
@@ -105,14 +140,43 @@ class _PlayScreenState extends State<PlayScreen>
   }
 
   void _disposeNativeAd() {
+    debugPrint('PlayScreen: Disposing native ad');
     _nativeAd?.dispose();
     _nativeAd = null;
-    _hasLoadedAd = false; // Reset flag so ad can load again
-    isAdLoaded = false;
+    _hasLoadedAd =
+        false; // Reset flag so ad can load again when screen becomes visible
+    _isLoadingAd = false; // Reset loading flag
+    if (mounted) {
+      setState(() {
+        isAdLoaded = false;
+      });
+    }
+  }
+
+  /// Retry loading ad if it failed and screen is visible
+  void _retryAdLoad() {
+    if (widget.isVisible && !_hasLoadedAd && !_isLoadingAd) {
+      debugPrint('PlayScreen: Retrying ad load');
+      _createNativeAd();
+    }
+  }
+
+  /// Debug method to log current ad state
+  void _logAdState() {
+    debugPrint('PlayScreen Ad State:');
+    debugPrint('  - isVisible: ${widget.isVisible}');
+    debugPrint('  - _hasLoadedAd: $_hasLoadedAd');
+    debugPrint('  - _isLoadingAd: $_isLoadingAd');
+    debugPrint('  - isAdLoaded: $isAdLoaded');
+    debugPrint('  - _nativeAd != null: ${_nativeAd != null}');
+    debugPrint(
+      '  - shouldShowAds: ${AdMobService.shouldShowAds(context, widget.user.removeAds)}',
+    );
   }
 
   @override
   void dispose() {
+    debugPrint('PlayScreen: Disposing PlayScreen');
     _disposeNativeAd();
     super.dispose();
   }
@@ -231,7 +295,7 @@ class _PlayScreenState extends State<PlayScreen>
                 child: Column(
                   children: [
                     // Ad container - Fixed height when ad is loaded
-                    if (isAdLoaded)
+                    if (isAdLoaded && _nativeAd != null)
                       Container(
                         constraints: BoxConstraints(
                           minHeight: isSmallScreen ? 80 : 100,
@@ -239,6 +303,23 @@ class _PlayScreenState extends State<PlayScreen>
                         ),
                         margin: const EdgeInsets.only(bottom: 12),
                         child: AdWidget(ad: _nativeAd!),
+                      )
+                    // Show loading indicator while ad is loading (only for premium users to debug)
+                    else if (_isLoadingAd &&
+                        AdMobService.shouldShowAds(
+                          context,
+                          widget.user.removeAds,
+                        ))
+                      Container(
+                        height: isSmallScreen ? 80 : 100,
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: const Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
                       ),
 
                     // Spacer to push buttons to bottom

@@ -35,11 +35,11 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>This permission is to access your camera to take photos</string>
+	<string>This app needs camera access to take profile pictures for your chess account</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>This permission is to access your mic to record audio</string>
+	<string>This app needs microphone access to enable voice chat with your opponent during chess games</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This permission is to access your photo library</string>
+	<string>This app needs photo library access to select profile pictures for your chess account</string>
 	<key>LSApplicationQueriesSchemes</key>
 		<array>
 		<string>sms</string>
