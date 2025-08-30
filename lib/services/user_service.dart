@@ -27,6 +27,7 @@ class UserService {
           uid: user.uid,
           displayName: 'Guest-${user.uid.substring(0, 5)}',
           isGuest: true,
+          removeAds: false,
         );
         await _firestore
             .collection(Constants.usersCollection)
