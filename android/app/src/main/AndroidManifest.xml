@@ -16,6 +16,8 @@
     <!-- Audio permissions for voice chat -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="com.android.permission.vending.BILLING" />
+    
 
     <application
         android:label="flutter_chess_app"

@@ -68,6 +68,7 @@ dependencies:
   zego_express_engine: ^3.21.0
   envied: ^1.2.0
   google_mobile_ads: ^6.0.0
+  in_app_purchase: ^3.2.3
 
 dev_dependencies:
   flutter_test:
