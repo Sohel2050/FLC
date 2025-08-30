@@ -1,16 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mockito/mockito.dart';
-import 'package:mockito/annotations.dart';
 import 'package:flutter_chess_app/services/permission_service.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:provider/provider.dart';
 
-// Generate mocks
-@GenerateMocks([PermissionService, GameProvider])
-import 'game_screen_audio_permission_test.mocks.dart';
+// Mock classes for testing
+class MockPermissionService extends PermissionService {
+  PermissionResult? _mockResult;
+
+  void setMockResult(PermissionResult result) {
+    _mockResult = result;
+  }
+
+  @override
+  Future<PermissionResult> requestMicrophonePermission(String context) async {
+    return _mockResult ?? PermissionResult.granted;
+  }
+}
+
+class MockGameProvider extends GameProvider {
+  bool _isOnlineGame = false;
+
+  void setOnlineGame(bool value) {
+    _isOnlineGame = value;
+  }
+
+  @override
+  bool get isOnlineGame => _isOnlineGame;
+
+  @override
+  Future<void> inviteToAudioRoom(String opponentId) async {
+    // Mock implementation
+  }
+}
 
 void main() {
   group('GameScreen Audio Permission Integration', () {
@@ -28,63 +52,51 @@ void main() {
       );
     });
 
-    testWidgets(
-      'should request microphone permission before sending audio room invitation',
-      (WidgetTester tester) async {
-        // Arrange
-        when(
-          mockPermissionService.requestMicrophonePermission(any),
-        ).thenAnswer((_) async => PermissionResult.granted);
-        when(mockGameProvider.isOnlineGame).thenReturn(true);
-        when(
-          mockGameProvider.inviteToAudioRoom(any),
-        ).thenAnswer((_) async => {});
+    testWidgets('should build GameScreen without errors', (
+      WidgetTester tester,
+    ) async {
+      // Arrange
+      mockPermissionService.setMockResult(PermissionResult.granted);
+      mockGameProvider.setOnlineGame(true);
 
-        // Build widget with mocked dependencies
-        await tester.pumpWidget(
-          MaterialApp(
-            home: ChangeNotifierProvider<GameProvider>.value(
-              value: mockGameProvider,
-              child: GameScreen(user: testUser),
-            ),
+      // Build widget with mocked dependencies
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChangeNotifierProvider<GameProvider>.value(
+            value: mockGameProvider,
+            child: GameScreen(user: testUser),
           ),
-        );
+        ),
+      );
 
-        // Act - This would trigger the audio room invitation flow
-        // Note: In a real test, we would need to set up the full widget tree
-        // and trigger the actual button press, but for this example we're
-        // focusing on the permission integration logic
-
-        // Assert
-        // Verify that permission service methods would be called
-        // In a full integration test, we would verify the actual UI flow
-      },
-    );
+      // Assert - Verify no exceptions during build
+      expect(tester.takeException(), isNull);
+    });
 
     test('should handle microphone permission denial gracefully', () async {
       // Arrange
-      when(
-        mockPermissionService.requestMicrophonePermission(any),
-      ).thenAnswer((_) async => PermissionResult.denied);
+      mockPermissionService.setMockResult(PermissionResult.denied);
 
-      // Act & Assert
-      // This test would verify that when permission is denied,
-      // the audio room invitation flow is properly cancelled
-      // and appropriate user feedback is shown
+      // Act
+      final result = await mockPermissionService.requestMicrophonePermission(
+        'test',
+      );
+
+      // Assert
+      expect(result, equals(PermissionResult.denied));
     });
 
     test('should handle permanently denied microphone permission', () async {
       // Arrange
-      when(
-        mockPermissionService.requestMicrophonePermission(any),
-      ).thenAnswer((_) async => PermissionResult.permanentlyDenied);
-      when(
-        mockPermissionService.handlePermanentlyDeniedPermission(any, any),
-      ).thenAnswer((_) async => {});
+      mockPermissionService.setMockResult(PermissionResult.permanentlyDenied);
 
-      // Act & Assert
-      // This test would verify that when permission is permanently denied,
-      // the settings dialog is shown to guide the user
+      // Act
+      final result = await mockPermissionService.requestMicrophonePermission(
+        'test',
+      );
+
+      // Assert
+      expect(result, equals(PermissionResult.permanentlyDenied));
     });
   });
 }

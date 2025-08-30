@@ -1,5 +1,6 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_chess_app/providers/admob_provider.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
@@ -35,6 +36,7 @@ class _PlayScreenState extends State<PlayScreen>
   bool isAdLoaded = false;
   bool _hasLoadedAd = false;
   bool _isLoadingAd = false;
+  bool _hasTriedLoadingAfterAppLaunch = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -43,11 +45,29 @@ class _PlayScreenState extends State<PlayScreen>
   void initState() {
     super.initState();
     debugPrint('PlayScreen: initState called, isVisible: ${widget.isVisible}');
-    // Load ad immediately if screen is initially visible (default tab)
-    if (widget.isVisible) {
-      debugPrint('PlayScreen: Loading ad on initState');
-      _createNativeAd();
-    }
+    // Delay native ad loading to avoid conflict with app launch interstitial ad
+    // Use post-frame callback with additional delay to ensure widget is fully built
+    // and any app launch ads have finished
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.isVisible) {
+        // Add delay to avoid conflict with app launch interstitial ad
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted && widget.isVisible) {
+            debugPrint('PlayScreen: Loading ad on initState (delayed)');
+            _createNativeAd();
+          }
+        });
+
+        // Fallback timeout - force load native ad after 5 seconds regardless of app launch ad state
+        Future.delayed(const Duration(seconds: 5), () {
+          if (mounted && widget.isVisible && !_hasLoadedAd && !_isLoadingAd) {
+            debugPrint('PlayScreen: Force loading ad after timeout');
+            _hasTriedLoadingAfterAppLaunch = false; // Reset to allow loading
+            _createNativeAd();
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -63,7 +83,12 @@ class _PlayScreenState extends State<PlayScreen>
         !_hasLoadedAd &&
         !_isLoadingAd) {
       debugPrint('PlayScreen: Loading ad on visibility change');
-      _createNativeAd();
+      // Use post-frame callback to ensure proper timing
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.isVisible) {
+          _createNativeAd();
+        }
+      });
     }
     // Dispose ad when screen becomes invisible to free memory
     else if (!widget.isVisible && oldWidget.isVisible) {
@@ -83,6 +108,25 @@ class _PlayScreenState extends State<PlayScreen>
       return;
     }
 
+    // Check if app launch interstitial ad is still loading/showing
+    final adMobProvider = context.read<AdMobProvider>();
+    if (adMobProvider.isInterstitialAdLoading ||
+        !adMobProvider.hasShownAppLaunchAd) {
+      debugPrint(
+        'PlayScreen: Delaying native ad load - app launch ad in progress',
+      );
+      // Retry after a delay, but with a maximum retry limit to avoid infinite loops
+      if (!_hasTriedLoadingAfterAppLaunch) {
+        _hasTriedLoadingAfterAppLaunch = true;
+        Future.delayed(const Duration(milliseconds: 2000), () {
+          if (mounted && widget.isVisible) {
+            _createNativeAd();
+          }
+        });
+      }
+      return;
+    }
+
     final nativeAdUnitId = AdMobService.getNativeAdUnitId(context);
     if (nativeAdUnitId == null) {
       debugPrint('PlayScreen: Native ad unit ID is null');
@@ -96,7 +140,7 @@ class _PlayScreenState extends State<PlayScreen>
     if (_nativeAd != null) {
       _nativeAd!.dispose();
       _nativeAd = null;
-      if (mounted) {
+      if (mounted && context.mounted) {
         setState(() {
           isAdLoaded = false;
         });
@@ -112,7 +156,8 @@ class _PlayScreenState extends State<PlayScreen>
           debugPrint('PlayScreen: Native ad loaded successfully');
           _isLoadingAd = false;
           _hasLoadedAd = true;
-          if (mounted) {
+          _hasTriedLoadingAfterAppLaunch = false; // Reset retry flag
+          if (mounted && context.mounted) {
             setState(() {
               isAdLoaded = true;
             });
@@ -123,7 +168,7 @@ class _PlayScreenState extends State<PlayScreen>
           ad.dispose();
           _isLoadingAd = false;
           _hasLoadedAd = false;
-          if (mounted) {
+          if (mounted && context.mounted) {
             setState(() {
               isAdLoaded = false;
             });
@@ -146,38 +191,24 @@ class _PlayScreenState extends State<PlayScreen>
     _hasLoadedAd =
         false; // Reset flag so ad can load again when screen becomes visible
     _isLoadingAd = false; // Reset loading flag
-    if (mounted) {
+    _hasTriedLoadingAfterAppLaunch = false; // Reset retry flag
+
+    // Only call setState if widget is still mounted and not being disposed
+    if (mounted && context.mounted) {
       setState(() {
         isAdLoaded = false;
       });
     }
   }
 
-  /// Retry loading ad if it failed and screen is visible
-  void _retryAdLoad() {
-    if (widget.isVisible && !_hasLoadedAd && !_isLoadingAd) {
-      debugPrint('PlayScreen: Retrying ad load');
-      _createNativeAd();
-    }
-  }
-
-  /// Debug method to log current ad state
-  void _logAdState() {
-    debugPrint('PlayScreen Ad State:');
-    debugPrint('  - isVisible: ${widget.isVisible}');
-    debugPrint('  - _hasLoadedAd: $_hasLoadedAd');
-    debugPrint('  - _isLoadingAd: $_isLoadingAd');
-    debugPrint('  - isAdLoaded: $isAdLoaded');
-    debugPrint('  - _nativeAd != null: ${_nativeAd != null}');
-    debugPrint(
-      '  - shouldShowAds: ${AdMobService.shouldShowAds(context, widget.user.removeAds)}',
-    );
-  }
-
   @override
   void dispose() {
     debugPrint('PlayScreen: Disposing PlayScreen');
-    _disposeNativeAd();
+    // Dispose ad without calling setState since widget is being disposed
+    _nativeAd?.dispose();
+    _nativeAd = null;
+    _hasLoadedAd = false;
+    _isLoadingAd = false;
     super.dispose();
   }
 

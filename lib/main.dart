@@ -76,18 +76,25 @@ class _MyAppState extends State<MyApp> {
 
     // Check if we should show the ad
     if (!adMobProvider.shouldShowAppLaunchAd(user.removeAds)) {
+      // Mark as shown even if we don't show it
+      adMobProvider.markAppLaunchAdShown();
       return;
     }
+
+    // Set loading state
+    adMobProvider.setInterstitialAdLoading(true);
 
     // Load and show the ad
     AdMobService.loadAndShowInterstitialAd(
       context: context,
       onAdClosed: () {
-        // Mark that we've shown the app launch ad
+        // Mark that we've shown the app launch ad and clear loading state
+        adMobProvider.setInterstitialAdLoading(false);
         adMobProvider.markAppLaunchAdShown();
       },
       onAdFailedToLoad: () {
-        // Mark as shown even if failed to prevent retry loops
+        // Mark as shown even if failed to prevent retry loops and clear loading state
+        adMobProvider.setInterstitialAdLoading(false);
         adMobProvider.markAppLaunchAdShown();
       },
     );
