@@ -6,9 +6,9 @@ import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/providers/admob_provider.dart';
-import 'package:flutter_chess_app/services/migration_service.dart';
-import 'package:flutter_chess_app/services/admob_service.dart';
+import 'package:flutter_chess_app/services/app_launch_ad_coordinator.dart';
 import 'package:flutter_chess_app/push_notification/notification_service.dart';
+import 'package:logger/logger.dart';
 import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
@@ -25,8 +25,7 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // If you're going to use other Firebase services in the background, such as Firestore,
-
-  print("Handling a background message: ${message.messageId}");
+  // Handle background message processing here
 }
 
 void main() async {
@@ -67,37 +66,107 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final UserService _userService = UserService();
+  final Logger _logger = Logger();
 
-  /// Show app launch interstitial ad for non-premium users
-  void _showAppLaunchAd(ChessUser user) {
-    final adMobProvider = Provider.of<AdMobProvider>(context, listen: false);
+  @override
+  void initState() {
+    super.initState();
+    // Add this widget as an observer for app lifecycle changes
+    WidgetsBinding.instance.addObserver(this);
+  }
 
-    // Check if we should show the ad
-    if (!adMobProvider.shouldShowAppLaunchAd(user.removeAds)) {
-      // Mark as shown even if we don't show it
-      adMobProvider.markAppLaunchAdShown();
-      return;
+  @override
+  void dispose() {
+    // Remove this widget as an observer when disposing
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    try {
+      _logger.i('App lifecycle state changed to: $state');
+
+      // Handle app lifecycle changes for session management
+      if (mounted && context.mounted) {
+        final adMobProvider = Provider.of<AdMobProvider>(
+          context,
+          listen: false,
+        );
+        adMobProvider.handleAppLifecycleChange(state);
+
+        _logger.i('Session management handled for lifecycle state: $state');
+      }
+    } catch (e) {
+      _logger.e('Error handling app lifecycle state change: $e');
     }
+  }
 
-    // Set loading state
-    adMobProvider.setInterstitialAdLoading(true);
+  /// Handle app launch interstitial ad using the centralized coordinator
+  Future<void> _handleAppLaunchAd(ChessUser user) async {
+    try {
+      // Validate user before proceeding
+      if (user.uid == null || user.uid!.isEmpty) {
+        _logger.w('Invalid user for app launch ad, skipping');
+        return;
+      }
 
-    // Load and show the ad
-    AdMobService.loadAndShowInterstitialAd(
-      context: context,
-      onAdClosed: () {
-        // Mark that we've shown the app launch ad and clear loading state
-        adMobProvider.setInterstitialAdLoading(false);
-        adMobProvider.markAppLaunchAdShown();
-      },
-      onAdFailedToLoad: () {
-        // Mark as shown even if failed to prevent retry loops and clear loading state
-        adMobProvider.setInterstitialAdLoading(false);
-        adMobProvider.markAppLaunchAdShown();
-      },
-    );
+      // Ensure context is still valid
+      if (!mounted) {
+        _logger.w('Widget not mounted, skipping app launch ad');
+        return;
+      }
+
+      // Get AdMobProvider and ensure config is loaded
+      final adMobProvider = Provider.of<AdMobProvider>(context, listen: false);
+
+      // Wait for AdMob config to load before proceeding
+      if (adMobProvider.adMobConfig == null) {
+        _logger.i(
+          'Waiting for AdMob config to load before showing app launch ad',
+        );
+        await adMobProvider.loadAdMobConfig();
+      }
+
+      AppLaunchAdCoordinator.handleAppLaunchAd(
+        context: context,
+        user: user,
+        onComplete: () {
+          try {
+            // Ad sequence completed, no additional action needed
+            // The HomeScreen is already displayed and will continue normally
+            _logger.d('App launch ad sequence completed successfully');
+          } catch (completionError) {
+            _logger.e(
+              'Error in app launch ad completion callback: $completionError',
+            );
+          }
+        },
+      );
+    } catch (e) {
+      // Log error and continue with normal app flow
+      _logger.e('Error handling app launch ad: $e');
+      // App continues to function normally even if ad fails
+
+      // Ensure AdMobProvider is reset to allow normal app flow
+      try {
+        if (mounted && context.mounted) {
+          final adMobProvider = Provider.of<AdMobProvider>(
+            context,
+            listen: false,
+          );
+          adMobProvider.forceCompleteAppLaunchSequence();
+        }
+      } catch (resetError) {
+        _logger.e(
+          'Error resetting AdMobProvider after ad failure: $resetError',
+        );
+      }
+    }
   }
 
   @override
@@ -169,8 +238,8 @@ class _MyAppState extends State<MyApp> {
                         userService.cleanupOnlineStatus(user.uid!);
                       }
 
-                      // Show app launch ad for non-premium users
-                      _showAppLaunchAd(user);
+                      // Handle app launch ad using centralized coordinator
+                      _handleAppLaunchAd(user);
                     }
                   });
 

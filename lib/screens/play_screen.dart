@@ -36,7 +36,9 @@ class _PlayScreenState extends State<PlayScreen>
   bool isAdLoaded = false;
   bool _hasLoadedAd = false;
   bool _isLoadingAd = false;
-  bool _hasTriedLoadingAfterAppLaunch = false;
+
+  // Listener for app launch sequence completion
+  VoidCallback? _appLaunchSequenceListener;
 
   @override
   bool get wantKeepAlive => true;
@@ -45,27 +47,14 @@ class _PlayScreenState extends State<PlayScreen>
   void initState() {
     super.initState();
     debugPrint('PlayScreen: initState called, isVisible: ${widget.isVisible}');
-    // Delay native ad loading to avoid conflict with app launch interstitial ad
-    // Use post-frame callback with additional delay to ensure widget is fully built
-    // and any app launch ads have finished
+
+    // Set up listener for app launch sequence completion
+    _setupAppLaunchSequenceListener();
+
+    // Use post-frame callback to ensure widget is fully built
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && widget.isVisible) {
-        // Add delay to avoid conflict with app launch interstitial ad
-        Future.delayed(const Duration(milliseconds: 1500), () {
-          if (mounted && widget.isVisible) {
-            debugPrint('PlayScreen: Loading ad on initState (delayed)');
-            _createNativeAd();
-          }
-        });
-
-        // Fallback timeout - force load native ad after 5 seconds regardless of app launch ad state
-        Future.delayed(const Duration(seconds: 5), () {
-          if (mounted && widget.isVisible && !_hasLoadedAd && !_isLoadingAd) {
-            debugPrint('PlayScreen: Force loading ad after timeout');
-            _hasTriedLoadingAfterAppLaunch = false; // Reset to allow loading
-            _createNativeAd();
-          }
-        });
+        _attemptNativeAdLoad();
       }
     });
   }
@@ -86,7 +75,7 @@ class _PlayScreenState extends State<PlayScreen>
       // Use post-frame callback to ensure proper timing
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && widget.isVisible) {
-          _createNativeAd();
+          _attemptNativeAdLoad();
         }
       });
     }
@@ -97,91 +86,221 @@ class _PlayScreenState extends State<PlayScreen>
     }
   }
 
-  void _createNativeAd() {
-    // Prevent multiple simultaneous ad loads
-    if (_isLoadingAd || (_hasLoadedAd && _nativeAd != null)) {
-      return;
-    }
-
-    // Don't load if ads shouldn't be shown
-    if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
-      return;
-    }
-
-    // Check if app launch interstitial ad is still loading/showing
-    final adMobProvider = context.read<AdMobProvider>();
-    if (adMobProvider.isInterstitialAdLoading ||
-        !adMobProvider.hasShownAppLaunchAd) {
+  /// Set up listener for app launch sequence completion
+  void _setupAppLaunchSequenceListener() {
+    _appLaunchSequenceListener = () {
       debugPrint(
-        'PlayScreen: Delaying native ad load - app launch ad in progress',
+        'PlayScreen: App launch sequence completed, attempting to load native ad',
       );
-      // Retry after a delay, but with a maximum retry limit to avoid infinite loops
-      if (!_hasTriedLoadingAfterAppLaunch) {
-        _hasTriedLoadingAfterAppLaunch = true;
-        Future.delayed(const Duration(milliseconds: 2000), () {
-          if (mounted && widget.isVisible) {
-            _createNativeAd();
-          }
-        });
+      if (mounted && widget.isVisible && !_hasLoadedAd && !_isLoadingAd) {
+        _createNativeAd();
       }
-      return;
-    }
+    };
 
-    final nativeAdUnitId = AdMobService.getNativeAdUnitId(context);
-    if (nativeAdUnitId == null) {
-      debugPrint('PlayScreen: Native ad unit ID is null');
-      return;
-    }
-
-    // Set loading flag to prevent duplicate requests
-    _isLoadingAd = true;
-
-    // Dispose existing ad if any
-    if (_nativeAd != null) {
-      _nativeAd!.dispose();
-      _nativeAd = null;
+    // Add listener to AdMobProvider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && context.mounted) {
-        setState(() {
-          isAdLoaded = false;
-        });
+        final adMobProvider = context.read<AdMobProvider>();
+        adMobProvider.addListener(_appLaunchSequenceListener!);
       }
+    });
+  }
+
+  /// Attempt to load native ad with app launch sequence coordination
+  void _attemptNativeAdLoad() {
+    if (!mounted || !widget.isVisible) {
+      return;
     }
 
-    _nativeAd = NativeAd(
-      adUnitId: nativeAdUnitId,
-      request: const AdRequest(),
-      factoryId: 'adFactoryNative',
-      listener: NativeAdListener(
-        onAdLoaded: (ad) {
-          debugPrint('PlayScreen: Native ad loaded successfully');
-          _isLoadingAd = false;
-          _hasLoadedAd = true;
-          _hasTriedLoadingAfterAppLaunch = false; // Reset retry flag
-          if (mounted && context.mounted) {
-            setState(() {
-              isAdLoaded = true;
-            });
-          }
-        },
-        onAdFailedToLoad: (ad, error) {
-          debugPrint('PlayScreen: Native ad failed to load: $error');
-          ad.dispose();
-          _isLoadingAd = false;
-          _hasLoadedAd = false;
-          if (mounted && context.mounted) {
+    final adMobProvider = context.read<AdMobProvider>();
+
+    // Check if app launch sequence is in progress
+    if (adMobProvider.isAppLaunchSequenceInProgress()) {
+      debugPrint(
+        'PlayScreen: App launch sequence in progress, delaying native ad load',
+      );
+      // Don't load now, the listener will trigger when sequence completes
+      return;
+    }
+
+    // If app launch sequence is complete or not started, load the ad
+    if (adMobProvider.isAppLaunchSequenceComplete ||
+        adMobProvider.appLaunchAdState == AppLaunchAdState.notStarted) {
+      debugPrint(
+        'PlayScreen: App launch sequence complete or not started, loading native ad',
+      );
+      _createNativeAd();
+    } else {
+      // Add a delayed retry as fallback
+      debugPrint(
+        'PlayScreen: App launch sequence in unknown state, adding delayed retry',
+      );
+      Future.delayed(const Duration(milliseconds: 2000), () {
+        if (mounted && widget.isVisible && !_hasLoadedAd && !_isLoadingAd) {
+          _attemptNativeAdLoad();
+        }
+      });
+    }
+  }
+
+  void _createNativeAd() {
+    try {
+      // Prevent multiple simultaneous ad loads
+      if (_isLoadingAd || (_hasLoadedAd && _nativeAd != null)) {
+        debugPrint('PlayScreen: Ad already loading or loaded, skipping');
+        return;
+      }
+
+      // Validate context and mounting state
+      if (!mounted || !context.mounted) {
+        debugPrint('PlayScreen: Widget not mounted, skipping ad load');
+        return;
+      }
+
+      // Don't load if ads shouldn't be shown
+      try {
+        if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
+          debugPrint('PlayScreen: Ads should not be shown, skipping');
+          return;
+        }
+      } catch (adServiceError) {
+        debugPrint(
+          'PlayScreen: Error checking if ads should be shown: $adServiceError',
+        );
+        return;
+      }
+
+      // Final check for app launch sequence before loading
+      try {
+        final adMobProvider = context.read<AdMobProvider>();
+        if (adMobProvider.isAppLaunchSequenceInProgress()) {
+          debugPrint(
+            'PlayScreen: App launch sequence still in progress, aborting native ad load',
+          );
+          return;
+        }
+      } catch (providerError) {
+        debugPrint('PlayScreen: Error accessing AdMobProvider: $providerError');
+        return;
+      }
+
+      String? nativeAdUnitId;
+      try {
+        nativeAdUnitId = AdMobService.getNativeAdUnitId(context);
+      } catch (adUnitError) {
+        debugPrint('PlayScreen: Error getting native ad unit ID: $adUnitError');
+        return;
+      }
+
+      if (nativeAdUnitId == null || nativeAdUnitId.isEmpty) {
+        debugPrint('PlayScreen: Native ad unit ID is null or empty');
+        return;
+      }
+
+      // Set loading flag to prevent duplicate requests
+      _isLoadingAd = true;
+
+      // Dispose existing ad if any
+      if (_nativeAd != null) {
+        try {
+          _nativeAd!.dispose();
+        } catch (disposeError) {
+          debugPrint('PlayScreen: Error disposing existing ad: $disposeError');
+        }
+        _nativeAd = null;
+        if (mounted && context.mounted) {
+          try {
             setState(() {
               isAdLoaded = false;
             });
+          } catch (stateError) {
+            debugPrint(
+              'PlayScreen: Error updating state after ad disposal: $stateError',
+            );
           }
-          // Don't retry immediately to avoid infinite loops
-          // The ad will be retried when the screen becomes visible again
-        },
-      ),
-      nativeTemplateStyle: NativeTemplateStyle(
-        templateType: TemplateType.small,
-      ),
-    );
-    _nativeAd!.load();
+        }
+      }
+
+      debugPrint('PlayScreen: Creating native ad with ID: $nativeAdUnitId');
+
+      try {
+        _nativeAd = NativeAd(
+          adUnitId: nativeAdUnitId,
+          request: const AdRequest(),
+          factoryId: 'adFactoryNative',
+          listener: NativeAdListener(
+            onAdLoaded: (ad) {
+              try {
+                debugPrint('PlayScreen: Native ad loaded successfully');
+                _isLoadingAd = false;
+                _hasLoadedAd = true;
+
+                if (mounted && context.mounted) {
+                  setState(() {
+                    isAdLoaded = true;
+                  });
+                }
+              } catch (e) {
+                debugPrint('PlayScreen: Error in onAdLoaded callback: $e');
+                _isLoadingAd = false;
+                _hasLoadedAd = false;
+              }
+            },
+            onAdFailedToLoad: (ad, error) {
+              try {
+                debugPrint(
+                  'PlayScreen: Native ad failed to load: ${error.message} (Code: ${error.code})',
+                );
+                ad.dispose();
+                _isLoadingAd = false;
+                _hasLoadedAd = false;
+                if (mounted && context.mounted) {
+                  setState(() {
+                    isAdLoaded = false;
+                  });
+                }
+                // Don't retry immediately to avoid infinite loops
+                // The ad will be retried when the screen becomes visible again
+              } catch (e) {
+                debugPrint(
+                  'PlayScreen: Error in onAdFailedToLoad callback: $e',
+                );
+                _isLoadingAd = false;
+                _hasLoadedAd = false;
+              }
+            },
+            onAdClicked: (ad) {
+              debugPrint('PlayScreen: Native ad clicked');
+            },
+            onAdImpression: (ad) {
+              debugPrint('PlayScreen: Native ad impression recorded');
+            },
+          ),
+          nativeTemplateStyle: NativeTemplateStyle(
+            templateType: TemplateType.small,
+          ),
+        );
+
+        _nativeAd!.load();
+      } catch (adCreationError) {
+        debugPrint('PlayScreen: Error creating native ad: $adCreationError');
+        _isLoadingAd = false;
+        _hasLoadedAd = false;
+        _nativeAd = null;
+      }
+    } catch (e) {
+      debugPrint('PlayScreen: Critical error in _createNativeAd: $e');
+      _isLoadingAd = false;
+      _hasLoadedAd = false;
+      try {
+        _nativeAd?.dispose();
+      } catch (disposeError) {
+        debugPrint(
+          'PlayScreen: Error disposing ad in critical error handler: $disposeError',
+        );
+      }
+      _nativeAd = null;
+    }
   }
 
   void _disposeNativeAd() {
@@ -191,7 +310,6 @@ class _PlayScreenState extends State<PlayScreen>
     _hasLoadedAd =
         false; // Reset flag so ad can load again when screen becomes visible
     _isLoadingAd = false; // Reset loading flag
-    _hasTriedLoadingAfterAppLaunch = false; // Reset retry flag
 
     // Only call setState if widget is still mounted and not being disposed
     if (mounted && context.mounted) {
@@ -204,6 +322,18 @@ class _PlayScreenState extends State<PlayScreen>
   @override
   void dispose() {
     debugPrint('PlayScreen: Disposing PlayScreen');
+
+    // Remove app launch sequence listener
+    if (_appLaunchSequenceListener != null) {
+      try {
+        final adMobProvider = context.read<AdMobProvider>();
+        adMobProvider.removeListener(_appLaunchSequenceListener!);
+      } catch (e) {
+        debugPrint('PlayScreen: Error removing listener during dispose: $e');
+      }
+      _appLaunchSequenceListener = null;
+    }
+
     // Dispose ad without calling setState since widget is being disposed
     _nativeAd?.dispose();
     _nativeAd = null;

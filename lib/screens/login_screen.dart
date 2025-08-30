@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_chess_app/providers/admob_provider.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/screens/forgot_password_screen.dart';
 import 'package:flutter_chess_app/screens/sign_up_screen.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
-import 'package:flutter_chess_app/services/admob_service.dart';
+import 'package:flutter_chess_app/services/app_launch_ad_coordinator.dart';
+import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
 import '../widgets/play_mode_button.dart';
 import '../services/user_service.dart';
@@ -23,6 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final UserService _userService = UserService();
+  final Logger _logger = Logger();
   bool _isLoading = false;
   bool _isPasswordVisible = false;
 
@@ -47,42 +48,52 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (mounted) {
         if (result is SignInSuccess) {
-          // Show app launch ad for non-premium users after successful login
-          final adMobProvider = Provider.of<AdMobProvider>(
-            context,
-            listen: false,
-          );
-          if (!adMobProvider.shouldShowAppLaunchAd(result.user.removeAds)) {
-            // Load and show the ad
-            AdMobService.loadAndShowInterstitialAd(
+          // Use AppLaunchAdCoordinator to handle ad display after successful login
+          try {
+            AppLaunchAdCoordinator.handleAppLaunchAd(
               context: context,
-              onAdClosed: () {
-                adMobProvider.markAppLaunchAdShown();
-                // Navigate after ad is closed
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (_) => HomeScreen(user: result.user),
-                  ),
-                  (route) => false,
-                );
-              },
-              onAdFailedToLoad: () {
-                adMobProvider.markAppLaunchAdShown();
-                // Navigate even if ad failed to load
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (_) => HomeScreen(user: result.user),
-                  ),
-                  (route) => false,
-                );
+              user: result.user,
+              onComplete: () {
+                try {
+                  // Navigate after ad sequence completes (or if no ad needed)
+                  if (mounted) {
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(
+                        builder: (_) => HomeScreen(user: result.user),
+                      ),
+                      (route) => false,
+                    );
+                  }
+                } catch (navigationError) {
+                  _logger.e(
+                    'Error navigating after app launch ad: $navigationError',
+                  );
+                  // Try navigation without clearing route stack as fallback
+                  if (mounted) {
+                    try {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (_) => HomeScreen(user: result.user),
+                        ),
+                      );
+                    } catch (fallbackError) {
+                      _logger.e('Error in fallback navigation: $fallbackError');
+                    }
+                  }
+                }
               },
             );
-          } else {
-            // No ad to show, navigate directly
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => HomeScreen(user: result.user)),
-              (route) => false,
-            );
+          } catch (adError) {
+            _logger.e('Error handling app launch ad after login: $adError');
+            // Navigate directly if ad handling fails
+            if (mounted) {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (_) => HomeScreen(user: result.user),
+                ),
+                (route) => false,
+              );
+            }
           }
         } else if (result is SignInEmailNotVerified) {
           await _showEmailVerificationDialog(result.email);
@@ -358,18 +369,98 @@ class _LoginScreenState extends State<LoginScreen> {
                         text: 'Play as Guest',
                         icon: Icons.person_outline,
                         onPressed: () async {
-                          final userProvider = context.read<UserProvider>();
-                          final guestUser =
-                              await _userService.signInAnonymously();
-                          userProvider.setUser(guestUser);
-                          // Navigate to home and replace the current screen
-                          if (mounted) {
-                            Navigator.of(context).pushAndRemoveUntil(
-                              MaterialPageRoute(
-                                builder: (_) => HomeScreen(user: guestUser),
-                              ),
-                              (route) => false,
-                            );
+                          setState(() {
+                            _isLoading = true;
+                          });
+
+                          try {
+                            final userProvider = context.read<UserProvider>();
+                            final guestUser =
+                                await _userService.signInAnonymously();
+                            userProvider.setUser(guestUser);
+
+                            // Use AppLaunchAdCoordinator to handle ad display for guest login
+                            if (mounted) {
+                              try {
+                                AppLaunchAdCoordinator.handleAppLaunchAd(
+                                  context: context,
+                                  user: guestUser,
+                                  onComplete: () {
+                                    try {
+                                      // Navigate after ad sequence completes (or if no ad needed)
+                                      if (mounted) {
+                                        Navigator.of(
+                                          context,
+                                        ).pushAndRemoveUntil(
+                                          MaterialPageRoute(
+                                            builder:
+                                                (_) =>
+                                                    HomeScreen(user: guestUser),
+                                          ),
+                                          (route) => false,
+                                        );
+                                      }
+                                    } catch (navigationError) {
+                                      _logger.e(
+                                        'Error navigating after guest app launch ad: $navigationError',
+                                      );
+                                      // Try navigation without clearing route stack as fallback
+                                      if (mounted) {
+                                        try {
+                                          Navigator.of(context).pushReplacement(
+                                            MaterialPageRoute(
+                                              builder:
+                                                  (_) => HomeScreen(
+                                                    user: guestUser,
+                                                  ),
+                                            ),
+                                          );
+                                        } catch (fallbackError) {
+                                          _logger.e(
+                                            'Error in guest fallback navigation: $fallbackError',
+                                          );
+                                        }
+                                      }
+                                    }
+                                  },
+                                );
+                              } catch (adError) {
+                                _logger.e(
+                                  'Error handling app launch ad for guest: $adError',
+                                );
+                                // Navigate directly if ad handling fails
+                                if (mounted) {
+                                  Navigator.of(context).pushAndRemoveUntil(
+                                    MaterialPageRoute(
+                                      builder:
+                                          (_) => HomeScreen(user: guestUser),
+                                    ),
+                                    (route) => false,
+                                  );
+                                }
+                              }
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              AnimatedDialog.show(
+                                context: context,
+                                title: 'Guest Login Failed',
+                                child: Text('Failed to sign in as guest: $e'),
+                                actions: [
+                                  TextButton(
+                                    onPressed:
+                                        () => Navigator.of(context).pop(),
+                                    child: const Text('OK'),
+                                  ),
+                                ],
+                              );
+                            }
+                          } finally {
+                            if (mounted) {
+                              setState(() {
+                                _isLoading = false;
+                              });
+                            }
                           }
                         },
                         isPrimary: false,
