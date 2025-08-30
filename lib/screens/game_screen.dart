@@ -344,7 +344,7 @@ class _GameScreenState extends State<GameScreen> {
 
       setState(() {
         _isInAudioRoom = true;
-        _isMicrophoneEnabled = false; // Start with mic disabled
+        _isMicrophoneEnabled = true; // Start with mic enabled by default
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -391,7 +391,7 @@ class _GameScreenState extends State<GameScreen> {
 
       setState(() {
         _isInAudioRoom = true;
-        _isMicrophoneEnabled = false;
+        _isMicrophoneEnabled = true; // Start with mic enabled by default
       });
     } catch (e) {
       _gameProvider.logger.e('Failed to auto-join audio room: $e');
@@ -608,7 +608,7 @@ class _GameScreenState extends State<GameScreen> {
 
     return PopScope(
       canPop: _gameProvider.isGameOver,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
         final bool shouldPop = await _onWillPop();
         if (shouldPop) {
@@ -1120,6 +1120,7 @@ class _GameScreenState extends State<GameScreen> {
         children: [
           Row(
             children: [
+              // Profile image and name section
               ProfileImageWidget(
                 imageUrl: widget.user.photoUrl,
                 countryCode: widget.user.countryCode,
@@ -1128,79 +1129,63 @@ class _GameScreenState extends State<GameScreen> {
                 backgroundColor: Theme.of(context).colorScheme.primaryContainer,
               ),
               const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    gameProvider.isOnlineGame &&
+                            gameProvider.onlineGameRoom != null
+                        ? (gameProvider.isHost
+                            ? gameProvider.onlineGameRoom!.player1DisplayName
+                            : gameProvider.onlineGameRoom!.player2DisplayName ??
+                                widget.user.displayName)
+                        : widget.user.displayName,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  Text(
+                    'Rating: ${gameProvider.isOnlineGame && gameProvider.onlineGameRoom != null ? (gameProvider.isHost ? gameProvider.onlineGameRoom!.player1Rating : gameProvider.onlineGameRoom!.player2Rating ?? widget.user.classicalRating) : widget.user.classicalRating}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+
+              // Spacer to push audio controls to center and time to end
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          gameProvider.isOnlineGame &&
-                                  gameProvider.onlineGameRoom != null
-                              ? (gameProvider.isHost
-                                  ? gameProvider
-                                      .onlineGameRoom!
-                                      .player1DisplayName
-                                  : gameProvider
-                                          .onlineGameRoom!
-                                          .player2DisplayName ??
-                                      widget.user.displayName)
-                              : widget.user.displayName,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(width: 8),
-                        // Audio room controls for online games only
-                        if (gameProvider.isOnlineGame) ...[
-                          AudioControlsWidget(
-                            isInAudioRoom: _isInAudioRoom,
-                            isMicrophoneEnabled: _isMicrophoneEnabled,
-                            isSpeakerMuted: _isSpeakerMuted,
-                            participants:
-                                gameProvider.getAudioRoomParticipants(),
-                            onToggleMicrophone: _toggleMicrophone,
-                            onToggleSpeaker: _toggleSpeakerMute,
-                            onLeaveAudio: _leaveAudioRoom,
+                    // Audio room controls for online games only - centered
+                    if (gameProvider.isOnlineGame) ...[
+                      if (_isInAudioRoom)
+                        AudioControlsWidget(
+                          isInAudioRoom: _isInAudioRoom,
+                          isMicrophoneEnabled: _isMicrophoneEnabled,
+                          isSpeakerMuted: _isSpeakerMuted,
+                          participants: gameProvider.getAudioRoomParticipants(),
+                          onToggleMicrophone: _toggleMicrophone,
+                          onToggleSpeaker: _toggleSpeakerMute,
+                          onLeaveAudio: _leaveAudioRoom,
+                        )
+                      else
+                        IconButton(
+                          icon: Icon(
+                            Icons.mic,
+                            size: 20,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
-                          const SizedBox(width: 4),
-                          if (!_isInAudioRoom)
-                            IconButton(
-                              icon: Icon(
-                                Icons.mic,
-                                size: 20,
-                                color: Theme.of(context).colorScheme.primary,
-                              ),
-                              onPressed: _showAudioRoomInvitationDialog,
-                              tooltip: 'Start Audio Room',
-                              constraints: const BoxConstraints(
-                                minWidth: 32,
-                                minHeight: 32,
-                              ),
-                            ),
-                        ],
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Text(
-                          'Rating: ${gameProvider.isOnlineGame && gameProvider.onlineGameRoom != null ? (gameProvider.isHost ? gameProvider.onlineGameRoom!.player1Rating : gameProvider.onlineGameRoom!.player2Rating ?? widget.user.classicalRating) : widget.user.classicalRating}',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: CapturedPiecesWidget(
-                            capturedPieces: playerCaptured,
-                            materialAdvantage:
-                                materialAdvantage > 0 ? materialAdvantage : 0,
-                            isWhite: gameProvider.player == Squares.white,
-                            pieceSet: settingsProvider.getPieceSet(),
-                            isCompact: true,
+                          onPressed: _showAudioRoomInvitationDialog,
+                          tooltip: 'Start Audio Room',
+                          constraints: const BoxConstraints(
+                            minWidth: 32,
+                            minHeight: 32,
                           ),
                         ),
-                      ],
-                    ),
+                    ],
                   ],
                 ),
               ),
+
+              // Time container at the end
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -1229,6 +1214,27 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ],
           ),
+
+          // Captured pieces row below
+          if (playerCaptured.isNotEmpty || materialAdvantage > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 4.0),
+              child: Row(
+                children: [
+                  const SizedBox(width: 48), // Align with name section
+                  Expanded(
+                    child: CapturedPiecesWidget(
+                      capturedPieces: playerCaptured,
+                      materialAdvantage:
+                          materialAdvantage > 0 ? materialAdvantage : 0,
+                      isWhite: gameProvider.player == Squares.white,
+                      pieceSet: settingsProvider.getPieceSet(),
+                      isCompact: true,
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -1497,8 +1503,8 @@ class _GameScreenState extends State<GameScreen> {
   /// Initialize audio states to ensure UI reflects ZegoCloud state
   Future<void> _initializeAudioStates() async {
     try {
-      // Set initial microphone state (start with microphone disabled for better UX)
-      await ZegoExpressEngine.instance.muteMicrophone(true);
+      // Set initial microphone state (start with microphone enabled by default)
+      await ZegoExpressEngine.instance.muteMicrophone(false);
 
       // Set initial speaker state (start with speaker enabled)
       await ZegoExpressEngine.instance.muteSpeaker(false);
@@ -1506,13 +1512,13 @@ class _GameScreenState extends State<GameScreen> {
       // Update UI state to match ZegoCloud state
       if (mounted) {
         setState(() {
-          _isMicrophoneEnabled = false; // Microphone starts muted
+          _isMicrophoneEnabled = true; // Microphone starts enabled
           _isSpeakerMuted = false; // Speaker starts unmuted
         });
       }
 
       _gameProvider.logger.i(
-        'Audio states initialized: mic=muted, speaker=unmuted',
+        'Audio states initialized: mic=enabled, speaker=unmuted',
       );
     } catch (e) {
       _gameProvider.logger.w('Failed to initialize audio states: $e');
@@ -1771,7 +1777,8 @@ class _GameScreenState extends State<GameScreen> {
   Future<void> _leaveAudioRoom() async {
     try {
       if (_gameProvider.isOnlineGame) {
-        await _gameProvider.leaveAudioRoom(widget.user.uid!);
+        // End the audio room for both users when one leaves
+        await _gameProvider.endAudioRoom(widget.user.uid!);
       }
 
       await _cleanupZegoEngine();
@@ -1781,6 +1788,13 @@ class _GameScreenState extends State<GameScreen> {
         _isMicrophoneEnabled = false;
         _isSpeakerMuted = false;
       });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Left audio room'),
+          duration: Duration(seconds: 2),
+        ),
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
