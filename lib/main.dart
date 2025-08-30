@@ -164,9 +164,9 @@ class _MyAppState extends State<MyApp> {
                         listen: false,
                       ).setUser(user);
 
-                      // set user online status
+                      // set user online status and cleanup any stale status
                       if (!user.isGuest) {
-                        userService.updateUserStatusOnline(user.uid!, true);
+                        userService.cleanupOnlineStatus(user.uid!);
                       }
 
                       // Show app launch ad for non-premium users

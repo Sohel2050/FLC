@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -68,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _setUserOffline() {
     if (!widget.user.isGuest && widget.user.uid != null) {
       final userService = UserService();
-      userService.updateUserStatusOnline(widget.user.uid!, false);
+      userService.forceSetUserOffline(widget.user.uid!);
     }
   }
 
@@ -113,6 +114,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     switch (state) {
       case AppLifecycleState.resumed:
+        log('App resumed');
         // App comes to foreground - set user online
         userService.updateUserStatusOnline(widget.user.uid!, true);
         break;
@@ -120,8 +122,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
-        // App goes to background or is minimized - set user offline
-        userService.updateUserStatusOnline(widget.user.uid!, false);
+        log('App Hidden');
+        // App goes to background or is minimized - use force offline for better reliability
+        userService.forceSetUserOffline(widget.user.uid!);
         break;
     }
   }

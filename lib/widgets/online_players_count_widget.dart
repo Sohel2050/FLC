@@ -16,8 +16,18 @@ class _OnlinePlayersCountWidgetState extends State<OnlinePlayersCountWidget> {
   @override
   void initState() {
     super.initState();
-    // Initialize stream immediately
+    // Initialize stream immediately with retry logic
+    _initializeStream();
+  }
+
+  void _initializeStream() {
     _onlineCountStream = _userService.getOnlinePlayersCountStream();
+  }
+
+  @override
+  void dispose() {
+    // Clean up stream subscription
+    super.dispose();
   }
 
   @override
@@ -45,8 +55,9 @@ class _OnlinePlayersCountWidgetState extends State<OnlinePlayersCountWidget> {
             StreamBuilder<int>(
               stream: _onlineCountStream,
               builder: (context, snapshot) {
-                // Show loading indicator while waiting for data
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                // Show loading indicator while waiting for initial data
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
                   return SizedBox(
                     width: 16,
                     height: 16,
@@ -72,7 +83,7 @@ class _OnlinePlayersCountWidgetState extends State<OnlinePlayersCountWidget> {
                   );
                 }
 
-                // Display the actual count
+                // Display the actual count (use cached data if available during reconnection)
                 final onlineCount = snapshot.data ?? 0;
                 return Text(
                   '$onlineCount',

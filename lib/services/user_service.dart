@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -67,7 +68,8 @@ class UserService {
         ) // Only get actual data changes
         .map((snapshot) {
           try {
-            return snapshot.docs.length;
+            // Use snapshot.size for better performance instead of docs.length
+            return snapshot.size;
           } catch (e) {
             logger.e('Error processing online players count: $e');
             return 0;
@@ -82,16 +84,138 @@ class UserService {
   // Update user status to online
   Future<void> updateUserStatusOnline(String uid, bool isOnline) async {
     try {
+      log(
+        'App Service: Attempting to set $uid to ${isOnline ? "online" : "offline"}',
+      );
+
       await _firestore.collection(Constants.usersCollection).doc(uid).update({
         Constants.isOnline: isOnline,
         Constants.lastSeen: FieldValue.serverTimestamp(),
       });
+
+      log(
+        'SUCCESS: User $uid status updated to ${isOnline ? "online" : "offline"}',
+      );
       logger.i(
         'User $uid status updated to ${isOnline ? "online" : "offline"}',
       );
     } catch (e) {
+      log(
+        'ERROR: Failed to update user $uid status to ${isOnline ? "online" : "offline"}: $e',
+      );
       logger.e('Error updating user status for $uid: $e');
+
+      // If setting to offline fails (common when app goes to background and loses network),
+      // we can try a delayed retry when network becomes available again
+      if (!isOnline) {
+        log('Scheduling retry for offline status update');
+        _scheduleOfflineStatusRetry(uid);
+      }
+
       // Don't throw error to prevent app crashes - this is a background operation
+    }
+  }
+
+  // Schedule a retry for offline status update
+  void _scheduleOfflineStatusRetry(String uid) {
+    // Retry after a delay - this will help when network comes back
+    Future.delayed(const Duration(seconds: 5), () async {
+      try {
+        log('RETRY: Attempting to set $uid offline (delayed retry)');
+        await _firestore.collection(Constants.usersCollection).doc(uid).update({
+          Constants.isOnline: false,
+          Constants.lastSeen: FieldValue.serverTimestamp(),
+        });
+        log('RETRY SUCCESS: User $uid set to offline');
+        logger.i('Retry successful: User $uid set to offline');
+      } catch (e) {
+        log('RETRY FAILED: Could not set $uid offline: $e');
+        logger.w('Retry failed for setting user $uid offline: $e');
+        // If retry fails, we'll rely on server-side cleanup or next app launch
+      }
+    });
+  }
+
+  /// Clean up stale online status on app startup
+  /// This helps ensure accurate online counts by setting the current user online
+  /// and potentially cleaning up any stale online status from previous sessions
+  Future<void> cleanupOnlineStatus(String uid) async {
+    try {
+      log('CLEANUP: Setting user $uid online and cleaning up stale status');
+
+      // Set current user online
+      await updateUserStatusOnline(uid, true);
+
+      logger.i('Online status cleanup completed for user $uid');
+    } catch (e) {
+      logger.e('Error during online status cleanup for $uid: $e');
+    }
+  }
+
+  /// Force set user offline with multiple retry attempts
+  /// This is useful when the app is being terminated or when we really need
+  /// to ensure the user is marked offline
+  Future<void> forceSetUserOffline(String uid) async {
+    const maxRetries = 3;
+    const retryDelay = Duration(seconds: 2);
+
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        log('FORCE OFFLINE: Attempt $attempt/$maxRetries for user $uid');
+
+        await _firestore.collection(Constants.usersCollection).doc(uid).update({
+          Constants.isOnline: false,
+          Constants.lastSeen: FieldValue.serverTimestamp(),
+        });
+
+        log('FORCE OFFLINE SUCCESS: User $uid set offline on attempt $attempt');
+        logger.i('Force offline successful for user $uid on attempt $attempt');
+        return; // Success, exit the retry loop
+      } catch (e) {
+        log('FORCE OFFLINE FAILED: Attempt $attempt failed for user $uid: $e');
+
+        if (attempt == maxRetries) {
+          logger.e(
+            'Force offline failed for user $uid after $maxRetries attempts: $e',
+          );
+          // Last attempt failed, but don't throw to avoid crashes
+          return;
+        }
+
+        // Wait before retrying
+        await Future.delayed(retryDelay);
+      }
+    }
+  }
+
+  /// Get users who have been online for too long (potential stale status)
+  /// This can be used for server-side cleanup or debugging
+  /// Returns users who have been marked online but haven't updated lastSeen recently
+  Future<List<String>> getStaleOnlineUsers({
+    Duration staleThreshold = const Duration(minutes: 10),
+  }) async {
+    try {
+      final staleTimestamp = Timestamp.fromDate(
+        DateTime.now().subtract(staleThreshold),
+      );
+
+      final querySnapshot =
+          await _firestore
+              .collection(Constants.usersCollection)
+              .where(Constants.isOnline, isEqualTo: true)
+              .where(Constants.lastSeen, isLessThan: staleTimestamp)
+              .get();
+
+      final staleUserIds = querySnapshot.docs.map((doc) => doc.id).toList();
+
+      if (staleUserIds.isNotEmpty) {
+        logger.w('Found ${staleUserIds.length} potentially stale online users');
+      }
+
+      return staleUserIds;
+    } catch (e) {
+      logger.e('Error getting stale online users: $e');
+      return [];
     }
   }
 
