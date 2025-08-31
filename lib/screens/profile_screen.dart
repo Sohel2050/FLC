@@ -30,25 +30,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late ChessUser _currentUser;
   bool _imageRemoved = false;
   String? _countryCode;
+  late UserProvider
+  _userProvider; // Store reference to avoid context access in dispose
 
   @override
   void initState() {
     super.initState();
     // Get the current user from provider, fallback to widget.user
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    _currentUser = userProvider.user ?? widget.user;
+    _userProvider = Provider.of<UserProvider>(context, listen: false);
+    _currentUser = _userProvider.user ?? widget.user;
 
     _displayNameController = TextEditingController(
       text: _currentUser.displayName,
     );
     _emailController = TextEditingController(text: _currentUser.email);
     _countryCode = _currentUser.countryCode;
+
+    // Add listener for UserProvider changes
+    _userProvider.addListener(_onUserChanged);
   }
 
   @override
   void dispose() {
+    // Remove listener to prevent memory leaks - use stored reference instead of context
+    _userProvider.removeListener(_onUserChanged);
     _displayNameController.dispose();
+    _emailController.dispose();
     super.dispose();
+  }
+
+  // Listener method for UserProvider changes
+  void _onUserChanged() {
+    final updatedUser = _userProvider.user;
+
+    if (updatedUser != null && mounted) {
+      setState(() {
+        _currentUser = updatedUser;
+        // Update controllers with new user data
+        _displayNameController.text = updatedUser.displayName;
+        _emailController.text = updatedUser.email ?? '';
+        _countryCode = updatedUser.countryCode;
+        // Reset image selection state when user changes
+        _selectedImageFile = null;
+        _selectedAvatar = null;
+        _imageRemoved = false;
+      });
+    }
   }
 
   bool get _isGuest => _currentUser.isGuest;
@@ -132,263 +159,298 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     final userService = UserService();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-        actions: [
-          if (!_isGuest)
-            IconButton(
-              icon: const Icon(Icons.save),
-              onPressed: () => _saveProfile(userService),
-            ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            ProfileImageWidget(
-              imageUrl: _currentUser.photoUrl,
-              radius: 60,
-              isEditable: !_isGuest,
-              selectedImageFile: _selectedImageFile,
-              selectedAvatar: _selectedAvatar,
-              onImageSelected: (file) {
-                setState(() {
-                  _selectedImageFile = file;
-                  if (file != null) {
-                    _selectedAvatar = null;
-                    _imageRemoved = false;
-                  } else {
-                    if (_selectedAvatar == null) {
-                      _imageRemoved = true;
-                    }
-                  }
-                });
-              },
-              onAvatarSelected: (avatar) {
-                setState(() {
-                  _selectedAvatar = avatar;
-                  _selectedImageFile = null;
-                  if (avatar == null) {
-                    if (_selectedImageFile == null) {
-                      _imageRemoved = true;
-                    }
-                  } else {
-                    _imageRemoved = false;
-                  }
-                });
-              },
-            ),
-            const SizedBox(height: 24),
-            _buildProfileField(
-              context,
-              label: 'Display Name',
-              controller: _displayNameController,
-              isEditable: !_isGuest,
-              icon: Icons.person,
-            ),
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
+        // Always use the most current user from provider if available
+        final currentUser = userProvider.user ?? _currentUser;
 
-            _buildProfileField(
-              context,
-              label: 'Email',
-              controller: _emailController,
-              value: _currentUser.email ?? 'N/A',
-              isEditable: false,
-              icon: Icons.email,
-            ),
+        // Update local state if provider user is different
+        if (currentUser != _currentUser) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _onUserChanged();
+          });
+        }
 
-            if (!_isGuest)
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 16),
-                child: InkWell(
-                  onTap: _showCountrySelectionDialog,
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[300]!),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.flag, color: Colors.grey),
-                        const SizedBox(width: 12),
-                        if (_countryCode != null)
-                          Row(
-                            children: [
-                              CountryFlag.fromCountryCode(
-                                _countryCode!,
-                                height: 24,
-                                width: 32,
-                              ),
-                              const SizedBox(width: 8),
+        return Scaffold(
+          appBar: AppBar(
+            title: const Text('Profile'),
+            actions: [
+              if (!_isGuest)
+                IconButton(
+                  icon: const Icon(Icons.save),
+                  onPressed: () => _saveProfile(userService),
+                ),
+            ],
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                ProfileImageWidget(
+                  imageUrl: _currentUser.photoUrl,
+                  radius: 60,
+                  isEditable: !_isGuest,
+                  selectedImageFile: _selectedImageFile,
+                  selectedAvatar: _selectedAvatar,
+                  onImageSelected: (file) {
+                    setState(() {
+                      _selectedImageFile = file;
+                      if (file != null) {
+                        _selectedAvatar = null;
+                        _imageRemoved = false;
+                      } else {
+                        if (_selectedAvatar == null) {
+                          _imageRemoved = true;
+                        }
+                      }
+                    });
+                  },
+                  onAvatarSelected: (avatar) {
+                    setState(() {
+                      _selectedAvatar = avatar;
+                      _selectedImageFile = null;
+                      if (avatar == null) {
+                        if (_selectedImageFile == null) {
+                          _imageRemoved = true;
+                        }
+                      } else {
+                        _imageRemoved = false;
+                      }
+                    });
+                  },
+                ),
+                const SizedBox(height: 24),
+                _buildProfileField(
+                  context,
+                  label: 'Display Name',
+                  controller: _displayNameController,
+                  isEditable: !_isGuest,
+                  icon: Icons.person,
+                ),
+
+                _buildProfileField(
+                  context,
+                  label: 'Email',
+                  controller: _emailController,
+                  value: _currentUser.email ?? 'N/A',
+                  isEditable: false,
+                  icon: Icons.email,
+                ),
+
+                if (!_isGuest)
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 16),
+                    child: InkWell(
+                      onTap: _showCountrySelectionDialog,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.flag, color: Colors.grey),
+                            const SizedBox(width: 12),
+                            if (_countryCode != null)
+                              Row(
+                                children: [
+                                  CountryFlag.fromCountryCode(
+                                    _countryCode!,
+                                    height: 24,
+                                    width: 32,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _getCountryName(_countryCode!),
+                                    style:
+                                        Theme.of(context).textTheme.bodyMedium,
+                                  ),
+                                ],
+                              )
+                            else
                               Text(
-                                _getCountryName(_countryCode!),
-                                style: Theme.of(context).textTheme.bodyMedium,
+                                'Select Country',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: Colors.grey[600]),
                               ),
-                            ],
-                          )
-                        else
-                          Text(
-                            'Select Country',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(color: Colors.grey[600]),
-                          ),
-                        const Spacer(),
-                        const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            const Divider(height: 32),
-            _buildRatingInfo(
-              context,
-              'Classical Rating',
-              _currentUser.classicalRating,
-            ),
-            _buildRatingInfo(context, 'Blitz Rating', _currentUser.blitzRating),
-            _buildRatingInfo(context, 'Tempo Rating', _currentUser.tempoRating),
-            const Divider(height: 32),
-            _buildGameStats(context, 'Games Played', _currentUser.gamesPlayed),
-            _buildGameStats(context, 'Games Won', _currentUser.gamesWon),
-            _buildGameStats(context, 'Games Lost', _currentUser.gamesLost),
-            _buildGameStats(context, 'Games Draw', _currentUser.gamesDraw),
-            const Divider(height: 32),
-
-            // In-App Purchase Section
-            if (!_isGuest)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Theme.of(
-                      context,
-                    ).colorScheme.primary.withOpacity(0.3),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.star,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Premium Features',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.titleLarge?.copyWith(
-                            color: Theme.of(context).colorScheme.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Icon(
-                          _currentUser.removeAds == true
-                              ? Icons.check_circle
-                              : Icons.block,
-                          color:
-                              _currentUser.removeAds == true
-                                  ? Colors.green
-                                  : Theme.of(context).colorScheme.primary,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _currentUser.removeAds == true
-                                ? 'Ad-Free Experience (Active)'
-                                : 'Remove Ads',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ),
-                        if (_currentUser.removeAds != true)
-                          ElevatedButton(
-                            onPressed: () => _purchaseRemoveAds(userService),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  Theme.of(context).colorScheme.primary,
-                              foregroundColor: Colors.white,
-                              minimumSize: const Size(80, 36),
+                            const Spacer(),
+                            const Icon(
+                              Icons.arrow_drop_down,
+                              color: Colors.grey,
                             ),
-                            child: const Text('Purchase'),
-                          ),
-                      ],
-                    ),
-                    if (_currentUser.removeAds != true) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        'Enjoy an uninterrupted chess experience without any advertisements.',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withOpacity(0.7),
+                          ],
                         ),
                       ),
-                    ],
-                  ],
+                    ),
+                  ),
+                const Divider(height: 32),
+                _buildRatingInfo(
+                  context,
+                  'Classical Rating',
+                  _currentUser.classicalRating,
                 ),
-              ),
+                _buildRatingInfo(
+                  context,
+                  'Blitz Rating',
+                  _currentUser.blitzRating,
+                ),
+                _buildRatingInfo(
+                  context,
+                  'Tempo Rating',
+                  _currentUser.tempoRating,
+                ),
+                const Divider(height: 32),
+                _buildGameStats(
+                  context,
+                  'Games Played',
+                  _currentUser.gamesPlayed,
+                ),
+                _buildGameStats(context, 'Games Won', _currentUser.gamesWon),
+                _buildGameStats(context, 'Games Lost', _currentUser.gamesLost),
+                _buildGameStats(context, 'Games Draw', _currentUser.gamesDraw),
+                const Divider(height: 32),
 
-            const SizedBox(height: 32),
-            if (_isGuest)
-              Column(
-                spacing: 16,
-                children: [
-                  Text(
-                    'Sign In or Create an Account to Save Your Progress',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  MainAppButton(
-                    text: 'Sign In',
-                    icon: Icons.login,
-                    isFullWidth: true,
-                    onPressed: () {
-                      // Navigate to sign in screen and remove all previous routes
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute(
-                          builder: (context) => const LoginScreen(),
+                // In-App Purchase Section
+                if (!_isGuest)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.primary.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.star,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Premium Features',
+                              style: Theme.of(
+                                context,
+                              ).textTheme.titleLarge?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
-                        (route) => false,
-                      );
-                    },
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Icon(
+                              _currentUser.removeAds == true
+                                  ? Icons.check_circle
+                                  : Icons.block,
+                              color:
+                                  _currentUser.removeAds == true
+                                      ? Colors.green
+                                      : Theme.of(context).colorScheme.primary,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _currentUser.removeAds == true
+                                    ? 'Ad-Free Experience (Active)'
+                                    : 'Remove Ads',
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ),
+                            if (_currentUser.removeAds != true)
+                              ElevatedButton(
+                                onPressed:
+                                    () => _purchaseRemoveAds(userService),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.primary,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(80, 36),
+                                ),
+                                child: const Text('Purchase'),
+                              ),
+                          ],
+                        ),
+                        if (_currentUser.removeAds != true) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Enjoy an uninterrupted chess experience without any advertisements.',
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                ],
-              ),
 
-            if (!_isGuest)
-              Column(
-                spacing: 16,
-                children: [
-                  MainAppButton(
-                    text: 'Logout',
-                    icon: Icons.logout,
-                    isPrimary: false,
-                    isFullWidth: true,
-                    onPressed: () => _confirmLogout(userService),
+                const SizedBox(height: 32),
+                if (_isGuest)
+                  Column(
+                    spacing: 16,
+                    children: [
+                      Text(
+                        'Sign In or Create an Account to Save Your Progress',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      MainAppButton(
+                        text: 'Sign In',
+                        icon: Icons.login,
+                        isFullWidth: true,
+                        onPressed: () {
+                          // Navigate to sign in screen and remove all previous routes
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(
+                              builder: (context) => const LoginScreen(),
+                            ),
+                            (route) => false,
+                          );
+                        },
+                      ),
+                    ],
                   ),
-                  MainAppButton(
-                    text: 'Delete Account',
-                    icon: Icons.delete,
-                    isFullWidth: true,
-                    onPressed: () => _confirmDeleteAccount(userService),
+
+                if (!_isGuest)
+                  Column(
+                    spacing: 16,
+                    children: [
+                      MainAppButton(
+                        text: 'Logout',
+                        icon: Icons.logout,
+                        isPrimary: false,
+                        isFullWidth: true,
+                        onPressed: () => _confirmLogout(userService),
+                      ),
+                      MainAppButton(
+                        text: 'Delete Account',
+                        icon: Icons.delete,
+                        isFullWidth: true,
+                        onPressed: () => _confirmDeleteAccount(userService),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-          ],
-        ),
-      ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -520,19 +582,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       await userService.updateUser(updatedUser);
 
-      // Update the UserProvider
+      // Update the UserProvider first - this will trigger _onUserChanged
       if (mounted) {
         log('Updating user provider: ${updatedUser.photoUrl}');
-        Provider.of<UserProvider>(context, listen: false).setUser(updatedUser);
-      }
+        _userProvider.setUser(updatedUser);
 
-      // Now reset the state AFTER we've used the values
-      setState(() {
-        _currentUser = updatedUser;
-        _selectedImageFile = null;
-        _selectedAvatar = null;
-        _imageRemoved = false;
-      });
+        // Reset the local state after UserProvider update
+        setState(() {
+          _selectedImageFile = null;
+          _selectedAvatar = null;
+          _imageRemoved = false;
+        });
+      }
 
       if (mounted) {
         LoadingDialog.hide(context);
@@ -626,6 +687,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
     if (confirmed == true) {
+      // First we set user to offline
+      await userService.updateUserStatusOnline(widget.user.uid!, false);
+
       // We logout
       await userService.signOut();
 
@@ -690,17 +754,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         // Update the user's removeAds status in Firestore
         await userService.updateRemoveAds(_currentUser.uid!, true);
 
-        // Update the local user state
-        setState(() {
-          _currentUser = _currentUser.copyWith(removeAds: true);
-        });
-
-        // Update the UserProvider
+        // Update the UserProvider - this will trigger _onUserChanged to update local state
         if (mounted) {
-          Provider.of<UserProvider>(
-            context,
-            listen: false,
-          ).updateRemoveAds(true);
+          _userProvider.updateRemoveAds(true);
         }
 
         if (mounted) {

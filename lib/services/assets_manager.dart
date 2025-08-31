@@ -3,6 +3,7 @@ class AssetsManager {
   static String icons = 'assets/icon';
 
   static String appLogo = '$icons/foreground.png';
+  static String micIcon = '$icons/mic_icon.png';
 
   static String userIcon = '$images/user_icon.png';
   static String boyAvatar = '$images/boy_1.jpg';

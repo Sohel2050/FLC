@@ -45,7 +45,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (mounted) {
         if (result is SignInSuccess) {
-          // Navigate directly to home screen - app launch ad will be handled there
+          // Update UserProvider with the signed-in user immediately
+          Provider.of<UserProvider>(
+            context,
+            listen: false,
+          ).setUser(result.user);
+
+          // Navigate directly to home screen - UserProvider is now updated
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => HomeScreen(user: result.user)),
             (route) => false,
@@ -324,10 +330,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         text: 'Play as Guest',
                         icon: Icons.person_outline,
                         onPressed: () async {
+                          setState(() {
+                            _isLoading = true;
+                          });
                           final userProvider = context.read<UserProvider>();
                           final guestUser =
                               await _userService.signInAnonymously();
                           userProvider.setUser(guestUser);
+
                           // Navigate to home and replace the current screen
                           if (mounted) {
                             Navigator.of(context).pushAndRemoveUntil(
@@ -336,6 +346,12 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               (route) => false,
                             );
+                          }
+
+                          if (mounted) {
+                            setState(() {
+                              _isLoading = false;
+                            });
                           }
                         },
                         isPrimary: false,

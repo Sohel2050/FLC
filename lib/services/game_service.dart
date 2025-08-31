@@ -65,7 +65,94 @@ class GameService {
     }
   }
 
+  /// Validates that a user has all required fields for game matching.
+  Future<bool> validateUserForGameMatching(String userId) async {
+    try {
+      final userDoc =
+          await _firestore
+              .collection(Constants.usersCollection)
+              .doc(userId)
+              .get();
+
+      if (!userDoc.exists) {
+        _logger.e('User document not found for userId: $userId');
+        return false;
+      }
+
+      final userData = userDoc.data() as Map<String, dynamic>;
+      final isGuest = userData[Constants.isGuest] ?? false;
+
+      // Required fields for all users
+      final requiredFields = [
+        Constants.uid,
+        Constants.displayName,
+        Constants.isOnline,
+        Constants.classicalRating,
+        Constants.blitzRating,
+        Constants.tempoRating,
+      ];
+
+      for (final field in requiredFields) {
+        if (!userData.containsKey(field) || userData[field] == null) {
+          _logger.e(
+            'Missing required field "$field" for user $userId (isGuest: $isGuest)',
+          );
+          return false;
+        }
+      }
+
+      // Validate rating values are reasonable
+      final classicalRating = userData[Constants.classicalRating] as int? ?? 0;
+      final blitzRating = userData[Constants.blitzRating] as int? ?? 0;
+      final tempoRating = userData[Constants.tempoRating] as int? ?? 0;
+
+      if (classicalRating < 100 || blitzRating < 100 || tempoRating < 100) {
+        _logger.e(
+          'Invalid rating values for user $userId: classical=$classicalRating, blitz=$blitzRating, tempo=$tempoRating',
+        );
+        return false;
+      }
+
+      _logger.i('User $userId validation successful (isGuest: $isGuest)');
+      return true;
+    } catch (e) {
+      _logger.e('Error validating user $userId for game matching: $e');
+      return false;
+    }
+  }
+
+  /// Verifies that a created game room is discoverable by other players.
+  Future<void> _verifyGameRoomDiscoverability(
+    String gameId,
+    String gameMode,
+  ) async {
+    try {
+      // Wait a moment for Firestore to propagate the write
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      final query = _firestore
+          .collection(Constants.gameRoomsCollection)
+          .where(Constants.fieldGameId, isEqualTo: gameId)
+          .where(Constants.fieldGameMode, isEqualTo: gameMode)
+          .where(Constants.fieldStatus, isEqualTo: Constants.statusWaiting);
+
+      final snapshot = await query.get();
+
+      if (snapshot.docs.isEmpty) {
+        _logger.w(
+          'Game room $gameId may not be discoverable - not found in query',
+        );
+      } else {
+        _logger.i('Game room $gameId is discoverable and ready for matching');
+      }
+    } catch (e) {
+      _logger.e('Error verifying game room discoverability for $gameId: $e');
+      // Don't throw here as the game room was created successfully
+    }
+  }
+
   /// Creates a new game room in Firestore.
+  /// Validates the user before creating the game room.
   Future<GameRoom> createGameRoom({
     required String gameMode,
     required String player1Id,
@@ -82,6 +169,16 @@ class GameService {
   }) async {
     final String gameId = _uuid.v4();
     final Timestamp now = Timestamp.now();
+
+    _logger.i(
+      'Creating game room for player: $player1Id ($player1DisplayName), mode: $gameMode, rating: $player1Rating',
+    );
+
+    // Validate user before creating game room
+    final isValidUser = await validateUserForGameMatching(player1Id);
+    if (!isValidUser) {
+      throw Exception('User $player1Id is not valid for game matching');
+    }
 
     // Player 1 always starts as White when creating a new game
     final GameRoom newGameRoom = GameRoom(
@@ -116,10 +213,16 @@ class GameService {
           .collection(Constants.gameRoomsCollection)
           .doc(gameId)
           .set(newGameRoom.toMap());
-      _logger.i('Game room created: $gameId');
+      _logger.i(
+        'Game room created successfully: $gameId for player $player1Id',
+      );
+
+      // Verify the game room was created and is discoverable
+      await _verifyGameRoomDiscoverability(gameId, gameMode);
+
       return newGameRoom;
     } catch (e) {
-      _logger.e('Error creating game room: $e');
+      _logger.e('Error creating game room for player $player1Id: $e');
       rethrow;
     }
   }
@@ -140,6 +243,7 @@ class GameService {
   }
 
   /// Finds an available game room based on game mode and rating.
+  /// This method includes guest users in the search and provides detailed logging.
   Future<GameRoom?> findAvailableGame({
     required String gameMode,
     required int userRating,
@@ -147,7 +251,9 @@ class GameService {
     bool isPrivate = false,
     required String currentUserId, // Add this parameter
   }) async {
-    _logger.i('Finding available game for mode: $gameMode');
+    _logger.i(
+      'Finding available game for mode: $gameMode, userRating: $userRating, currentUserId: $currentUserId',
+    );
 
     try {
       Query query = _firestore
@@ -169,6 +275,7 @@ class GameService {
         final int minRating = userRating - ratingTolerance;
         final int maxRating = userRating + ratingTolerance;
 
+        _logger.i('Using rating-based search: $minRating - $maxRating');
         query = query
             .where(
               Constants.fieldPlayer1Rating,
@@ -181,13 +288,16 @@ class GameService {
       }
 
       final QuerySnapshot snapshot = await query.get();
+      _logger.i('Query returned ${snapshot.docs.length} potential games');
 
       if (snapshot.docs.isNotEmpty) {
-        _logger.i('Found ${snapshot.docs.length} available games.');
-
         // Filter out games created by the current user and check if creator is online
         for (final doc in snapshot.docs) {
           final gameRoom = GameRoom.fromMap(doc.data() as Map<String, dynamic>);
+          _logger.i(
+            'Checking game ${gameRoom.gameId} created by ${gameRoom.player1Id}',
+          );
+
           if (gameRoom.player1Id != currentUserId) {
             // Check if the game creator is online
             final creatorDoc =
@@ -199,20 +309,34 @@ class GameService {
             if (creatorDoc.exists) {
               final creatorData = creatorDoc.data() as Map<String, dynamic>;
               final isCreatorOnline = creatorData[Constants.isOnline] ?? false;
+              final isCreatorGuest = creatorData[Constants.isGuest] ?? false;
+
+              _logger.i(
+                'Game creator ${gameRoom.player1Id}: online=$isCreatorOnline, isGuest=$isCreatorGuest',
+              );
 
               if (isCreatorOnline) {
+                _logger.i(
+                  'Found suitable game ${gameRoom.gameId} created by ${gameRoom.player1Id}',
+                );
                 return gameRoom;
               } else {
                 _logger.i(
                   'Game creator ${gameRoom.player1Id} is offline, skipping game ${gameRoom.gameId}',
                 );
               }
+            } else {
+              _logger.w(
+                'Game creator ${gameRoom.player1Id} document not found, skipping game ${gameRoom.gameId}',
+              );
             }
+          } else {
+            _logger.i('Skipping own game ${gameRoom.gameId}');
           }
         }
 
         _logger.i(
-          'No available games found that are not created by current user',
+          'No available games found that are not created by current user and have online creators',
         );
         return null;
       } else {
@@ -234,6 +358,16 @@ class GameService {
     required String player2Flag,
     required int player2Rating,
   }) async {
+    _logger.i(
+      'Player $player2Id ($player2DisplayName) attempting to join game room: $gameId',
+    );
+
+    // Validate user before joining game room
+    final isValidUser = await validateUserForGameMatching(player2Id);
+    if (!isValidUser) {
+      throw Exception('User $player2Id is not valid for game matching');
+    }
+
     try {
       // Player 2 always plays as Black when joining an existing game
       await _firestore
@@ -249,9 +383,11 @@ class GameService {
             Constants.fieldStatus: Constants.statusActive,
             Constants.fieldLastMoveAt: Timestamp.now(),
           });
-      _logger.i('Player $player2DisplayName joined game room: $gameId');
+      _logger.i(
+        'Player $player2Id ($player2DisplayName) successfully joined game room: $gameId',
+      );
     } catch (e) {
-      _logger.e('Error joining game room: $e');
+      _logger.e('Error joining game room $gameId for player $player2Id: $e');
       rethrow;
     }
   }
@@ -757,6 +893,272 @@ class GameService {
     } catch (e) {
       _logger.e('Error ending audio room for game $gameId: $e');
       rethrow;
+    }
+  }
+
+  /// Tests cross-user-type game matching functionality.
+  /// This method verifies that guest users can match with registered users and vice versa.
+  Future<Map<String, dynamic>> testCrossUserTypeMatching({
+    required String gameMode,
+    required String guestUserId,
+    required String registeredUserId,
+    int testRating = 1200,
+  }) async {
+    final results = <String, dynamic>{
+      'success': false,
+      'tests': <String, bool>{},
+      'errors': <String>[],
+      'details': <String, dynamic>{},
+    };
+
+    try {
+      _logger.i(
+        'Starting cross-user-type matching test for gameMode: $gameMode',
+      );
+
+      // Test 1: Validate both users
+      _logger.i('Test 1: Validating users for game matching');
+      final guestValid = await validateUserForGameMatching(guestUserId);
+      final registeredValid = await validateUserForGameMatching(
+        registeredUserId,
+      );
+
+      results['tests']['guest_user_validation'] = guestValid;
+      results['tests']['registered_user_validation'] = registeredValid;
+
+      if (!guestValid) {
+        results['errors'].add('Guest user $guestUserId failed validation');
+      }
+      if (!registeredValid) {
+        results['errors'].add(
+          'Registered user $registeredUserId failed validation',
+        );
+      }
+
+      // Test 2: Guest user creates game, registered user finds it
+      _logger.i('Test 2: Guest creates game, registered user finds it');
+      try {
+        final guestGameRoom = await createGameRoom(
+          gameMode: gameMode,
+          player1Id: guestUserId,
+          player1DisplayName: 'Test Guest',
+          player1Flag: 'US',
+          player2Flag: '',
+          player1Rating: testRating,
+          ratingBasedSearch: false,
+          initialWhitesTime: 300000,
+          initialBlacksTime: 300000,
+        );
+
+        // Try to find the game as registered user
+        final foundByRegistered = await findAvailableGame(
+          gameMode: gameMode,
+          userRating: testRating,
+          currentUserId: registeredUserId,
+        );
+
+        results['tests']['guest_creates_registered_finds'] =
+            foundByRegistered?.gameId == guestGameRoom.gameId;
+        results['details']['guest_created_game_id'] = guestGameRoom.gameId;
+        results['details']['found_by_registered'] = foundByRegistered?.gameId;
+
+        // Clean up
+        await deleteGameRoom(guestGameRoom.gameId);
+      } catch (e) {
+        results['tests']['guest_creates_registered_finds'] = false;
+        results['errors'].add(
+          'Guest creates, registered finds test failed: $e',
+        );
+      }
+
+      // Test 3: Registered user creates game, guest user finds it
+      _logger.i('Test 3: Registered user creates game, guest user finds it');
+      try {
+        final registeredGameRoom = await createGameRoom(
+          gameMode: gameMode,
+          player1Id: registeredUserId,
+          player1DisplayName: 'Test Registered',
+          player1Flag: 'US',
+          player2Flag: '',
+          player1Rating: testRating,
+          ratingBasedSearch: false,
+          initialWhitesTime: 300000,
+          initialBlacksTime: 300000,
+        );
+
+        // Try to find the game as guest user
+        final foundByGuest = await findAvailableGame(
+          gameMode: gameMode,
+          userRating: testRating,
+          currentUserId: guestUserId,
+        );
+
+        results['tests']['registered_creates_guest_finds'] =
+            foundByGuest?.gameId == registeredGameRoom.gameId;
+        results['details']['registered_created_game_id'] =
+            registeredGameRoom.gameId;
+        results['details']['found_by_guest'] = foundByGuest?.gameId;
+
+        // Clean up
+        await deleteGameRoom(registeredGameRoom.gameId);
+      } catch (e) {
+        results['tests']['registered_creates_guest_finds'] = false;
+        results['errors'].add(
+          'Registered creates, guest finds test failed: $e',
+        );
+      }
+
+      // Test 4: Test joining functionality
+      _logger.i('Test 4: Testing join functionality between user types');
+      try {
+        // Create a game with guest user
+        final testGameRoom = await createGameRoom(
+          gameMode: gameMode,
+          player1Id: guestUserId,
+          player1DisplayName: 'Test Guest',
+          player1Flag: 'US',
+          player2Flag: '',
+          player1Rating: testRating,
+          ratingBasedSearch: false,
+          initialWhitesTime: 300000,
+          initialBlacksTime: 300000,
+        );
+
+        // Have registered user join
+        await joinGameRoom(
+          gameId: testGameRoom.gameId,
+          player2Id: registeredUserId,
+          player2DisplayName: 'Test Registered',
+          player2Flag: 'US',
+          player2Rating: testRating,
+        );
+
+        // Verify the game is now active
+        final updatedGame =
+            await _firestore
+                .collection(Constants.gameRoomsCollection)
+                .doc(testGameRoom.gameId)
+                .get();
+
+        if (updatedGame.exists) {
+          final gameData = updatedGame.data() as Map<String, dynamic>;
+          final status = gameData[Constants.fieldStatus];
+          results['tests']['cross_user_join'] =
+              status == Constants.statusActive;
+        } else {
+          results['tests']['cross_user_join'] = false;
+        }
+
+        // Clean up
+        await deleteGameRoom(testGameRoom.gameId);
+      } catch (e) {
+        results['tests']['cross_user_join'] = false;
+        results['errors'].add('Cross-user join test failed: $e');
+      }
+
+      // Determine overall success
+      final allTestsPassed = results['tests'].values.every(
+        (test) => test == true,
+      );
+      results['success'] =
+          allTestsPassed && (results['errors'] as List).isEmpty;
+
+      _logger.i(
+        'Cross-user-type matching test completed. Success: ${results['success']}',
+      );
+      return results;
+    } catch (e) {
+      _logger.e('Error during cross-user-type matching test: $e');
+      results['errors'].add('Test framework error: $e');
+      return results;
+    }
+  }
+
+  /// Tests guest-to-guest user matching functionality.
+  Future<Map<String, dynamic>> testGuestToGuestMatching({
+    required String gameMode,
+    required String guestUser1Id,
+    required String guestUser2Id,
+    int testRating = 1200,
+  }) async {
+    final results = <String, dynamic>{
+      'success': false,
+      'tests': <String, bool>{},
+      'errors': <String>[],
+      'details': <String, dynamic>{},
+    };
+
+    try {
+      _logger.i(
+        'Starting guest-to-guest matching test for gameMode: $gameMode',
+      );
+
+      // Test 1: Validate both guest users
+      final guest1Valid = await validateUserForGameMatching(guestUser1Id);
+      final guest2Valid = await validateUserForGameMatching(guestUser2Id);
+
+      results['tests']['guest1_validation'] = guest1Valid;
+      results['tests']['guest2_validation'] = guest2Valid;
+
+      // Test 2: Guest 1 creates game, Guest 2 finds it
+      try {
+        final guest1GameRoom = await createGameRoom(
+          gameMode: gameMode,
+          player1Id: guestUser1Id,
+          player1DisplayName: 'Test Guest 1',
+          player1Flag: 'US',
+          player2Flag: '',
+          player1Rating: testRating,
+          ratingBasedSearch: false,
+          initialWhitesTime: 300000,
+          initialBlacksTime: 300000,
+        );
+
+        final foundByGuest2 = await findAvailableGame(
+          gameMode: gameMode,
+          userRating: testRating,
+          currentUserId: guestUser2Id,
+        );
+
+        results['tests']['guest_to_guest_matching'] =
+            foundByGuest2?.gameId == guest1GameRoom.gameId;
+
+        // Test joining
+        if (foundByGuest2 != null) {
+          await joinGameRoom(
+            gameId: foundByGuest2.gameId,
+            player2Id: guestUser2Id,
+            player2DisplayName: 'Test Guest 2',
+            player2Flag: 'US',
+            player2Rating: testRating,
+          );
+          results['tests']['guest_to_guest_join'] = true;
+        } else {
+          results['tests']['guest_to_guest_join'] = false;
+        }
+
+        // Clean up
+        await deleteGameRoom(guest1GameRoom.gameId);
+      } catch (e) {
+        results['tests']['guest_to_guest_matching'] = false;
+        results['tests']['guest_to_guest_join'] = false;
+        results['errors'].add('Guest-to-guest test failed: $e');
+      }
+
+      final allTestsPassed = results['tests'].values.every(
+        (test) => test == true,
+      );
+      results['success'] =
+          allTestsPassed && (results['errors'] as List).isEmpty;
+
+      _logger.i(
+        'Guest-to-guest matching test completed. Success: ${results['success']}',
+      );
+      return results;
+    } catch (e) {
+      _logger.e('Error during guest-to-guest matching test: $e');
+      results['errors'].add('Test framework error: $e');
+      return results;
     }
   }
 }
