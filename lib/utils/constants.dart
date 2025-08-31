@@ -58,6 +58,7 @@ class Constants {
   static const String profileImagesCollection = 'profile_images';
 
   // AdMob Config fields
+  static const String appOpenAdId = 'appOpenAdId';
   static const String androidBannerAdId = 'androidBannerAdId';
   static const String iosBannerAdId = 'iosBannerAdId';
   static const String androidInterstitialAdId = 'androidInterstitialAdId';

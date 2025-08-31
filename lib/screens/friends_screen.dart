@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
 import 'package:flutter_chess_app/providers/admob_provider.dart';
+import 'package:flutter_chess_app/services/native_ad_coordinator.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/screens/chat_screen.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
@@ -111,31 +112,22 @@ class _FriendsScreenState extends State<FriendsScreen>
     });
   }
 
-  /// Attempt to load native ad with app launch sequence coordination
+  /// Attempt to load native ad when screen is visible
   void _attemptNativeAdLoad() {
     if (!mounted || !widget.isVisible) {
       return;
     }
-
-    final adMobProvider = context.read<AdMobProvider>();
-
-    // Check if app launch sequence is in progress
-    if (adMobProvider.isAppLaunchSequenceInProgress()) {
-      // Don't load now, the listener will trigger when sequence completes
-      return;
-    }
-
-    // If app launch sequence is complete or not started, load the ad
-    if (adMobProvider.isAppLaunchSequenceComplete ||
-        adMobProvider.appLaunchAdState == AppLaunchAdState.notStarted) {
+    try {
+      final adMobProvider = context.read<AdMobProvider>();
+      // Check if app launch sequence is in progress
+      if (adMobProvider.isAppLaunchSequenceInProgress()) {
+        // Don't load now, the listener will trigger when sequence completes
+        return;
+      }
       _createNativeAd();
-    } else {
-      // Add a delayed retry as fallback
-      Future.delayed(const Duration(milliseconds: 2000), () {
-        if (mounted && widget.isVisible && !_hasLoadedAd && !_isLoadingAd) {
-          _attemptNativeAdLoad();
-        }
-      });
+    } catch (e) {
+      // Fallback to direct loading if provider access fails
+      _createNativeAd();
     }
   }
 
@@ -247,6 +239,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                 ad.dispose();
                 _isLoadingAd = false;
                 _hasLoadedAd = false;
+
                 if (mounted && context.mounted) {
                   setState(() {
                     isAdLoaded = false;
@@ -301,6 +294,9 @@ class _FriendsScreenState extends State<FriendsScreen>
       }
       _appLaunchSequenceListener = null;
     }
+
+    // Release native ad permission
+    NativeAdCoordinator.releasePermission('FriendsScreen');
 
     _tabController.dispose();
     _searchController.dispose();

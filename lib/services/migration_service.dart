@@ -112,12 +112,14 @@ class MigrationService {
     required String iosRewardedAdId,
     required String androidNativeAdId,
     required String iosNativeAdId,
+    required String appOpenId,
     bool enabled = true,
   }) async {
     try {
       _logger.i('Updating to production AdMob configuration...');
 
       final productionConfig = AdMobConfig(
+        appOpenAdId: appOpenId,
         androidBannerAdId: androidBannerAdId,
         iosBannerAdId: iosBannerAdId,
         androidInterstitialAdId: androidInterstitialAdId,

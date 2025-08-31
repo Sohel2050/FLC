@@ -6,6 +6,7 @@ import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/providers/admob_provider.dart';
+import 'package:flutter_chess_app/services/app_open_ad_manager.dart';
 import 'package:flutter_chess_app/services/app_launch_ad_coordinator.dart';
 import 'package:flutter_chess_app/push_notification/notification_service.dart';
 import 'package:logger/logger.dart';
@@ -106,8 +107,32 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  /// Handle app launch interstitial ad using the centralized coordinator
-  Future<void> _handleAppLaunchAd(ChessUser user) async {
+  /// Initialize app open ad manager for the user
+  void _initializeAppOpenAdManager(ChessUser user) {
+    try {
+      // Validate user before proceeding
+      if (user.uid == null || user.uid!.isEmpty) {
+        _logger.w('Invalid user for app open ad manager, skipping');
+        return;
+      }
+
+      // Ensure context is still valid
+      if (!mounted) {
+        _logger.w(
+          'Widget not mounted, skipping app open ad manager initialization',
+        );
+        return;
+      }
+
+      _logger.i('Initializing app open ad manager for user: ${user.uid}');
+      AppOpenAdManager.initialize(context, user);
+    } catch (e) {
+      _logger.e('Error initializing app open ad manager: $e');
+    }
+  }
+
+  /// Handle app launch ad sequence
+  void _handleAppLaunchAd(ChessUser user) {
     try {
       // Validate user before proceeding
       if (user.uid == null || user.uid!.isEmpty) {
@@ -121,51 +146,23 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         return;
       }
 
-      // Get AdMobProvider and ensure config is loaded
-      final adMobProvider = Provider.of<AdMobProvider>(context, listen: false);
+      _logger.i('Handling app launch ad for user: ${user.uid}');
 
-      // Wait for AdMob config to load before proceeding
-      if (adMobProvider.adMobConfig == null) {
-        _logger.i(
-          'Waiting for AdMob config to load before showing app launch ad',
-        );
-        await adMobProvider.loadAdMobConfig();
-      }
-
-      AppLaunchAdCoordinator.handleAppLaunchAd(
-        context: context,
-        user: user,
-        onComplete: () {
-          try {
-            // Ad sequence completed, no additional action needed
-            // The HomeScreen is already displayed and will continue normally
-            _logger.d('App launch ad sequence completed successfully');
-          } catch (completionError) {
-            _logger.e(
-              'Error in app launch ad completion callback: $completionError',
-            );
-          }
-        },
-      );
-    } catch (e) {
-      // Log error and continue with normal app flow
-      _logger.e('Error handling app launch ad: $e');
-      // App continues to function normally even if ad fails
-
-      // Ensure AdMobProvider is reset to allow normal app flow
-      try {
+      // Use post-frame callback to ensure UI is ready
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted && context.mounted) {
-          final adMobProvider = Provider.of<AdMobProvider>(
-            context,
-            listen: false,
+          AppLaunchAdCoordinator.handleAppLaunchAd(
+            context: context,
+            user: user,
+            onComplete: () {
+              _logger.i('App launch ad sequence completed');
+              // App launch ad sequence is complete, normal app flow continues
+            },
           );
-          adMobProvider.forceCompleteAppLaunchSequence();
         }
-      } catch (resetError) {
-        _logger.e(
-          'Error resetting AdMobProvider after ad failure: $resetError',
-        );
-      }
+      });
+    } catch (e) {
+      _logger.e('Error handling app launch ad: $e');
     }
   }
 
@@ -238,7 +235,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                         userService.cleanupOnlineStatus(user.uid!);
                       }
 
-                      // Handle app launch ad using centralized coordinator
+                      // Initialize app open ad manager
+                      _initializeAppOpenAdManager(user);
+
+                      // Handle app launch ad sequence
                       _handleAppLaunchAd(user);
                     }
                   });

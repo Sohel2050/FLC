@@ -1,21 +1,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
 import '../models/user_model.dart';
 import '../providers/admob_provider.dart';
+import '../services/admob_service.dart';
 
-/// Centralized coordinator for managing app launch interstitial ads
+/// Centralized coordinator for managing app launch ads
 /// Handles timing, state management, and coordination with other ad types
 class AppLaunchAdCoordinator {
   static final Logger _logger = Logger();
-  static InterstitialAd? _interstitialAd;
   static bool _isAdLoading = false;
-
-  /// Configuration for ad coordinator behavior
-  static const Duration _loadTimeout = Duration(seconds: 5);
-  static const Duration _showDelay = Duration(milliseconds: 500);
 
   /// Main entry point for handling app launch ads
   ///
@@ -52,6 +47,8 @@ class AppLaunchAdCoordinator {
         onComplete();
         return;
       }
+
+      _logger.i('App launch ad should be shown, starting sequence');
 
       // Start the app launch ad sequence with error handling
       try {
@@ -138,6 +135,20 @@ class AppLaunchAdCoordinator {
         return false;
       }
 
+      // Check if app open ad unit ID is available
+      try {
+        final appOpenAdUnitId = adMobProvider.appOpenAdUnitId;
+        if (appOpenAdUnitId == null || appOpenAdUnitId.isEmpty) {
+          _logger.w(
+            'App open ad unit ID not available, skipping app launch ad',
+          );
+          return false;
+        }
+      } catch (adUnitError) {
+        _logger.e('Error checking app open ad unit ID: $adUnitError');
+        return false;
+      }
+
       _logger.i('App launch ad should be shown for new session');
       return true;
     } catch (e) {
@@ -147,7 +158,7 @@ class AppLaunchAdCoordinator {
     }
   }
 
-  /// Internal method to load and show the interstitial ad
+  /// Internal method to load and show the app open ad
   static Future<void> _loadAndShowAd(
     BuildContext context,
     ChessUser user,
@@ -164,132 +175,7 @@ class AppLaunchAdCoordinator {
 
       _isAdLoading = true;
 
-      // Get the interstitial ad unit ID with error handling
-      String? adUnitId;
-      try {
-        adUnitId = adMobProvider.interstitialAdUnitId;
-      } catch (e) {
-        _logger.e('Error getting interstitial ad unit ID: $e');
-        _completeSequence(adMobProvider, onComplete);
-        return;
-      }
-
-      if (adUnitId == null || adUnitId.isEmpty) {
-        _logger.w('No interstitial ad unit ID available or empty');
-        _completeSequence(adMobProvider, onComplete);
-        return;
-      }
-
-      _logger.i('Loading app launch interstitial ad with ID: $adUnitId');
-
-      // Create a completer for timeout handling
-      final Completer<void> loadCompleter = Completer<void>();
-      Timer? timeoutTimer;
-
-      try {
-        // Set up timeout with error handling
-        timeoutTimer = Timer(_loadTimeout, () {
-          if (!loadCompleter.isCompleted) {
-            _logger.w(
-              'App launch ad load timed out after ${_loadTimeout.inSeconds} seconds',
-            );
-            try {
-              loadCompleter.complete();
-              _completeSequence(adMobProvider, onComplete);
-            } catch (timeoutError) {
-              _logger.e('Error in timeout handler: $timeoutError');
-            }
-          }
-        });
-
-        // Load the interstitial ad with comprehensive error handling
-        await InterstitialAd.load(
-          adUnitId: adUnitId,
-          request: const AdRequest(),
-          adLoadCallback: InterstitialAdLoadCallback(
-            onAdLoaded: (InterstitialAd ad) {
-              try {
-                _logger.i('App launch interstitial ad loaded successfully');
-                _interstitialAd = ad;
-
-                if (!loadCompleter.isCompleted) {
-                  loadCompleter.complete();
-                  _showLoadedAd(context, adMobProvider, onComplete);
-                } else {
-                  // Completer already completed, dispose the ad
-                  ad.dispose();
-                  _logger.w(
-                    'Ad loaded but completer already completed, disposing ad',
-                  );
-                }
-              } catch (e) {
-                _logger.e('Error in onAdLoaded callback: $e');
-                ad.dispose();
-                if (!loadCompleter.isCompleted) {
-                  loadCompleter.complete();
-                  _completeSequence(adMobProvider, onComplete);
-                }
-              }
-            },
-            onAdFailedToLoad: (LoadAdError error) {
-              try {
-                _logger.e(
-                  'App launch interstitial ad failed to load: ${error.message} (Code: ${error.code})',
-                );
-
-                if (!loadCompleter.isCompleted) {
-                  loadCompleter.complete();
-                  _completeSequence(adMobProvider, onComplete);
-                }
-              } catch (e) {
-                _logger.e('Error in onAdFailedToLoad callback: $e');
-                if (!loadCompleter.isCompleted) {
-                  loadCompleter.complete();
-                  _completeSequence(adMobProvider, onComplete);
-                }
-              }
-            },
-          ),
-        );
-
-        // Wait for load completion or timeout
-        await loadCompleter.future;
-      } catch (loadError) {
-        _logger.e('Error during InterstitialAd.load: $loadError');
-        if (!loadCompleter.isCompleted) {
-          loadCompleter.complete();
-        }
-        _completeSequence(adMobProvider, onComplete);
-      } finally {
-        // Clean up timeout timer
-        try {
-          timeoutTimer?.cancel();
-        } catch (e) {
-          _logger.e('Error canceling timeout timer: $e');
-        }
-      }
-    } catch (e) {
-      _logger.e('Critical error loading app launch ad: $e');
-      _completeSequence(adMobProvider, onComplete);
-    } finally {
-      _isAdLoading = false;
-    }
-  }
-
-  /// Shows the loaded interstitial ad
-  static void _showLoadedAd(
-    BuildContext context,
-    AdMobProvider adMobProvider,
-    VoidCallback onComplete,
-  ) {
-    try {
-      if (_interstitialAd == null) {
-        _logger.w('No ad to show, completing sequence');
-        _completeSequence(adMobProvider, onComplete);
-        return;
-      }
-
-      _logger.i('Showing app launch interstitial ad');
+      _logger.i('Loading app launch app open ad');
 
       // Update state to showing with error handling
       try {
@@ -299,128 +185,33 @@ class AppLaunchAdCoordinator {
         // Continue with showing the ad even if state update fails
       }
 
-      // Set up ad callbacks with comprehensive error handling
-      try {
-        _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback(
-          onAdShowedFullScreenContent: (InterstitialAd ad) {
-            try {
-              _logger.i(
-                'App launch interstitial ad showed full screen content',
-              );
-            } catch (e) {
-              _logger.e('Error in onAdShowedFullScreenContent callback: $e');
-            }
-          },
-          onAdDismissedFullScreenContent: (InterstitialAd ad) {
-            try {
-              _logger.i('App launch interstitial ad dismissed');
-              ad.dispose();
-              _interstitialAd = null;
-              _completeSequence(adMobProvider, onComplete);
-            } catch (e) {
-              _logger.e('Error in onAdDismissedFullScreenContent callback: $e');
-              // Ensure cleanup even if there's an error
-              try {
-                ad.dispose();
-                _interstitialAd = null;
-                _completeSequence(adMobProvider, onComplete);
-              } catch (cleanupError) {
-                _logger.e('Error in ad dismissal cleanup: $cleanupError');
-                _completeSequence(adMobProvider, onComplete);
-              }
-            }
-          },
-          onAdFailedToShowFullScreenContent: (
-            InterstitialAd ad,
-            AdError error,
-          ) {
-            try {
-              _logger.e(
-                'App launch interstitial ad failed to show: ${error.message} (Code: ${error.code})',
-              );
-              ad.dispose();
-              _interstitialAd = null;
-              _completeSequence(adMobProvider, onComplete);
-            } catch (e) {
-              _logger.e(
-                'Error in onAdFailedToShowFullScreenContent callback: $e',
-              );
-              // Ensure cleanup even if there's an error
-              try {
-                ad.dispose();
-                _interstitialAd = null;
-                _completeSequence(adMobProvider, onComplete);
-              } catch (cleanupError) {
-                _logger.e('Error in ad show failure cleanup: $cleanupError');
-                _completeSequence(adMobProvider, onComplete);
-              }
-            }
-          },
-        );
-      } catch (callbackError) {
-        _logger.e('Error setting up ad callbacks: $callbackError');
-        // If we can't set up callbacks, dispose the ad and complete
-        try {
-          _interstitialAd?.dispose();
-          _interstitialAd = null;
-        } catch (disposeError) {
-          _logger.e(
-            'Error disposing ad after callback setup failure: $disposeError',
-          );
-        }
-        _completeSequence(adMobProvider, onComplete);
-        return;
-      }
-
-      // Show the ad with a small delay for better UX
-      try {
-        Future.delayed(_showDelay, () {
+      // Use AdMobService to load and show the app open ad
+      await AdMobService.loadAndShowAppOpenAd(
+        context: context,
+        onAdClosed: () {
           try {
-            _interstitialAd?.show();
-          } catch (showError) {
-            _logger.e('Error showing interstitial ad: $showError');
-            // Clean up and complete sequence if show fails
-            try {
-              _interstitialAd?.dispose();
-              _interstitialAd = null;
-            } catch (disposeError) {
-              _logger.e('Error disposing ad after show failure: $disposeError');
-            }
+            _logger.i('App launch app open ad closed');
+            _completeSequence(adMobProvider, onComplete);
+          } catch (e) {
+            _logger.e('Error in app open ad closed callback: $e');
             _completeSequence(adMobProvider, onComplete);
           }
-        });
-      } catch (delayError) {
-        _logger.e('Error setting up delayed ad show: $delayError');
-        // Try to show immediately as fallback
-        try {
-          _interstitialAd?.show();
-        } catch (immediateShowError) {
-          _logger.e(
-            'Error showing ad immediately after delay failure: $immediateShowError',
-          );
+        },
+        onAdFailedToLoad: () {
           try {
-            _interstitialAd?.dispose();
-            _interstitialAd = null;
-          } catch (disposeError) {
-            _logger.e(
-              'Error disposing ad after immediate show failure: $disposeError',
-            );
+            _logger.w('App launch app open ad failed to load');
+            _completeSequence(adMobProvider, onComplete);
+          } catch (e) {
+            _logger.e('Error in app open ad failed callback: $e');
+            _completeSequence(adMobProvider, onComplete);
           }
-          _completeSequence(adMobProvider, onComplete);
-        }
-      }
+        },
+      );
     } catch (e) {
-      _logger.e('Critical error showing loaded ad: $e');
-      // Ensure cleanup and completion even in critical error
-      try {
-        _interstitialAd?.dispose();
-        _interstitialAd = null;
-      } catch (disposeError) {
-        _logger.e(
-          'Error disposing ad in critical error handler: $disposeError',
-        );
-      }
+      _logger.e('Critical error loading app launch ad: $e');
       _completeSequence(adMobProvider, onComplete);
+    } finally {
+      _isAdLoading = false;
     }
   }
 
@@ -447,15 +238,7 @@ class AppLaunchAdCoordinator {
         }
       }
 
-      // Clean up any remaining ad instance
-      try {
-        _interstitialAd?.dispose();
-        _interstitialAd = null;
-      } catch (disposeError) {
-        _logger.e('Error disposing interstitial ad: $disposeError');
-        _interstitialAd = null; // Set to null even if dispose fails
-      }
-
+      // Clean up loading state
       _isAdLoading = false;
 
       // Execute the completion callback with error handling
@@ -469,7 +252,6 @@ class AppLaunchAdCoordinator {
       _logger.e('Critical error completing app launch ad sequence: $e');
       // Ensure basic cleanup even in critical error
       try {
-        _interstitialAd = null;
         _isAdLoading = false;
         onComplete();
       } catch (criticalError) {
@@ -491,13 +273,6 @@ class AppLaunchAdCoordinator {
       // Clean up any loading state
       _isAdLoading = false;
 
-      try {
-        _interstitialAd?.dispose();
-      } catch (disposeError) {
-        _logger.e('Error disposing ad during force complete: $disposeError');
-      }
-      _interstitialAd = null;
-
       // Force complete the provider sequence
       try {
         adMobProvider.forceCompleteAppLaunchSequence();
@@ -515,7 +290,6 @@ class AppLaunchAdCoordinator {
       _logger.e('Critical error in force complete: $e');
       // Last resort cleanup
       _isAdLoading = false;
-      _interstitialAd = null;
       try {
         onComplete();
       } catch (criticalCallbackError) {
@@ -527,29 +301,19 @@ class AppLaunchAdCoordinator {
   }
 
   /// Check if the coordinator is currently processing an ad
-  static bool get isProcessing => _isAdLoading || _interstitialAd != null;
+  static bool get isProcessing => _isAdLoading;
 
   /// Dispose of any resources (call on app disposal)
   static void dispose() {
     try {
       _logger.i('Disposing AppLaunchAdCoordinator resources');
 
-      try {
-        _interstitialAd?.dispose();
-      } catch (disposeError) {
-        _logger.e(
-          'Error disposing interstitial ad during coordinator disposal: $disposeError',
-        );
-      }
-
-      _interstitialAd = null;
       _isAdLoading = false;
 
       _logger.i('AppLaunchAdCoordinator resources disposed successfully');
     } catch (e) {
       _logger.e('Error disposing AppLaunchAdCoordinator resources: $e');
       // Ensure basic cleanup even if there's an error
-      _interstitialAd = null;
       _isAdLoading = false;
     }
   }

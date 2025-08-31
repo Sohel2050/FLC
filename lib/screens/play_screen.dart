@@ -1,7 +1,7 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_chess_app/providers/admob_provider.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
+import 'package:flutter_chess_app/providers/admob_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
@@ -51,12 +51,15 @@ class _PlayScreenState extends State<PlayScreen>
     // Set up listener for app launch sequence completion
     _setupAppLaunchSequenceListener();
 
-    // Use post-frame callback to ensure widget is fully built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && widget.isVisible) {
-        _attemptNativeAdLoad();
-      }
-    });
+    // Load ad immediately if screen is visible on init
+    if (widget.isVisible) {
+      // Use post-frame callback to ensure widget is fully built
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.isVisible) {
+          _attemptNativeAdLoad();
+        }
+      });
+    }
   }
 
   @override
@@ -66,33 +69,36 @@ class _PlayScreenState extends State<PlayScreen>
       'PlayScreen: didUpdateWidget - old: ${oldWidget.isVisible}, new: ${widget.isVisible}',
     );
 
-    // Load ad when screen becomes visible and hasn't loaded yet
-    if (widget.isVisible &&
-        !oldWidget.isVisible &&
-        !_hasLoadedAd &&
-        !_isLoadingAd) {
-      debugPrint('PlayScreen: Loading ad on visibility change');
-      // Use post-frame callback to ensure proper timing
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && widget.isVisible) {
-          _attemptNativeAdLoad();
+    // Handle visibility changes
+    if (widget.isVisible != oldWidget.isVisible) {
+      if (widget.isVisible) {
+        // Screen became visible - load ad if not already loaded
+        if (!_hasLoadedAd && !_isLoadingAd) {
+          debugPrint('PlayScreen: Loading ad on visibility change to visible');
+          // Use post-frame callback to ensure proper timing
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && widget.isVisible) {
+              _attemptNativeAdLoad();
+            }
+          });
         }
-      });
-    }
-    // Dispose ad when screen becomes invisible to free memory
-    else if (!widget.isVisible && oldWidget.isVisible) {
-      debugPrint('PlayScreen: Disposing ad on visibility change');
-      _disposeNativeAd();
+      } else {
+        // Screen became invisible - dispose ad to free memory
+        debugPrint(
+          'PlayScreen: Disposing ad on visibility change to invisible',
+        );
+        _disposeNativeAd();
+      }
     }
   }
 
   /// Set up listener for app launch sequence completion
   void _setupAppLaunchSequenceListener() {
     _appLaunchSequenceListener = () {
-      debugPrint(
-        'PlayScreen: App launch sequence completed, attempting to load native ad',
-      );
       if (mounted && widget.isVisible && !_hasLoadedAd && !_isLoadingAd) {
+        debugPrint(
+          'PlayScreen: Loading ad after app launch sequence completion',
+        );
         _createNativeAd();
       }
     };
@@ -100,46 +106,43 @@ class _PlayScreenState extends State<PlayScreen>
     // Add listener to AdMobProvider
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && context.mounted) {
-        final adMobProvider = context.read<AdMobProvider>();
-        adMobProvider.addListener(_appLaunchSequenceListener!);
+        try {
+          final adMobProvider = context.read<AdMobProvider>();
+          adMobProvider.addListener(_appLaunchSequenceListener!);
+        } catch (e) {
+          debugPrint(
+            'PlayScreen: Error setting up app launch sequence listener: $e',
+          );
+        }
       }
     });
   }
 
-  /// Attempt to load native ad with app launch sequence coordination
+  /// Attempt to load native ad when screen is visible
   void _attemptNativeAdLoad() {
     if (!mounted || !widget.isVisible) {
       return;
     }
+    debugPrint('PlayScreen: Attempting to load native ad for visible screen');
 
-    final adMobProvider = context.read<AdMobProvider>();
-
-    // Check if app launch sequence is in progress
-    if (adMobProvider.isAppLaunchSequenceInProgress()) {
-      debugPrint(
-        'PlayScreen: App launch sequence in progress, delaying native ad load',
-      );
-      // Don't load now, the listener will trigger when sequence completes
-      return;
-    }
-
-    // If app launch sequence is complete or not started, load the ad
-    if (adMobProvider.isAppLaunchSequenceComplete ||
-        adMobProvider.appLaunchAdState == AppLaunchAdState.notStarted) {
-      debugPrint(
-        'PlayScreen: App launch sequence complete or not started, loading native ad',
-      );
+    try {
+      final adMobProvider = context.read<AdMobProvider>();
+      // Check if app launch sequence is in progress
+      if (adMobProvider.isAppLaunchSequenceInProgress()) {
+        debugPrint(
+          'PlayScreen: App launch sequence in progress, waiting for completion',
+        );
+        // Don't load now, the listener will trigger when sequence completes
+        return;
+      }
+      debugPrint('PlayScreen: App launch sequence complete, loading ad now');
       _createNativeAd();
-    } else {
-      // Add a delayed retry as fallback
+    } catch (e) {
       debugPrint(
-        'PlayScreen: App launch sequence in unknown state, adding delayed retry',
+        'PlayScreen: Error checking app launch sequence, loading ad anyway: $e',
       );
-      Future.delayed(const Duration(milliseconds: 2000), () {
-        if (mounted && widget.isVisible && !_hasLoadedAd && !_isLoadingAd) {
-          _attemptNativeAdLoad();
-        }
-      });
+      // Fallback to direct loading if provider access fails
+      _createNativeAd();
     }
   }
 
@@ -167,20 +170,6 @@ class _PlayScreenState extends State<PlayScreen>
         debugPrint(
           'PlayScreen: Error checking if ads should be shown: $adServiceError',
         );
-        return;
-      }
-
-      // Final check for app launch sequence before loading
-      try {
-        final adMobProvider = context.read<AdMobProvider>();
-        if (adMobProvider.isAppLaunchSequenceInProgress()) {
-          debugPrint(
-            'PlayScreen: App launch sequence still in progress, aborting native ad load',
-          );
-          return;
-        }
-      } catch (providerError) {
-        debugPrint('PlayScreen: Error accessing AdMobProvider: $providerError');
         return;
       }
 
@@ -254,6 +243,7 @@ class _PlayScreenState extends State<PlayScreen>
                 ad.dispose();
                 _isLoadingAd = false;
                 _hasLoadedAd = false;
+
                 if (mounted && context.mounted) {
                   setState(() {
                     isAdLoaded = false;
@@ -305,6 +295,7 @@ class _PlayScreenState extends State<PlayScreen>
 
   void _disposeNativeAd() {
     debugPrint('PlayScreen: Disposing native ad');
+
     _nativeAd?.dispose();
     _nativeAd = null;
     _hasLoadedAd =
@@ -329,7 +320,9 @@ class _PlayScreenState extends State<PlayScreen>
         final adMobProvider = context.read<AdMobProvider>();
         adMobProvider.removeListener(_appLaunchSequenceListener!);
       } catch (e) {
-        debugPrint('PlayScreen: Error removing listener during dispose: $e');
+        debugPrint(
+          'PlayScreen: Error removing app launch sequence listener: $e',
+        );
       }
       _appLaunchSequenceListener = null;
     }

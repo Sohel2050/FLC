@@ -10,6 +10,22 @@ class AdMobService {
   static bool _isInterstitialAdReady = false;
   static RewardedAd? _rewardedAd;
   static bool _isRewardedAdReady = false;
+  static AppOpenAd? _appOpenAd;
+
+  /// Get appOpen ad unit ID from AdMobProvider
+  static String? getAppOpenAdUnitId(BuildContext context) {
+    try {
+      final adMobProvider = Provider.of<AdMobProvider>(context, listen: false);
+      final adUnitId = adMobProvider.appOpenAdUnitId;
+      if (adUnitId == null || adUnitId.isEmpty) {
+        _logger.w('AppOpen ad unit ID is null or empty');
+      }
+      return adUnitId;
+    } catch (e) {
+      _logger.e('Error getting appOpen ad unit ID: $e');
+      return null;
+    }
+  }
 
   /// Get banner ad unit ID from AdMobProvider
   static String? getBannerAdUnitId(BuildContext context) {
@@ -94,6 +110,9 @@ class AdMobService {
 
   /// Check if rewarded ad is ready to show
   static bool get isRewardedAdReady => _isRewardedAdReady;
+
+  /// Get the current app open ad instance
+  static AppOpenAd? get appOpenAd => _appOpenAd;
 
   /// Load interstitial ad without showing it immediately
   static Future<void> loadInterstitialAd(BuildContext context) async {
@@ -619,6 +638,128 @@ class AdMobService {
   //     return null;
   //   }
   // }
+
+  /// Load and show an app open ad
+  static Future<void> loadAndShowAppOpenAd({
+    required BuildContext context,
+    required VoidCallback onAdClosed,
+    VoidCallback? onAdFailedToLoad,
+  }) async {
+    try {
+      final adUnitId = getAppOpenAdUnitId(context);
+      if (adUnitId == null || adUnitId.isEmpty) {
+        _logger.w(
+          'Cannot load and show app open ad: ad unit ID is null or empty',
+        );
+        try {
+          onAdFailedToLoad?.call();
+        } catch (callbackError) {
+          _logger.e('Error in onAdFailedToLoad callback: $callbackError');
+        }
+        return;
+      }
+
+      _logger.i('Loading and showing app open ad with ID: $adUnitId');
+
+      await AppOpenAd.load(
+        adUnitId: adUnitId,
+        request: const AdRequest(),
+        adLoadCallback: AppOpenAdLoadCallback(
+          onAdLoaded: (AppOpenAd ad) {
+            try {
+              _logger.i('App open ad loaded, setting up callbacks and showing');
+
+              ad.fullScreenContentCallback = FullScreenContentCallback<
+                AppOpenAd
+              >(
+                onAdShowedFullScreenContent: (AppOpenAd ad) {
+                  try {
+                    _logger.i('App open ad showed full screen content');
+                  } catch (e) {
+                    _logger.e(
+                      'Error in app open ad onAdShowedFullScreenContent: $e',
+                    );
+                  }
+                },
+                onAdDismissedFullScreenContent: (AppOpenAd ad) {
+                  try {
+                    _logger.i('App open ad dismissed full screen content');
+                    ad.dispose();
+                    onAdClosed();
+                  } catch (e) {
+                    _logger.e(
+                      'Error in app open ad onAdDismissedFullScreenContent: $e',
+                    );
+                    try {
+                      ad.dispose();
+                      onAdClosed();
+                    } catch (cleanupError) {
+                      _logger.e(
+                        'Error in app open ad dismissal cleanup: $cleanupError',
+                      );
+                    }
+                  }
+                },
+                onAdFailedToShowFullScreenContent: (
+                  AppOpenAd ad,
+                  AdError error,
+                ) {
+                  try {
+                    _logger.e(
+                      'App open ad failed to show full screen content: ${error.message} (Code: ${error.code})',
+                    );
+                    ad.dispose();
+                    onAdFailedToLoad?.call();
+                  } catch (e) {
+                    _logger.e(
+                      'Error in app open ad onAdFailedToShowFullScreenContent: $e',
+                    );
+                    try {
+                      ad.dispose();
+                      onAdFailedToLoad?.call();
+                    } catch (cleanupError) {
+                      _logger.e(
+                        'Error in app open ad show failure cleanup: $cleanupError',
+                      );
+                    }
+                  }
+                },
+              );
+
+              ad.show();
+            } catch (e) {
+              _logger.e('Error setting up or showing loaded app open ad: $e');
+              try {
+                ad.dispose();
+                onAdFailedToLoad?.call();
+              } catch (cleanupError) {
+                _logger.e(
+                  'Error in app open ad setup failure cleanup: $cleanupError',
+                );
+              }
+            }
+          },
+          onAdFailedToLoad: (LoadAdError error) {
+            try {
+              _logger.e(
+                'App open ad failed to load: ${error.message} (Code: ${error.code})',
+              );
+              onAdFailedToLoad?.call();
+            } catch (e) {
+              _logger.e('Error in app open ad onAdFailedToLoad callback: $e');
+            }
+          },
+        ),
+      );
+    } catch (e) {
+      _logger.e('Critical error loading and showing app open ad: $e');
+      try {
+        onAdFailedToLoad?.call();
+      } catch (callbackError) {
+        _logger.e('Error in critical failure callback: $callbackError');
+      }
+    }
+  }
 
   static final BannerAdListener bannerAdListener = BannerAdListener(
     onAdLoaded: (Ad ad) {

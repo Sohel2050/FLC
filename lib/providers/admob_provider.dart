@@ -24,10 +24,14 @@ class AdMobProvider with ChangeNotifier {
   bool _isInterstitialAdLoading = false;
   bool _hasShownAppLaunchAd = false;
 
-  // New properties for app launch ad state management
+  // App launch ad sequence management
   AppLaunchAdState _appLaunchAdState = AppLaunchAdState.notStarted;
-  Timer? _appLaunchAdTimeout;
   bool _isAppLaunchSequenceComplete = false;
+  Timer? _appLaunchAdTimeout;
+
+  // Native ad coordination to prevent multiple screens loading ads simultaneously
+  String? _currentNativeAdScreen;
+  final Set<String> _nativeAdLoadingScreens = <String>{};
 
   // Getters
   AdMobConfig? get adMobConfig => _adMobConfig;
@@ -35,8 +39,8 @@ class AdMobProvider with ChangeNotifier {
   String? get error => _error;
   bool get isInterstitialAdLoading => _isInterstitialAdLoading;
   bool get hasShownAppLaunchAd => _hasShownAppLaunchAd;
-  AppLaunchAdState get appLaunchAdState => _appLaunchAdState;
-  bool get isAppLaunchSequenceComplete => _isAppLaunchSequenceComplete;
+
+  String? get appOpenAdUnitId => _adMobConfig?.appOpenAdUnitId;
 
   // Platform-specific getters for convenience
   String? get bannerAdUnitId => _adMobConfig?.bannerAdUnitId;
@@ -47,8 +51,6 @@ class AdMobProvider with ChangeNotifier {
 
   AdMobProvider() {
     _initializeAdMobConfig();
-    // Reset app launch ad flags for new session on provider initialization
-    resetAppLaunchAdForNewSession();
   }
 
   Future<void> _initializeAdMobConfig() async {
@@ -255,6 +257,37 @@ class AdMobProvider with ChangeNotifier {
     // Check general ad conditions
     return shouldShowAds(userRemoveAds);
   }
+
+  /// Request permission to load native ad for a specific screen
+  bool requestNativeAdPermission(String screenName) {
+    if (_nativeAdLoadingScreens.contains(screenName)) {
+      return true;
+    }
+
+    if (_nativeAdLoadingScreens.isEmpty) {
+      _nativeAdLoadingScreens.add(screenName);
+      _currentNativeAdScreen = screenName;
+      return true;
+    }
+
+    return false;
+  }
+
+  /// Release native ad permission for a specific screen
+  void releaseNativeAdPermission(String screenName) {
+    _nativeAdLoadingScreens.remove(screenName);
+    if (_currentNativeAdScreen == screenName) {
+      _currentNativeAdScreen = null;
+    }
+  }
+
+  /// Check if a specific screen has permission to load native ads
+  bool hasNativeAdPermission(String screenName) {
+    return _nativeAdLoadingScreens.contains(screenName);
+  }
+
+  /// Get the current screen that has native ad permission
+  String? get currentNativeAdScreen => _currentNativeAdScreen;
 
   /// Reset app launch ad flags for a new session with detailed logging
   void resetAppLaunchAdForNewSession() {
@@ -652,11 +685,25 @@ class AdMobProvider with ChangeNotifier {
             _appLaunchAdTimeout == null);
   }
 
+  /// Clear all native ad permissions (useful for cleanup)
+  void clearAllNativeAdPermissions() {
+    try {
+      _logger.i('Clearing all native ad permissions');
+      _nativeAdLoadingScreens.clear();
+      _currentNativeAdScreen = null;
+    } catch (e) {
+      _logger.e('Error clearing native ad permissions: $e');
+    }
+  }
+
   @override
   void dispose() {
     // Cancel and cleanup timeout timer
     _appLaunchAdTimeout?.cancel();
     _appLaunchAdTimeout = null;
+
+    // Clear native ad permissions
+    clearAllNativeAdPermissions();
 
     // Log disposal for debugging
     _logger.i('AdMobProvider disposed, timeout timer cleaned up');

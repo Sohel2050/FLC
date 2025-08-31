@@ -11,7 +11,7 @@ import 'package:flutter_chess_app/screens/profile_screen.dart';
 import 'package:flutter_chess_app/screens/rating_screen.dart';
 import 'package:flutter_chess_app/screens/saved_games_screen.dart';
 import 'package:flutter_chess_app/screens/statistics_screen.dart';
-import 'package:flutter_chess_app/screens/zego_audio_test_screen.dart';
+
 import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
 import 'package:flutter_chess_app/widgets/loading_dialog.dart';
@@ -24,6 +24,7 @@ import 'options_screen.dart';
 import 'play_screen.dart';
 import 'rules_info_screen.dart';
 import 'package:flutter_chess_app/services/game_service.dart';
+import 'package:flutter_chess_app/services/app_open_ad_manager.dart';
 
 class HomeScreen extends StatefulWidget {
   final ChessUser user;
@@ -47,6 +48,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _setUserOnline();
 
     _initializeCloudMessaging();
+
+    // Update app open ad manager with current user and context
+    _updateAppOpenAdManager();
   }
 
   @override
@@ -114,7 +118,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     switch (state) {
       case AppLifecycleState.resumed:
-        log('App resumed');
         // App comes to foreground - set user online
         userService.updateUserStatusOnline(widget.user.uid!, true);
         break;
@@ -122,7 +125,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
       case AppLifecycleState.hidden:
-        log('App Hidden');
         // App goes to background or is minimized - use force offline for better reliability
         userService.forceSetUserOffline(widget.user.uid!);
         break;
@@ -283,6 +285,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  // Update app open ad manager with current user and context
+  void _updateAppOpenAdManager() {
+    try {
+      AppOpenAdManager.instance.updateContext(context);
+      AppOpenAdManager.instance.updateUser(widget.user);
+    } catch (e) {
+      log('Error updating app open ad manager: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final gameService = GameService();
@@ -291,6 +303,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       builder: (context, userProvider, child) {
         // Use the current user from the provider, fallback to widget.user if null
         final currentUser = userProvider.user ?? widget.user;
+
+        // Update app open ad manager when user changes
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          try {
+            AppOpenAdManager.instance.updateUser(currentUser);
+          } catch (e) {
+            log('Error updating app open ad manager user: $e');
+          }
+        });
 
         return UpgradeAlert(
           child: Scaffold(
