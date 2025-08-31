@@ -69,101 +69,35 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final UserService _userService = UserService();
-  final Logger _logger = Logger();
 
-  @override
-  void initState() {
-    super.initState();
-    // Add this widget as an observer for app lifecycle changes
-    WidgetsBinding.instance.addObserver(this);
-  }
+  /// Show app launch interstitial ad for non-premium users
+  void _showAppLaunchAd(ChessUser user) {
+    final adMobProvider = Provider.of<AdMobProvider>(context, listen: false);
 
-  @override
-  void dispose() {
-    // Remove this widget as an observer when disposing
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-
-    try {
-      _logger.i('App lifecycle state changed to: $state');
-
-      // Handle app lifecycle changes for session management
-      if (mounted && context.mounted) {
-        final adMobProvider = Provider.of<AdMobProvider>(
-          context,
-          listen: false,
-        );
-        adMobProvider.handleAppLifecycleChange(state);
-
-        _logger.i('Session management handled for lifecycle state: $state');
-      }
-    } catch (e) {
-      _logger.e('Error handling app lifecycle state change: $e');
+    // Check if we should show the ad
+    if (!adMobProvider.shouldShowAppLaunchAd(user.removeAds)) {
+      // Mark as shown even if we don't show it
+      adMobProvider.markAppLaunchAdShown();
+      return;
     }
-  }
 
-  /// Initialize app open ad manager for the user
-  void _initializeAppOpenAdManager(ChessUser user) {
-    try {
-      // Validate user before proceeding
-      if (user.uid == null || user.uid!.isEmpty) {
-        _logger.w('Invalid user for app open ad manager, skipping');
-        return;
-      }
+    // Set loading state
+    adMobProvider.setInterstitialAdLoading(true);
 
-      // Ensure context is still valid
-      if (!mounted) {
-        _logger.w(
-          'Widget not mounted, skipping app open ad manager initialization',
-        );
-        return;
-      }
-
-      _logger.i('Initializing app open ad manager for user: ${user.uid}');
-      AppOpenAdManager.initialize(context, user);
-    } catch (e) {
-      _logger.e('Error initializing app open ad manager: $e');
-    }
-  }
-
-  /// Handle app launch ad sequence
-  void _handleAppLaunchAd(ChessUser user) {
-    try {
-      // Validate user before proceeding
-      if (user.uid == null || user.uid!.isEmpty) {
-        _logger.w('Invalid user for app launch ad, skipping');
-        return;
-      }
-
-      // Ensure context is still valid
-      if (!mounted) {
-        _logger.w('Widget not mounted, skipping app launch ad');
-        return;
-      }
-
-      _logger.i('Handling app launch ad for user: ${user.uid}');
-
-      // Use post-frame callback to ensure UI is ready
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && context.mounted) {
-          AppLaunchAdCoordinator.handleAppLaunchAd(
-            context: context,
-            user: user,
-            onComplete: () {
-              _logger.i('App launch ad sequence completed');
-              // App launch ad sequence is complete, normal app flow continues
-            },
-          );
-        }
-      });
-    } catch (e) {
-      _logger.e('Error handling app launch ad: $e');
-    }
+    // Load and show the ad
+    AdMobService.loadAndShowInterstitialAd(
+      context: context,
+      onAdClosed: () {
+        // Mark that we've shown the app launch ad and clear loading state
+        adMobProvider.setInterstitialAdLoading(false);
+        adMobProvider.markAppLaunchAdShown();
+      },
+      onAdFailedToLoad: () {
+        // Mark as shown even if failed to prevent retry loops and clear loading state
+        adMobProvider.setInterstitialAdLoading(false);
+        adMobProvider.markAppLaunchAdShown();
+      },
+    );
   }
 
   @override

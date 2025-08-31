@@ -47,19 +47,29 @@ class _PlayScreenState extends State<PlayScreen>
   void initState() {
     super.initState();
     debugPrint('PlayScreen: initState called, isVisible: ${widget.isVisible}');
+    // Delay native ad loading to avoid conflict with app launch interstitial ad
+    // Use post-frame callback with additional delay to ensure widget is fully built
+    // and any app launch ads have finished
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.isVisible) {
+        // Add delay to avoid conflict with app launch interstitial ad
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted && widget.isVisible) {
+            debugPrint('PlayScreen: Loading ad on initState (delayed)');
+            _createNativeAd();
+          }
+        });
 
-    // Set up listener for app launch sequence completion
-    _setupAppLaunchSequenceListener();
-
-    // Load ad immediately if screen is visible on init
-    if (widget.isVisible) {
-      // Use post-frame callback to ensure widget is fully built
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && widget.isVisible) {
-          _attemptNativeAdLoad();
-        }
-      });
-    }
+        // Fallback timeout - force load native ad after 5 seconds regardless of app launch ad state
+        Future.delayed(const Duration(seconds: 5), () {
+          if (mounted && widget.isVisible && !_hasLoadedAd && !_isLoadingAd) {
+            debugPrint('PlayScreen: Force loading ad after timeout');
+            _hasTriedLoadingAfterAppLaunch = false; // Reset to allow loading
+            _createNativeAd();
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -161,23 +171,26 @@ class _PlayScreenState extends State<PlayScreen>
       }
 
       // Don't load if ads shouldn't be shown
-      try {
-        if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
-          debugPrint('PlayScreen: Ads should not be shown, skipping');
-          return;
-        }
-      } catch (adServiceError) {
-        debugPrint(
-          'PlayScreen: Error checking if ads should be shown: $adServiceError',
-        );
+      if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
         return;
       }
 
-      String? nativeAdUnitId;
-      try {
-        nativeAdUnitId = AdMobService.getNativeAdUnitId(context);
-      } catch (adUnitError) {
-        debugPrint('PlayScreen: Error getting native ad unit ID: $adUnitError');
+      // Check if app launch interstitial ad is still loading/showing
+      final adMobProvider = context.read<AdMobProvider>();
+      if (adMobProvider.isInterstitialAdLoading ||
+          !adMobProvider.hasShownAppLaunchAd) {
+        debugPrint(
+          'PlayScreen: Delaying native ad load - app launch ad in progress',
+        );
+        // Retry after a delay, but with a maximum retry limit to avoid infinite loops
+        if (!_hasTriedLoadingAfterAppLaunch) {
+          _hasTriedLoadingAfterAppLaunch = true;
+          Future.delayed(const Duration(milliseconds: 2000), () {
+            if (mounted && widget.isVisible) {
+              _createNativeAd();
+            }
+          });
+        }
         return;
       }
 

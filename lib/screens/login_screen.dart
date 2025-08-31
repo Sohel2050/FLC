@@ -4,7 +4,7 @@ import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/screens/forgot_password_screen.dart';
 import 'package:flutter_chess_app/screens/sign_up_screen.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
-import 'package:logger/logger.dart';
+import 'package:flutter_chess_app/services/admob_service.dart';
 import 'package:provider/provider.dart';
 import '../widgets/play_mode_button.dart';
 import '../services/user_service.dart';
@@ -47,8 +47,38 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (mounted) {
         if (result is SignInSuccess) {
-          // Navigate directly to home screen after successful login
-          if (mounted) {
+          // Show app launch ad for non-premium users after successful login
+          final adMobProvider = Provider.of<AdMobProvider>(
+            context,
+            listen: false,
+          );
+          if (!adMobProvider.shouldShowAppLaunchAd(result.user.removeAds)) {
+            // Load and show the ad
+            AdMobService.loadAndShowInterstitialAd(
+              context: context,
+              onAdClosed: () {
+                adMobProvider.markAppLaunchAdShown();
+                // Navigate after ad is closed
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(
+                    builder: (_) => HomeScreen(user: result.user),
+                  ),
+                  (route) => false,
+                );
+              },
+              onAdFailedToLoad: () {
+                adMobProvider.markAppLaunchAdShown();
+                // Navigate even if ad failed to load
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(
+                    builder: (_) => HomeScreen(user: result.user),
+                  ),
+                  (route) => false,
+                );
+              },
+            );
+          } else {
+            // No ad to show, navigate directly
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(builder: (_) => HomeScreen(user: result.user)),
               (route) => false,

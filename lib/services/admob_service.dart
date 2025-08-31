@@ -1,4 +1,5 @@
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
@@ -116,12 +117,11 @@ class AdMobService {
 
   /// Load interstitial ad without showing it immediately
   static Future<void> loadInterstitialAd(BuildContext context) async {
-    try {
-      final adUnitId = getInterstitialAdUnitId(context);
-      if (adUnitId == null || adUnitId.isEmpty) {
-        _logger.w('Cannot load interstitial ad: ad unit ID is null or empty');
-        return;
-      }
+    final adUnitId = getInterstitialAdUnitId(context);
+    if (adUnitId == null) {
+      print('Interstitial ad unit ID is null');
+      return;
+    }
 
       // Dispose existing ad if any
       try {
@@ -132,512 +132,23 @@ class AdMobService {
       _interstitialAd = null;
       _isInterstitialAdReady = false;
 
-      _logger.i('Loading interstitial ad with ID: $adUnitId');
-
-      await InterstitialAd.load(
-        adUnitId: adUnitId,
-        request: const AdRequest(),
-        adLoadCallback: InterstitialAdLoadCallback(
-          onAdLoaded: (InterstitialAd ad) {
-            try {
-              _logger.i('Interstitial ad loaded and ready to show');
-              _interstitialAd = ad;
-              _isInterstitialAdReady = true;
-            } catch (e) {
-              _logger.e('Error in interstitial ad onAdLoaded callback: $e');
-              ad.dispose();
-              _interstitialAd = null;
-              _isInterstitialAdReady = false;
-            }
-          },
-          onAdFailedToLoad: (LoadAdError error) {
-            try {
-              _logger.e(
-                'Interstitial ad failed to load: ${error.message} (Code: ${error.code})',
-              );
-              _interstitialAd = null;
-              _isInterstitialAdReady = false;
-            } catch (e) {
-              _logger.e(
-                'Error in interstitial ad onAdFailedToLoad callback: $e',
-              );
-              _interstitialAd = null;
-              _isInterstitialAdReady = false;
-            }
-          },
-        ),
-      );
-    } catch (e) {
-      _logger.e('Critical error loading interstitial ad: $e');
-      _interstitialAd = null;
-      _isInterstitialAdReady = false;
-    }
-  }
-
-  /// Show loaded interstitial ad
-  static void showInterstitialAd({
-    required VoidCallback onAdClosed,
-    VoidCallback? onAdFailedToShow,
-  }) {
-    try {
-      if (_interstitialAd == null || !_isInterstitialAdReady) {
-        _logger.w('Interstitial ad is not ready to show');
-        try {
-          onAdFailedToShow?.call();
-        } catch (callbackError) {
-          _logger.e('Error in onAdFailedToShow callback: $callbackError');
-        }
-        return;
-      }
-
-      _logger.i('Showing interstitial ad');
-
-      try {
-        _interstitialAd!.fullScreenContentCallback = FullScreenContentCallback<
-          InterstitialAd
-        >(
-          onAdShowedFullScreenContent: (InterstitialAd ad) {
-            try {
-              _logger.i('Interstitial ad showed full screen content');
-            } catch (e) {
-              _logger.e('Error in onAdShowedFullScreenContent callback: $e');
-            }
-          },
-          onAdDismissedFullScreenContent: (InterstitialAd ad) {
-            try {
-              _logger.i('Interstitial ad dismissed full screen content');
-              ad.dispose();
-              _interstitialAd = null;
-              _isInterstitialAdReady = false;
-              onAdClosed();
-            } catch (e) {
-              _logger.e('Error in onAdDismissedFullScreenContent callback: $e');
-              // Ensure cleanup even if callback fails
-              try {
-                ad.dispose();
-                _interstitialAd = null;
-                _isInterstitialAdReady = false;
-                onAdClosed();
-              } catch (cleanupError) {
-                _logger.e('Error in ad dismissal cleanup: $cleanupError');
-              }
-            }
-          },
-          onAdFailedToShowFullScreenContent: (
-            InterstitialAd ad,
-            AdError error,
-          ) {
-            try {
-              _logger.e(
-                'Interstitial ad failed to show full screen content: ${error.message} (Code: ${error.code})',
-              );
-              ad.dispose();
-              _interstitialAd = null;
-              _isInterstitialAdReady = false;
-              onAdFailedToShow?.call();
-            } catch (e) {
-              _logger.e(
-                'Error in onAdFailedToShowFullScreenContent callback: $e',
-              );
-              // Ensure cleanup even if callback fails
-              try {
-                ad.dispose();
-                _interstitialAd = null;
-                _isInterstitialAdReady = false;
-                onAdFailedToShow?.call();
-              } catch (cleanupError) {
-                _logger.e('Error in ad show failure cleanup: $cleanupError');
-              }
-            }
-          },
-        );
-
-        _interstitialAd!.show();
-      } catch (showError) {
-        _logger.e('Error showing interstitial ad: $showError');
-        // Clean up and call failure callback
-        try {
-          _interstitialAd?.dispose();
+    InterstitialAd.load(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          print('Interstitial ad loaded and ready to show.');
+          _interstitialAd = ad;
+          _isInterstitialAdReady = true;
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          print('Interstitial ad failed to load: $error');
           _interstitialAd = null;
           _isInterstitialAdReady = false;
-          onAdFailedToShow?.call();
-        } catch (cleanupError) {
-          _logger.e('Error in show failure cleanup: $cleanupError');
-        }
-      }
-    } catch (e) {
-      _logger.e('Critical error showing interstitial ad: $e');
-      // Ensure cleanup and callback execution
-      try {
-        _interstitialAd?.dispose();
-        _interstitialAd = null;
-        _isInterstitialAdReady = false;
-        onAdFailedToShow?.call();
-      } catch (criticalError) {
-        _logger.e('Critical error in show ad cleanup: $criticalError');
-      }
-    }
+        },
+      ),
+    );
   }
-
-  /// Dispose interstitial ad
-  static void disposeInterstitialAd() {
-    try {
-      _interstitialAd?.dispose();
-    } catch (e) {
-      _logger.e('Error disposing interstitial ad: $e');
-    } finally {
-      _interstitialAd = null;
-      _isInterstitialAdReady = false;
-    }
-  }
-
-  /// Load rewarded ad without showing it immediately
-  static Future<void> loadRewardedAd(BuildContext context) async {
-    try {
-      final adUnitId = getRewardedAdUnitId(context);
-      if (adUnitId == null || adUnitId.isEmpty) {
-        _logger.w('Cannot load rewarded ad: ad unit ID is null or empty');
-        return;
-      }
-
-      // Dispose existing ad if any
-      try {
-        _rewardedAd?.dispose();
-      } catch (disposeError) {
-        _logger.e('Error disposing existing rewarded ad: $disposeError');
-      }
-      _rewardedAd = null;
-      _isRewardedAdReady = false;
-
-      _logger.i('Loading rewarded ad with ID: $adUnitId');
-
-      await RewardedAd.load(
-        adUnitId: adUnitId,
-        request: const AdRequest(),
-        rewardedAdLoadCallback: RewardedAdLoadCallback(
-          onAdLoaded: (RewardedAd ad) {
-            try {
-              _logger.i('Rewarded ad loaded and ready to show');
-              _rewardedAd = ad;
-              _isRewardedAdReady = true;
-            } catch (e) {
-              _logger.e('Error in rewarded ad onAdLoaded callback: $e');
-              ad.dispose();
-              _rewardedAd = null;
-              _isRewardedAdReady = false;
-            }
-          },
-          onAdFailedToLoad: (LoadAdError error) {
-            try {
-              _logger.e(
-                'Rewarded ad failed to load: ${error.message} (Code: ${error.code})',
-              );
-              _rewardedAd = null;
-              _isRewardedAdReady = false;
-            } catch (e) {
-              _logger.e('Error in rewarded ad onAdFailedToLoad callback: $e');
-              _rewardedAd = null;
-              _isRewardedAdReady = false;
-            }
-          },
-        ),
-      );
-    } catch (e) {
-      _logger.e('Critical error loading rewarded ad: $e');
-      _rewardedAd = null;
-      _isRewardedAdReady = false;
-    }
-  }
-
-  /// Show loaded rewarded ad
-  static void showRewardedAd({
-    required OnUserEarnedRewardCallback onUserEarnedReward,
-    required VoidCallback onAdClosed,
-    VoidCallback? onAdFailedToShow,
-  }) {
-    try {
-      if (_rewardedAd == null || !_isRewardedAdReady) {
-        _logger.w('Rewarded ad is not ready to show');
-        try {
-          onAdFailedToShow?.call();
-        } catch (callbackError) {
-          _logger.e('Error in onAdFailedToShow callback: $callbackError');
-        }
-        return;
-      }
-
-      _logger.i('Showing rewarded ad');
-
-      try {
-        _rewardedAd!
-            .fullScreenContentCallback = FullScreenContentCallback<RewardedAd>(
-          onAdShowedFullScreenContent: (RewardedAd ad) {
-            try {
-              _logger.i('Rewarded ad showed full screen content');
-            } catch (e) {
-              _logger.e(
-                'Error in rewarded ad onAdShowedFullScreenContent callback: $e',
-              );
-            }
-          },
-          onAdDismissedFullScreenContent: (RewardedAd ad) {
-            try {
-              _logger.i('Rewarded ad dismissed full screen content');
-              ad.dispose();
-              _rewardedAd = null;
-              _isRewardedAdReady = false;
-              onAdClosed();
-            } catch (e) {
-              _logger.e(
-                'Error in rewarded ad onAdDismissedFullScreenContent callback: $e',
-              );
-              // Ensure cleanup even if callback fails
-              try {
-                ad.dispose();
-                _rewardedAd = null;
-                _isRewardedAdReady = false;
-                onAdClosed();
-              } catch (cleanupError) {
-                _logger.e(
-                  'Error in rewarded ad dismissal cleanup: $cleanupError',
-                );
-              }
-            }
-          },
-          onAdFailedToShowFullScreenContent: (RewardedAd ad, AdError error) {
-            try {
-              _logger.e(
-                'Rewarded ad failed to show full screen content: ${error.message} (Code: ${error.code})',
-              );
-              ad.dispose();
-              _rewardedAd = null;
-              _isRewardedAdReady = false;
-              onAdFailedToShow?.call();
-            } catch (e) {
-              _logger.e(
-                'Error in rewarded ad onAdFailedToShowFullScreenContent callback: $e',
-              );
-              // Ensure cleanup even if callback fails
-              try {
-                ad.dispose();
-                _rewardedAd = null;
-                _isRewardedAdReady = false;
-                onAdFailedToShow?.call();
-              } catch (cleanupError) {
-                _logger.e(
-                  'Error in rewarded ad show failure cleanup: $cleanupError',
-                );
-              }
-            }
-          },
-        );
-
-        _rewardedAd!.show(onUserEarnedReward: onUserEarnedReward);
-      } catch (showError) {
-        _logger.e('Error showing rewarded ad: $showError');
-        // Clean up and call failure callback
-        try {
-          _rewardedAd?.dispose();
-          _rewardedAd = null;
-          _isRewardedAdReady = false;
-          onAdFailedToShow?.call();
-        } catch (cleanupError) {
-          _logger.e('Error in rewarded ad show failure cleanup: $cleanupError');
-        }
-      }
-    } catch (e) {
-      _logger.e('Critical error showing rewarded ad: $e');
-      // Ensure cleanup and callback execution
-      try {
-        _rewardedAd?.dispose();
-        _rewardedAd = null;
-        _isRewardedAdReady = false;
-        onAdFailedToShow?.call();
-      } catch (criticalError) {
-        _logger.e('Critical error in rewarded ad show cleanup: $criticalError');
-      }
-    }
-  }
-
-  /// Dispose rewarded ad
-  static void disposeRewardedAd() {
-    try {
-      _rewardedAd?.dispose();
-    } catch (e) {
-      _logger.e('Error disposing rewarded ad: $e');
-    } finally {
-      _rewardedAd = null;
-      _isRewardedAdReady = false;
-    }
-  }
-
-  /// Load and show a rewarded ad with reward callback
-  static Future<void> loadAndShowRewardedAd({
-    required BuildContext context,
-    required OnUserEarnedRewardCallback onUserEarnedReward,
-    required VoidCallback onAdClosed,
-    VoidCallback? onAdFailedToLoad,
-  }) async {
-    try {
-      final adUnitId = getRewardedAdUnitId(context);
-      if (adUnitId == null || adUnitId.isEmpty) {
-        _logger.w(
-          'Cannot load and show rewarded ad: ad unit ID is null or empty',
-        );
-        try {
-          onAdFailedToLoad?.call();
-        } catch (callbackError) {
-          _logger.e('Error in onAdFailedToLoad callback: $callbackError');
-        }
-        return;
-      }
-
-      _logger.i('Loading and showing rewarded ad with ID: $adUnitId');
-
-      await RewardedAd.load(
-        adUnitId: adUnitId,
-        request: const AdRequest(),
-        rewardedAdLoadCallback: RewardedAdLoadCallback(
-          onAdLoaded: (RewardedAd ad) {
-            try {
-              _logger.i('Rewarded ad loaded, setting up callbacks and showing');
-
-              ad.fullScreenContentCallback = FullScreenContentCallback<
-                RewardedAd
-              >(
-                onAdShowedFullScreenContent: (RewardedAd ad) {
-                  try {
-                    _logger.i('Rewarded ad showed full screen content');
-                  } catch (e) {
-                    _logger.e(
-                      'Error in rewarded ad onAdShowedFullScreenContent: $e',
-                    );
-                  }
-                },
-                onAdDismissedFullScreenContent: (RewardedAd ad) {
-                  try {
-                    _logger.i('Rewarded ad dismissed full screen content');
-                    ad.dispose();
-                    onAdClosed();
-                  } catch (e) {
-                    _logger.e(
-                      'Error in rewarded ad onAdDismissedFullScreenContent: $e',
-                    );
-                    try {
-                      ad.dispose();
-                      onAdClosed();
-                    } catch (cleanupError) {
-                      _logger.e(
-                        'Error in rewarded ad dismissal cleanup: $cleanupError',
-                      );
-                    }
-                  }
-                },
-                onAdFailedToShowFullScreenContent: (
-                  RewardedAd ad,
-                  AdError error,
-                ) {
-                  try {
-                    _logger.e(
-                      'Rewarded ad failed to show full screen content: ${error.message} (Code: ${error.code})',
-                    );
-                    ad.dispose();
-                    onAdFailedToLoad?.call();
-                  } catch (e) {
-                    _logger.e(
-                      'Error in rewarded ad onAdFailedToShowFullScreenContent: $e',
-                    );
-                    try {
-                      ad.dispose();
-                      onAdFailedToLoad?.call();
-                    } catch (cleanupError) {
-                      _logger.e(
-                        'Error in rewarded ad show failure cleanup: $cleanupError',
-                      );
-                    }
-                  }
-                },
-              );
-
-              ad.show(onUserEarnedReward: onUserEarnedReward);
-            } catch (e) {
-              _logger.e('Error setting up or showing loaded rewarded ad: $e');
-              try {
-                ad.dispose();
-                onAdFailedToLoad?.call();
-              } catch (cleanupError) {
-                _logger.e(
-                  'Error in rewarded ad setup failure cleanup: $cleanupError',
-                );
-              }
-            }
-          },
-          onAdFailedToLoad: (LoadAdError error) {
-            try {
-              _logger.e(
-                'Rewarded ad failed to load: ${error.message} (Code: ${error.code})',
-              );
-              onAdFailedToLoad?.call();
-            } catch (e) {
-              _logger.e('Error in rewarded ad onAdFailedToLoad callback: $e');
-            }
-          },
-        ),
-      );
-    } catch (e) {
-      _logger.e('Critical error loading and showing rewarded ad: $e');
-      try {
-        onAdFailedToLoad?.call();
-      } catch (callbackError) {
-        _logger.e('Error in critical failure callback: $callbackError');
-      }
-    }
-  }
-
-  /// Backward compatibility - Legacy getters (deprecated)
-  // @deprecated
-  // static String? get bannerAdUnitId {
-  //   if (Platform.isAndroid) {
-  //     return 'ca-app-pub-3940256099942544/6300978111';
-  //   } else if (Platform.isIOS) {
-  //     return 'ca-app-pub-3940256099942544/2934735716';
-  //   } else {
-  //     return null;
-  //   }
-  // }
-
-  // @deprecated
-  // static String? get interstitialAdUnitId {
-  //   if (Platform.isAndroid) {
-  //     return 'ca-app-pub-3940256099942544/1033173712';
-  //   } else if (Platform.isIOS) {
-  //     return 'ca-app-pub-3940256099942544/4411468910';
-  //   } else {
-  //     return null;
-  //   }
-  // }
-
-  // @deprecated
-  // static String? get rewardedAdUnitId {
-  //   if (Platform.isAndroid) {
-  //     return 'ca-app-pub-3940256099942544/5224354917';
-  //   } else if (Platform.isIOS) {
-  //     return 'ca-app-pub-3940256099942544/1712485313';
-  //   } else {
-  //     return null;
-  //   }
-  // }
-
-  // @deprecated
-  // static String? get nativeAdUnitId {
-  //   if (Platform.isAndroid) {
-  //     return 'ca-app-pub-3940256099942544/2247696110';
-  //   } else if (Platform.isIOS) {
-  //     return 'ca-app-pub-3940256099942544/3986624511';
-  //   } else {
-  //     return null;
-  //   }
-  // }
 
   /// Load and show an app open ad
   static Future<void> loadAndShowAppOpenAd({
@@ -761,6 +272,274 @@ class AdMobService {
     }
   }
 
+  /// Show loaded interstitial ad
+  static void showInterstitialAd({
+    required VoidCallback onAdClosed,
+    VoidCallback? onAdFailedToShow,
+  }) {
+    if (_interstitialAd == null || !_isInterstitialAdReady) {
+      print('Interstitial ad is not ready to show');
+      onAdFailedToShow?.call();
+      return;
+    }
+
+    _interstitialAd!
+        .fullScreenContentCallback = FullScreenContentCallback<InterstitialAd>(
+      onAdShowedFullScreenContent: (InterstitialAd ad) {
+        print('Interstitial ad showed full screen content.');
+      },
+      onAdDismissedFullScreenContent: (InterstitialAd ad) {
+        print('Interstitial ad dismissed full screen content.');
+        ad.dispose();
+        _interstitialAd = null;
+        _isInterstitialAdReady = false;
+        onAdClosed();
+      },
+      onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
+        print('Interstitial ad failed to show full screen content: $error');
+        ad.dispose();
+        _interstitialAd = null;
+        _isInterstitialAdReady = false;
+        onAdFailedToShow?.call();
+      },
+    );
+
+        _interstitialAd!.show();
+      } catch (showError) {
+        _logger.e('Error showing interstitial ad: $showError');
+        // Clean up and call failure callback
+        try {
+          _interstitialAd?.dispose();
+          _interstitialAd = null;
+          _isInterstitialAdReady = false;
+          onAdFailedToShow?.call();
+        } catch (cleanupError) {
+          _logger.e('Error in show failure cleanup: $cleanupError');
+        }
+      }
+    } catch (e) {
+      _logger.e('Critical error showing interstitial ad: $e');
+      // Ensure cleanup and callback execution
+      try {
+        _interstitialAd?.dispose();
+        _interstitialAd = null;
+        _isInterstitialAdReady = false;
+        onAdFailedToShow?.call();
+      } catch (criticalError) {
+        _logger.e('Critical error in show ad cleanup: $criticalError');
+      }
+    }
+  }
+
+  /// Dispose interstitial ad
+  static void disposeInterstitialAd() {
+    try {
+      _interstitialAd?.dispose();
+    } catch (e) {
+      _logger.e('Error disposing interstitial ad: $e');
+    } finally {
+      _interstitialAd = null;
+      _isInterstitialAdReady = false;
+    }
+  }
+
+  /// Load rewarded ad without showing it immediately
+  static Future<void> loadRewardedAd(BuildContext context) async {
+    final adUnitId = getRewardedAdUnitId(context);
+    if (adUnitId == null) {
+      print('Rewarded ad unit ID is null');
+      return;
+    }
+
+      // Dispose existing ad if any
+      try {
+        _rewardedAd?.dispose();
+      } catch (disposeError) {
+        _logger.e('Error disposing existing rewarded ad: $disposeError');
+      }
+      _rewardedAd = null;
+      _isRewardedAdReady = false;
+
+    RewardedAd.load(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (RewardedAd ad) {
+          print('Rewarded ad loaded and ready to show.');
+          _rewardedAd = ad;
+          _isRewardedAdReady = true;
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          print('Rewarded ad failed to load: $error');
+          _rewardedAd = null;
+          _isRewardedAdReady = false;
+        },
+      ),
+    );
+  }
+
+  /// Show loaded rewarded ad
+  static void showRewardedAd({
+    required OnUserEarnedRewardCallback onUserEarnedReward,
+    required VoidCallback onAdClosed,
+    VoidCallback? onAdFailedToShow,
+  }) {
+    if (_rewardedAd == null || !_isRewardedAdReady) {
+      print('Rewarded ad is not ready to show');
+      onAdFailedToShow?.call();
+      return;
+    }
+
+    _rewardedAd!
+        .fullScreenContentCallback = FullScreenContentCallback<RewardedAd>(
+      onAdShowedFullScreenContent: (RewardedAd ad) {
+        print('Rewarded ad showed full screen content.');
+      },
+      onAdDismissedFullScreenContent: (RewardedAd ad) {
+        print('Rewarded ad dismissed full screen content.');
+        ad.dispose();
+        _rewardedAd = null;
+        _isRewardedAdReady = false;
+        onAdClosed();
+      },
+      onAdFailedToShowFullScreenContent: (RewardedAd ad, AdError error) {
+        print('Rewarded ad failed to show full screen content: $error');
+        ad.dispose();
+        _rewardedAd = null;
+        _isRewardedAdReady = false;
+        onAdFailedToShow?.call();
+      },
+    );
+
+        _rewardedAd!.show(onUserEarnedReward: onUserEarnedReward);
+      } catch (showError) {
+        _logger.e('Error showing rewarded ad: $showError');
+        // Clean up and call failure callback
+        try {
+          _rewardedAd?.dispose();
+          _rewardedAd = null;
+          _isRewardedAdReady = false;
+          onAdFailedToShow?.call();
+        } catch (cleanupError) {
+          _logger.e('Error in rewarded ad show failure cleanup: $cleanupError');
+        }
+      }
+    } catch (e) {
+      _logger.e('Critical error showing rewarded ad: $e');
+      // Ensure cleanup and callback execution
+      try {
+        _rewardedAd?.dispose();
+        _rewardedAd = null;
+        _isRewardedAdReady = false;
+        onAdFailedToShow?.call();
+      } catch (criticalError) {
+        _logger.e('Critical error in rewarded ad show cleanup: $criticalError');
+      }
+    }
+  }
+
+  /// Dispose rewarded ad
+  static void disposeRewardedAd() {
+    try {
+      _rewardedAd?.dispose();
+    } catch (e) {
+      _logger.e('Error disposing rewarded ad: $e');
+    } finally {
+      _rewardedAd = null;
+      _isRewardedAdReady = false;
+    }
+  }
+
+  /// Load and show a rewarded ad with reward callback
+  static Future<void> loadAndShowRewardedAd({
+    required BuildContext context,
+    required OnUserEarnedRewardCallback onUserEarnedReward,
+    required VoidCallback onAdClosed,
+    VoidCallback? onAdFailedToLoad,
+  }) async {
+    final adUnitId = getRewardedAdUnitId(context);
+    if (adUnitId == null) {
+      print('Rewarded ad unit ID is null');
+      onAdFailedToLoad?.call();
+      return;
+    }
+
+    RewardedAd.load(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (RewardedAd ad) {
+          print('Rewarded ad loaded.');
+          ad.fullScreenContentCallback = FullScreenContentCallback<RewardedAd>(
+            onAdShowedFullScreenContent: (RewardedAd ad) {
+              print('Rewarded ad showed full screen content.');
+            },
+            onAdDismissedFullScreenContent: (RewardedAd ad) {
+              print('Rewarded ad dismissed full screen content.');
+              ad.dispose();
+              onAdClosed();
+            },
+            onAdFailedToShowFullScreenContent: (RewardedAd ad, AdError error) {
+              print('Rewarded ad failed to show full screen content: $error');
+              ad.dispose();
+              onAdFailedToLoad?.call();
+            },
+          );
+          ad.show(onUserEarnedReward: onUserEarnedReward);
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          print('Rewarded ad failed to load: $error');
+          onAdFailedToLoad?.call();
+        },
+      ),
+    );
+  }
+
+  /// Backward compatibility - Legacy getters (deprecated)
+  // @deprecated
+  // static String? get bannerAdUnitId {
+  //   if (Platform.isAndroid) {
+  //     return 'ca-app-pub-3940256099942544/6300978111';
+  //   } else if (Platform.isIOS) {
+  //     return 'ca-app-pub-3940256099942544/2934735716';
+  //   } else {
+  //     return null;
+  //   }
+  // }
+
+  // @deprecated
+  // static String? get interstitialAdUnitId {
+  //   if (Platform.isAndroid) {
+  //     return 'ca-app-pub-3940256099942544/1033173712';
+  //   } else if (Platform.isIOS) {
+  //     return 'ca-app-pub-3940256099942544/4411468910';
+  //   } else {
+  //     return null;
+  //   }
+  // }
+
+  // @deprecated
+  // static String? get rewardedAdUnitId {
+  //   if (Platform.isAndroid) {
+  //     return 'ca-app-pub-3940256099942544/5224354917';
+  //   } else if (Platform.isIOS) {
+  //     return 'ca-app-pub-3940256099942544/1712485313';
+  //   } else {
+  //     return null;
+  //   }
+  // }
+
+  // @deprecated
+  // static String? get nativeAdUnitId {
+  //   if (Platform.isAndroid) {
+  //     return 'ca-app-pub-3940256099942544/2247696110';
+  //   } else if (Platform.isIOS) {
+  //     return 'ca-app-pub-3940256099942544/3986624511';
+  //   } else {
+  //     return null;
+  //   }
+  // }
+
   static final BannerAdListener bannerAdListener = BannerAdListener(
     onAdLoaded: (Ad ad) {
       try {
@@ -794,17 +573,8 @@ class AdMobService {
       }
     },
     onAdClosed: (Ad ad) {
-      try {
-        _logger.i('Banner ad closed');
-        ad.dispose();
-      } catch (e) {
-        _logger.e('Error in banner ad onAdClosed callback: $e');
-        try {
-          ad.dispose();
-        } catch (disposeError) {
-          _logger.e('Error disposing banner ad after close: $disposeError');
-        }
-      }
+      ad.dispose();
+      print('Ad closed.');
     },
     onAdImpression: (Ad ad) {
       try {
@@ -821,126 +591,49 @@ class AdMobService {
     required VoidCallback onAdClosed,
     VoidCallback? onAdFailedToLoad,
   }) async {
-    try {
-      final adUnitId = getInterstitialAdUnitId(context);
-      if (adUnitId == null || adUnitId.isEmpty) {
-        _logger.w(
-          'Cannot load and show interstitial ad: ad unit ID is null or empty',
-        );
-        try {
-          onAdFailedToLoad?.call();
-        } catch (callbackError) {
-          _logger.e('Error in onAdFailedToLoad callback: $callbackError');
-        }
-        return;
-      }
-
-      _logger.i('Loading and showing interstitial ad with ID: $adUnitId');
-
-      await InterstitialAd.load(
-        adUnitId: adUnitId,
-        request: const AdRequest(),
-        adLoadCallback: InterstitialAdLoadCallback(
-          onAdLoaded: (InterstitialAd ad) {
-            try {
-              _logger.i(
-                'Interstitial ad loaded, setting up callbacks and showing',
-              );
-
-              ad.fullScreenContentCallback = FullScreenContentCallback<
-                InterstitialAd
-              >(
-                onAdShowedFullScreenContent: (InterstitialAd ad) {
-                  try {
-                    _logger.i('Interstitial ad showed full screen content');
-                  } catch (e) {
-                    _logger.e(
-                      'Error in interstitial ad onAdShowedFullScreenContent: $e',
-                    );
-                  }
-                },
-                onAdDismissedFullScreenContent: (InterstitialAd ad) {
-                  try {
-                    _logger.i('Interstitial ad dismissed full screen content');
-                    ad.dispose();
-                    onAdClosed();
-                  } catch (e) {
-                    _logger.e(
-                      'Error in interstitial ad onAdDismissedFullScreenContent: $e',
-                    );
-                    try {
-                      ad.dispose();
-                      onAdClosed();
-                    } catch (cleanupError) {
-                      _logger.e(
-                        'Error in interstitial ad dismissal cleanup: $cleanupError',
-                      );
-                    }
-                  }
-                },
-                onAdFailedToShowFullScreenContent: (
-                  InterstitialAd ad,
-                  AdError error,
-                ) {
-                  try {
-                    _logger.e(
-                      'Interstitial ad failed to show full screen content: ${error.message} (Code: ${error.code})',
-                    );
-                    ad.dispose();
-                    onAdFailedToLoad?.call();
-                  } catch (e) {
-                    _logger.e(
-                      'Error in interstitial ad onAdFailedToShowFullScreenContent: $e',
-                    );
-                    try {
-                      ad.dispose();
-                      onAdFailedToLoad?.call();
-                    } catch (cleanupError) {
-                      _logger.e(
-                        'Error in interstitial ad show failure cleanup: $cleanupError',
-                      );
-                    }
-                  }
-                },
-              );
-
-              ad.show();
-            } catch (e) {
-              _logger.e(
-                'Error setting up or showing loaded interstitial ad: $e',
-              );
-              try {
-                ad.dispose();
-                onAdFailedToLoad?.call();
-              } catch (cleanupError) {
-                _logger.e(
-                  'Error in interstitial ad setup failure cleanup: $cleanupError',
-                );
-              }
-            }
-          },
-          onAdFailedToLoad: (LoadAdError error) {
-            try {
-              _logger.e(
-                'Interstitial ad failed to load: ${error.message} (Code: ${error.code})',
-              );
-              onAdFailedToLoad?.call();
-            } catch (e) {
-              _logger.e(
-                'Error in interstitial ad onAdFailedToLoad callback: $e',
-              );
-            }
-          },
-        ),
-      );
-    } catch (e) {
-      _logger.e('Critical error loading and showing interstitial ad: $e');
-      try {
-        onAdFailedToLoad?.call();
-      } catch (callbackError) {
-        _logger.e('Error in critical failure callback: $callbackError');
-      }
+    final adUnitId = getInterstitialAdUnitId(context);
+    if (adUnitId == null) {
+      print('Interstitial ad unit ID is null');
+      onAdFailedToLoad?.call();
+      return;
     }
+
+    InterstitialAd.load(
+      adUnitId: adUnitId,
+      request: const AdRequest(),
+      adLoadCallback: InterstitialAdLoadCallback(
+        onAdLoaded: (InterstitialAd ad) {
+          print('Interstitial ad loaded.');
+          ad.fullScreenContentCallback = FullScreenContentCallback<
+            InterstitialAd
+          >(
+            onAdShowedFullScreenContent: (InterstitialAd ad) {
+              print('Interstitial ad showed full screen content.');
+            },
+            onAdDismissedFullScreenContent: (InterstitialAd ad) {
+              print('Interstitial ad dismissed full screen content.');
+              ad.dispose();
+              onAdClosed();
+            },
+            onAdFailedToShowFullScreenContent: (
+              InterstitialAd ad,
+              AdError error,
+            ) {
+              print(
+                'Interstitial ad failed to show full screen content: $error',
+              );
+              ad.dispose();
+              onAdFailedToLoad?.call();
+            },
+          );
+          ad.show();
+        },
+        onAdFailedToLoad: (LoadAdError error) {
+          print('Interstitial ad failed to load: $error');
+          onAdFailedToLoad?.call();
+        },
+      ),
+    );
   }
 
   /// Create interstitial ad load callback for custom handling
@@ -994,85 +687,21 @@ class AdMobService {
     void Function(InterstitialAd)? onAdDismissedFullScreenContent,
     void Function(InterstitialAd, AdError)? onAdFailedToShowFullScreenContent,
   }) {
-    try {
-      return FullScreenContentCallback<InterstitialAd>(
-        onAdShowedFullScreenContent: (InterstitialAd ad) {
-          try {
-            _logger.i('Interstitial ad showed full screen content');
-            onAdShowedFullScreenContent?.call(ad);
-          } catch (e) {
-            _logger.e(
-              'Error in custom onAdShowedFullScreenContent callback: $e',
-            );
-          }
-        },
-        onAdDismissedFullScreenContent: (InterstitialAd ad) {
-          try {
-            _logger.i('Interstitial ad dismissed full screen content');
-            ad.dispose();
-            onAdDismissedFullScreenContent?.call(ad);
-          } catch (e) {
-            _logger.e(
-              'Error in custom onAdDismissedFullScreenContent callback: $e',
-            );
-            try {
-              ad.dispose();
-            } catch (disposeError) {
-              _logger.e(
-                'Error disposing ad in dismissal callback: $disposeError',
-              );
-            }
-          }
-        },
-        onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
-          try {
-            _logger.e(
-              'Interstitial ad failed to show full screen content: ${error.message} (Code: ${error.code})',
-            );
-            ad.dispose();
-            onAdFailedToShowFullScreenContent?.call(ad, error);
-          } catch (e) {
-            _logger.e(
-              'Error in custom onAdFailedToShowFullScreenContent callback: $e',
-            );
-            try {
-              ad.dispose();
-            } catch (disposeError) {
-              _logger.e(
-                'Error disposing ad in show failure callback: $disposeError',
-              );
-            }
-          }
-        },
-      );
-    } catch (e) {
-      _logger.e('Error creating full screen content callback: $e');
-      // Return a safe fallback callback
-      return FullScreenContentCallback<InterstitialAd>(
-        onAdShowedFullScreenContent: (InterstitialAd ad) {
-          _logger.w('Fallback: ad showed full screen content');
-        },
-        onAdDismissedFullScreenContent: (InterstitialAd ad) {
-          _logger.w('Fallback: disposing ad on dismissal');
-          try {
-            ad.dispose();
-          } catch (disposeError) {
-            _logger.e(
-              'Error disposing ad in fallback dismissal: $disposeError',
-            );
-          }
-        },
-        onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
-          _logger.w('Fallback: disposing ad on show failure');
-          try {
-            ad.dispose();
-          } catch (disposeError) {
-            _logger.e(
-              'Error disposing ad in fallback show failure: $disposeError',
-            );
-          }
-        },
-      );
-    }
+    return FullScreenContentCallback<InterstitialAd>(
+      onAdShowedFullScreenContent: (InterstitialAd ad) {
+        print('Interstitial ad showed full screen content.');
+        onAdShowedFullScreenContent?.call(ad);
+      },
+      onAdDismissedFullScreenContent: (InterstitialAd ad) {
+        print('Interstitial ad dismissed full screen content.');
+        ad.dispose();
+        onAdDismissedFullScreenContent?.call(ad);
+      },
+      onAdFailedToShowFullScreenContent: (InterstitialAd ad, AdError error) {
+        print('Interstitial ad failed to show full screen content: $error');
+        ad.dispose();
+        onAdFailedToShowFullScreenContent?.call(ad, error);
+      },
+    );
   }
 }

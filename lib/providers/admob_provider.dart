@@ -22,7 +22,6 @@ class AdMobProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   bool _isInterstitialAdLoading = false;
-  bool _hasShownAppLaunchAd = false;
 
   // App launch ad sequence management
   AppLaunchAdState _appLaunchAdState = AppLaunchAdState.notStarted;
@@ -38,7 +37,8 @@ class AdMobProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isInterstitialAdLoading => _isInterstitialAdLoading;
-  bool get hasShownAppLaunchAd => _hasShownAppLaunchAd;
+
+  String? get appOpenAdUnitId => _adMobConfig?.appOpenAdUnitId;
 
   String? get appOpenAdUnitId => _adMobConfig?.appOpenAdUnitId;
 
@@ -235,26 +235,9 @@ class AdMobProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Mark that app launch ad has been shown
-  void markAppLaunchAdShown() {
-    _hasShownAppLaunchAd = true;
-    notifyListeners();
-  }
-
-  /// Reset app launch ad flag (useful for testing or new sessions)
-  void resetAppLaunchAdFlag() {
-    _hasShownAppLaunchAd = false;
-    notifyListeners();
-  }
-
-  /// Check if app launch ad should be shown
+  /// Check if app launch ad should be shown (always show for non-premium users)
   bool shouldShowAppLaunchAd(bool? userRemoveAds) {
-    // Don't show if already shown in this session
-    if (_hasShownAppLaunchAd) {
-      return false;
-    }
-
-    // Check general ad conditions
+    // Check general ad conditions - this will show on every app launch for non-premium users
     return shouldShowAds(userRemoveAds);
   }
 
