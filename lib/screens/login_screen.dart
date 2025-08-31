@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_chess_app/providers/admob_provider.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/screens/forgot_password_screen.dart';
 import 'package:flutter_chess_app/screens/sign_up_screen.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
-import 'package:flutter_chess_app/services/admob_service.dart';
 import 'package:provider/provider.dart';
 import '../widgets/play_mode_button.dart';
 import '../services/user_service.dart';
@@ -47,43 +45,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (mounted) {
         if (result is SignInSuccess) {
-          // Show app launch ad for non-premium users after successful login
-          final adMobProvider = Provider.of<AdMobProvider>(
-            context,
-            listen: false,
+          // Navigate directly to home screen - app launch ad will be handled there
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => HomeScreen(user: result.user)),
+            (route) => false,
           );
-          if (!adMobProvider.shouldShowAppLaunchAd(result.user.removeAds)) {
-            // Load and show the ad
-            AdMobService.loadAndShowInterstitialAd(
-              context: context,
-              onAdClosed: () {
-                adMobProvider.markAppLaunchAdShown();
-                // Navigate after ad is closed
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (_) => HomeScreen(user: result.user),
-                  ),
-                  (route) => false,
-                );
-              },
-              onAdFailedToLoad: () {
-                adMobProvider.markAppLaunchAdShown();
-                // Navigate even if ad failed to load
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (_) => HomeScreen(user: result.user),
-                  ),
-                  (route) => false,
-                );
-              },
-            );
-          } else {
-            // No ad to show, navigate directly
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => HomeScreen(user: result.user)),
-              (route) => false,
-            );
-          }
         } else if (result is SignInEmailNotVerified) {
           await _showEmailVerificationDialog(result.email);
         } else if (result is SignInError) {

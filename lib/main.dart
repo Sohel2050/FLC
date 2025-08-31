@@ -70,32 +70,33 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final UserService _userService = UserService();
 
-  /// Show app launch interstitial ad for non-premium users
-  void _showAppLaunchAd(ChessUser user) {
+  /// Show app launch ad for non-premium users
+  void _showAppLaunchAd(ChessUser user) async {
     final adMobProvider = Provider.of<AdMobProvider>(context, listen: false);
+
+    // Wait for AdMob config to load if it's not already loaded
+    if (adMobProvider.adMobConfig == null) {
+      await adMobProvider.loadAdMobConfig();
+    }
 
     // Check if we should show the ad
     if (!adMobProvider.shouldShowAppLaunchAd(user.removeAds)) {
-      // Mark as shown even if we don't show it
-      adMobProvider.markAppLaunchAdShown();
       return;
     }
 
     // Set loading state
     adMobProvider.setInterstitialAdLoading(true);
 
-    // Load and show the ad
-    AdMobService.loadAndShowInterstitialAd(
+    // Load and show the app open ad
+    AdMobService.loadAndShowAppOpenAd(
       context: context,
       onAdClosed: () {
-        // Mark that we've shown the app launch ad and clear loading state
+        // Clear loading state
         adMobProvider.setInterstitialAdLoading(false);
-        adMobProvider.markAppLaunchAdShown();
       },
       onAdFailedToLoad: () {
-        // Mark as shown even if failed to prevent retry loops and clear loading state
+        // Clear loading state even if failed
         adMobProvider.setInterstitialAdLoading(false);
-        adMobProvider.markAppLaunchAdShown();
       },
     );
   }
