@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_chess_app/models/user_model.dart';
-import 'package:flutter_chess_app/providers/admob_provider.dart';
-import 'package:flutter_chess_app/services/native_ad_coordinator.dart';
 import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/screens/chat_screen.dart';
 import 'package:flutter_chess_app/screens/game_screen.dart';
@@ -41,6 +39,8 @@ class _FriendsScreenState extends State<FriendsScreen>
   final TextEditingController _searchController = TextEditingController();
   List<ChessUser> _searchResults = [];
   bool _isSearching = false;
+  //BannerAd? _bannerAd;
+  //bool _hasLoadedAd = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -48,10 +48,6 @@ class _FriendsScreenState extends State<FriendsScreen>
   NativeAd? _nativeAd;
   bool isAdLoaded = false;
   bool _hasLoadedAd = false;
-  bool _isLoadingAd = false;
-
-  // Listener for app launch sequence completion
-  VoidCallback? _appLaunchSequenceListener;
 
   @override
   void initState() {
@@ -62,251 +58,131 @@ class _FriendsScreenState extends State<FriendsScreen>
       vsync: this,
     );
 
-    // Set up listener for app launch sequence completion
-    _setupAppLaunchSequenceListener();
-
-    // Use post-frame callback to ensure widget is fully built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && widget.isVisible) {
-        _attemptNativeAdLoad();
-      }
-    });
+    // Only load ad if screen is initially visible
+    if (widget.isVisible) {
+      //_createBannerAd();
+      _createNativeAd();
+    }
   }
 
   @override
   void didUpdateWidget(FriendsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    // Load ad when screen becomes visible and hasn't loaded yet
-    if (widget.isVisible &&
-        !oldWidget.isVisible &&
-        !_hasLoadedAd &&
-        !_isLoadingAd) {
-      // Use post-frame callback to ensure proper timing
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && widget.isVisible) {
-          _attemptNativeAdLoad();
-        }
-      });
+    // Load ad when screen becomes visible
+    if (widget.isVisible && !oldWidget.isVisible) {
+      //_createBannerAd();
+      _createNativeAd();
     }
-    // Dispose ad when screen becomes invisible to free memory
+    // Dispose ad when screen becomes invisible
     else if (!widget.isVisible && oldWidget.isVisible) {
-      _disposeNativeAd();
-    }
-  }
-
-  /// Set up listener for app launch sequence completion
-  void _setupAppLaunchSequenceListener() {
-    _appLaunchSequenceListener = () {
-      if (mounted && widget.isVisible && !_hasLoadedAd && !_isLoadingAd) {
-        _createNativeAd();
-      }
-    };
-
-    // Add listener to AdMobProvider
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && context.mounted) {
-        final adMobProvider = context.read<AdMobProvider>();
-        adMobProvider.addListener(_appLaunchSequenceListener!);
-      }
-    });
-  }
-
-  /// Attempt to load native ad when screen is visible
-  void _attemptNativeAdLoad() {
-    if (!mounted || !widget.isVisible) {
-      return;
-    }
-    try {
-      final adMobProvider = context.read<AdMobProvider>();
-      // Check if app launch sequence is in progress
-      if (adMobProvider.isAppLaunchSequenceInProgress()) {
-        // Don't load now, the listener will trigger when sequence completes
-        return;
-      }
-      _createNativeAd();
-    } catch (e) {
-      // Fallback to direct loading if provider access fails
+      //_disposeBannerAd();
       _createNativeAd();
     }
   }
+
+  // void _createBannerAd() {
+  //   // Don't load if ads shouldn't be shown
+  //   if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
+  //     return;
+  //   }
+
+  //   final bannerAdId = AdMobService.getBannerAdUnitId(context);
+  //   if (bannerAdId == null) {
+  //     return;
+  //   }
+
+  //   // Dispose existing ad if any
+  //   if (_bannerAd != null) {
+  //     _bannerAd!.dispose();
+  //     _bannerAd = null;
+  //   }
+
+  //   _bannerAd = BannerAd(
+  //     adUnitId: bannerAdId,
+  //     request: const AdRequest(),
+  //     size: AdSize.banner,
+  //     listener: BannerAdListener(
+  //       onAdLoaded: (ad) {
+  //         print('Banner ad loaded.');
+  //         _hasLoadedAd = true;
+  //       },
+  //       onAdFailedToLoad: (ad, error) {
+  //         ad.dispose();
+  //         print('Banner ad failed to load: $error');
+  //       },
+  //       onAdOpened: (ad) => print('Banner ad opened.'),
+  //       onAdClosed: (ad) {
+  //         ad.dispose();
+  //         print('Banner ad closed.');
+  //       },
+  //       onAdImpression: (ad) => print('Banner ad impression.'),
+  //     ),
+  //   )..load();
+  // }
+
+  // void _disposeBannerAd() {
+  //   _bannerAd?.dispose();
+  //   _bannerAd = null;
+  //   _hasLoadedAd = false; // Reset flag so ad can load again
+  // }
 
   void _disposeNativeAd() {
     _nativeAd?.dispose();
     _nativeAd = null;
-    _hasLoadedAd =
-        false; // Reset flag so ad can load again when screen becomes visible
-    _isLoadingAd = false; // Reset loading flag
+    _hasLoadedAd = false; // Reset flag so ad can load again
+    isAdLoaded = false;
+  }
 
-    // Only call setState if widget is still mounted and not being disposed
-    if (mounted && context.mounted) {
+  void _createNativeAd() {
+    // Don't load if ads shouldn't be shown
+    if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
+      return;
+    }
+
+    final nativeAdUnitId = AdMobService.getNativeAdUnitId(context);
+    if (nativeAdUnitId == null) {
+      return;
+    }
+
+    // Dispose existing ad if any
+    if (_nativeAd != null) {
+      _nativeAd!.dispose();
+      _nativeAd = null;
       setState(() {
         isAdLoaded = false;
       });
     }
-  }
 
-  void _createNativeAd() {
-    try {
-      // Prevent multiple simultaneous ad loads
-      if (_isLoadingAd || (_hasLoadedAd && _nativeAd != null)) {
-        return;
-      }
-
-      // Validate context and mounting state
-      if (!mounted || !context.mounted) {
-        return;
-      }
-
-      // Don't load if ads shouldn't be shown
-      try {
-        if (!AdMobService.shouldShowAds(context, widget.user.removeAds)) {
-          return;
-        }
-      } catch (adServiceError) {
-        // Log error and skip ad loading
-        return;
-      }
-
-      // Final check for app launch sequence before loading
-      try {
-        final adMobProvider = context.read<AdMobProvider>();
-        if (adMobProvider.isAppLaunchSequenceInProgress()) {
-          return;
-        }
-      } catch (providerError) {
-        // Log error and skip ad loading
-        return;
-      }
-
-      String? nativeAdUnitId;
-      try {
-        nativeAdUnitId = AdMobService.getNativeAdUnitId(context);
-      } catch (adUnitError) {
-        // Log error and skip ad loading
-        return;
-      }
-
-      if (nativeAdUnitId == null || nativeAdUnitId.isEmpty) {
-        return;
-      }
-
-      // Set loading flag to prevent duplicate requests
-      _isLoadingAd = true;
-
-      // Dispose existing ad if any
-      if (_nativeAd != null) {
-        try {
-          _nativeAd!.dispose();
-        } catch (disposeError) {
-          // Log error but continue
-        }
-        _nativeAd = null;
-        if (mounted && context.mounted) {
-          try {
-            setState(() {
-              isAdLoaded = false;
-            });
-          } catch (stateError) {
-            // Log error but continue
-          }
-        }
-      }
-
-      try {
-        _nativeAd = NativeAd(
-          adUnitId: nativeAdUnitId,
-          request: const AdRequest(),
-          factoryId: 'adFactoryNative',
-          listener: NativeAdListener(
-            onAdLoaded: (ad) {
-              try {
-                _isLoadingAd = false;
-                _hasLoadedAd = true;
-
-                if (mounted && context.mounted) {
-                  setState(() {
-                    isAdLoaded = true;
-                  });
-                }
-              } catch (e) {
-                _isLoadingAd = false;
-                _hasLoadedAd = false;
-              }
-            },
-            onAdFailedToLoad: (ad, error) {
-              try {
-                ad.dispose();
-                _isLoadingAd = false;
-                _hasLoadedAd = false;
-
-                if (mounted && context.mounted) {
-                  setState(() {
-                    isAdLoaded = false;
-                  });
-                }
-                // Don't retry immediately to avoid infinite loops
-                // The ad will be retried when the screen becomes visible again
-              } catch (e) {
-                _isLoadingAd = false;
-                _hasLoadedAd = false;
-              }
-            },
-            onAdClicked: (ad) {
-              // Ad clicked - no action needed
-            },
-            onAdImpression: (ad) {
-              // Ad impression recorded - no action needed
-            },
-          ),
-          nativeTemplateStyle: NativeTemplateStyle(
-            templateType: TemplateType.small,
-          ),
-        );
-
-        _nativeAd!.load();
-      } catch (adCreationError) {
-        _isLoadingAd = false;
-        _hasLoadedAd = false;
-        _nativeAd = null;
-      }
-    } catch (e) {
-      _isLoadingAd = false;
-      _hasLoadedAd = false;
-      try {
-        _nativeAd?.dispose();
-      } catch (disposeError) {
-        // Log error but continue
-      }
-      _nativeAd = null;
-    }
+    _nativeAd = NativeAd(
+      adUnitId: nativeAdUnitId,
+      request: const AdRequest(),
+      factoryId: 'adFactoryNative',
+      listener: NativeAdListener(
+        onAdLoaded: (ad) {
+          setState(() {
+            isAdLoaded = true;
+          });
+          _hasLoadedAd = true;
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          // Don't retry immediately to avoid infinite loops
+          print('Native ad failed to load: $error');
+        },
+      ),
+      nativeTemplateStyle: NativeTemplateStyle(
+        templateType: TemplateType.small,
+      ),
+    );
+    _nativeAd!.load();
   }
 
   @override
   void dispose() {
-    // Remove app launch sequence listener
-    if (_appLaunchSequenceListener != null) {
-      try {
-        final adMobProvider = context.read<AdMobProvider>();
-        adMobProvider.removeListener(_appLaunchSequenceListener!);
-      } catch (e) {
-        // Error removing listener during dispose - this is acceptable
-      }
-      _appLaunchSequenceListener = null;
-    }
-
-    // Release native ad permission
-    NativeAdCoordinator.releasePermission('FriendsScreen');
-
     _tabController.dispose();
     _searchController.dispose();
-
-    // Dispose ad without calling setState since widget is being disposed
-    _nativeAd?.dispose();
-    _nativeAd = null;
-    _hasLoadedAd = false;
-    _isLoadingAd = false;
-
+    //_disposeBannerAd();
+    _disposeNativeAd();
     super.dispose();
   }
 

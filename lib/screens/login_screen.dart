@@ -4,7 +4,6 @@ import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/screens/forgot_password_screen.dart';
 import 'package:flutter_chess_app/screens/sign_up_screen.dart';
 import 'package:flutter_chess_app/widgets/animated_dialog.dart';
-import 'package:flutter_chess_app/services/admob_service.dart';
 import 'package:provider/provider.dart';
 import '../widgets/play_mode_button.dart';
 import '../services/user_service.dart';
@@ -22,7 +21,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final UserService _userService = UserService();
-  final Logger _logger = Logger();
   bool _isLoading = false;
   bool _isPasswordVisible = false;
 
@@ -47,43 +45,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (mounted) {
         if (result is SignInSuccess) {
-          // Show app launch ad for non-premium users after successful login
-          final adMobProvider = Provider.of<AdMobProvider>(
-            context,
-            listen: false,
+          // Navigate directly to home screen - app launch ad will be handled there
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => HomeScreen(user: result.user)),
+            (route) => false,
           );
-          if (!adMobProvider.shouldShowAppLaunchAd(result.user.removeAds)) {
-            // Load and show the ad
-            AdMobService.loadAndShowInterstitialAd(
-              context: context,
-              onAdClosed: () {
-                adMobProvider.markAppLaunchAdShown();
-                // Navigate after ad is closed
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (_) => HomeScreen(user: result.user),
-                  ),
-                  (route) => false,
-                );
-              },
-              onAdFailedToLoad: () {
-                adMobProvider.markAppLaunchAdShown();
-                // Navigate even if ad failed to load
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(
-                    builder: (_) => HomeScreen(user: result.user),
-                  ),
-                  (route) => false,
-                );
-              },
-            );
-          } else {
-            // No ad to show, navigate directly
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => HomeScreen(user: result.user)),
-              (route) => false,
-            );
-          }
         } else if (result is SignInEmailNotVerified) {
           await _showEmailVerificationDialog(result.email);
         } else if (result is SignInError) {
@@ -358,46 +324,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         text: 'Play as Guest',
                         icon: Icons.person_outline,
                         onPressed: () async {
-                          setState(() {
-                            _isLoading = true;
-                          });
-
-                          try {
-                            final userProvider = context.read<UserProvider>();
-                            final guestUser =
-                                await _userService.signInAnonymously();
-                            userProvider.setUser(guestUser);
-
-                            // Navigate directly to home screen for guest login
-                            if (mounted) {
-                              Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(
-                                  builder: (_) => HomeScreen(user: guestUser),
-                                ),
-                                (route) => false,
-                              );
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              AnimatedDialog.show(
-                                context: context,
-                                title: 'Guest Login Failed',
-                                child: Text('Failed to sign in as guest: $e'),
-                                actions: [
-                                  TextButton(
-                                    onPressed:
-                                        () => Navigator.of(context).pop(),
-                                    child: const Text('OK'),
-                                  ),
-                                ],
-                              );
-                            }
-                          } finally {
-                            if (mounted) {
-                              setState(() {
-                                _isLoading = false;
-                              });
-                            }
+                          final userProvider = context.read<UserProvider>();
+                          final guestUser =
+                              await _userService.signInAnonymously();
+                          userProvider.setUser(guestUser);
+                          // Navigate to home and replace the current screen
+                          if (mounted) {
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(
+                                builder: (_) => HomeScreen(user: guestUser),
+                              ),
+                              (route) => false,
+                            );
                           }
                         },
                         isPrimary: false,

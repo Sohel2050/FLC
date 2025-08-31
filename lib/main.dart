@@ -6,10 +6,8 @@ import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/providers/admob_provider.dart';
-import 'package:flutter_chess_app/services/app_open_ad_manager.dart';
-import 'package:flutter_chess_app/services/app_launch_ad_coordinator.dart';
+import 'package:flutter_chess_app/services/admob_service.dart';
 import 'package:flutter_chess_app/push_notification/notification_service.dart';
-import 'package:logger/logger.dart';
 import 'package:flutter_chess_app/screens/home_screen.dart';
 import 'package:flutter_chess_app/services/user_service.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
@@ -26,7 +24,8 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // If you're going to use other Firebase services in the background, such as Firestore,
-  // Handle background message processing here
+
+  print("Handling a background message: ${message.messageId}");
 }
 
 void main() async {
@@ -67,35 +66,36 @@ class MyApp extends StatefulWidget {
   State<MyApp> createState() => _MyAppState();
 }
 
-class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+class _MyAppState extends State<MyApp> {
   final UserService _userService = UserService();
 
-  /// Show app launch interstitial ad for non-premium users
-  void _showAppLaunchAd(ChessUser user) {
+  /// Show app launch ad for non-premium users
+  void _showAppLaunchAd(ChessUser user) async {
     final adMobProvider = Provider.of<AdMobProvider>(context, listen: false);
+
+    // Wait for AdMob config to load if it's not already loaded
+    if (adMobProvider.adMobConfig == null) {
+      await adMobProvider.loadAdMobConfig();
+    }
 
     // Check if we should show the ad
     if (!adMobProvider.shouldShowAppLaunchAd(user.removeAds)) {
-      // Mark as shown even if we don't show it
-      adMobProvider.markAppLaunchAdShown();
       return;
     }
 
     // Set loading state
     adMobProvider.setInterstitialAdLoading(true);
 
-    // Load and show the ad
-    AdMobService.loadAndShowInterstitialAd(
+    // Load and show the app open ad
+    AdMobService.loadAndShowAppOpenAd(
       context: context,
       onAdClosed: () {
-        // Mark that we've shown the app launch ad and clear loading state
+        // Clear loading state
         adMobProvider.setInterstitialAdLoading(false);
-        adMobProvider.markAppLaunchAdShown();
       },
       onAdFailedToLoad: () {
-        // Mark as shown even if failed to prevent retry loops and clear loading state
+        // Clear loading state even if failed
         adMobProvider.setInterstitialAdLoading(false);
-        adMobProvider.markAppLaunchAdShown();
       },
     );
   }
@@ -169,11 +169,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                         userService.cleanupOnlineStatus(user.uid!);
                       }
 
-                      // Initialize app open ad manager
-                      _initializeAppOpenAdManager(user);
-
-                      // Handle app launch ad sequence
-                      _handleAppLaunchAd(user);
+                      // Show app launch ad for non-premium users
+                      _showAppLaunchAd(user);
                     }
                   });
 
