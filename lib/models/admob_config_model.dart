@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_chess_app/utils/constants.dart';
 
 class AdMobConfig {
+  final String appOpenAdId;
   final String androidBannerAdId;
   final String iosBannerAdId;
   final String androidInterstitialAdId;
@@ -15,6 +16,7 @@ class AdMobConfig {
   final DateTime lastUpdated;
 
   AdMobConfig({
+    required this.appOpenAdId,
     required this.androidBannerAdId,
     required this.iosBannerAdId,
     required this.androidInterstitialAdId,
@@ -26,6 +28,16 @@ class AdMobConfig {
     this.enabled = true,
     DateTime? lastUpdated,
   }) : lastUpdated = lastUpdated ?? DateTime.now();
+
+  String get appOpenAdUnitId {
+    if (!enabled) return '';
+    if (Platform.isAndroid) {
+      return appOpenAdId;
+    } else if (Platform.isIOS) {
+      return appOpenAdId;
+    }
+    return '';
+  }
 
   // Platform-specific getters for convenience
   String? get bannerAdUnitId {
@@ -70,6 +82,7 @@ class AdMobConfig {
 
   Map<String, dynamic> toMap() {
     return {
+      Constants.appOpenAdId: appOpenAdId,
       Constants.androidBannerAdId: androidBannerAdId,
       Constants.iosBannerAdId: iosBannerAdId,
       Constants.androidInterstitialAdId: androidInterstitialAdId,
@@ -85,6 +98,7 @@ class AdMobConfig {
 
   factory AdMobConfig.fromMap(Map<String, dynamic> map) {
     return AdMobConfig(
+      appOpenAdId: map[Constants.appOpenAdId] ?? '',
       androidBannerAdId: map[Constants.androidBannerAdId] ?? '',
       iosBannerAdId: map[Constants.iosBannerAdId] ?? '',
       androidInterstitialAdId: map[Constants.androidInterstitialAdId] ?? '',
@@ -109,6 +123,7 @@ class AdMobConfig {
   }
 
   AdMobConfig copyWith({
+    String? appOpenAdId,
     String? androidBannerAdId,
     String? iosBannerAdId,
     String? androidInterstitialAdId,
@@ -121,6 +136,7 @@ class AdMobConfig {
     DateTime? lastUpdated,
   }) {
     return AdMobConfig(
+      appOpenAdId: appOpenAdId ?? this.appOpenAdId,
       androidBannerAdId: androidBannerAdId ?? this.androidBannerAdId,
       iosBannerAdId: iosBannerAdId ?? this.iosBannerAdId,
       androidInterstitialAdId:
@@ -138,6 +154,7 @@ class AdMobConfig {
   // Default testing configuration
   factory AdMobConfig.defaultTestConfig() {
     return AdMobConfig(
+      appOpenAdId: 'ca-app-pub-3940256099942544/9257395921',
       androidBannerAdId: 'ca-app-pub-3940256099942544/6300978111',
       iosBannerAdId: 'ca-app-pub-3940256099942544/2934735716',
       androidInterstitialAdId: 'ca-app-pub-3940256099942544/1033173712',
