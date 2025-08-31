@@ -11,6 +11,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 import '../services/sign_in_results.dart';
 import '../providers/user_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:flutter/material.dart';
 
 class UserService {
   final Logger logger = Logger();
@@ -23,12 +25,8 @@ class UserService {
       final userCredential = await _auth.signInAnonymously();
       final user = userCredential.user;
       if (user != null) {
-        final chessUser = ChessUser(
-          uid: user.uid,
-          displayName: 'Guest-${user.uid.substring(0, 5)}',
-          isGuest: true,
-          removeAds: false,
-        );
+        // Use consistent guest user creation
+        final chessUser = createConsistentGuestUser(user);
         await _firestore
             .collection(Constants.usersCollection)
             .doc(user.uid)
@@ -38,6 +36,227 @@ class UserService {
       throw Exception('Anonymous sign-in failed.');
     } catch (e) {
       throw Exception('An unknown error occurred during anonymous sign-in.');
+    }
+  }
+
+  /// Update UserProvider immediately after successful sign-up
+  /// This ensures the UI refreshes without requiring app restart
+  Future<void> updateUserProviderAfterSignUp(
+    BuildContext context,
+    ChessUser updatedUser,
+  ) async {
+    try {
+      // Update the UserProvider with the new user data
+      context.read<UserProvider>().setUser(updatedUser);
+      logger.i(
+        'UserProvider updated after sign-up for user: ${updatedUser.uid}',
+      );
+    } catch (e) {
+      logger.e('Error updating UserProvider after sign-up: $e');
+      // Don't throw error to prevent sign-up failure
+    }
+  }
+
+  /// Handle existing anonymous user session on app startup
+  /// This method checks if an anonymous user has a valid Firestore document
+  /// and creates one if missing, ensuring guest user persistence
+  Future<ChessUser> handleAnonymousUserSession(User firebaseUser) async {
+    try {
+      // Try to get existing guest user document
+      final userDoc =
+          await _firestore
+              .collection(Constants.usersCollection)
+              .doc(firebaseUser.uid)
+              .get();
+
+      if (userDoc.exists) {
+        final userData = userDoc.data()!;
+
+        // Validate and ensure document completeness
+        if (validateGuestUserDocument(userData)) {
+          final chessUser = await ensureGuestUserDocumentComplete(
+            firebaseUser.uid,
+            userData,
+          );
+
+          // Update online status for the restored session
+          await updateUserStatusOnline(chessUser.uid!, true);
+
+          logger.i('Anonymous user session restored: ${chessUser.uid}');
+          return chessUser;
+        } else {
+          // Document exists but is invalid, recreate it
+          logger.w(
+            'Invalid guest user document found, recreating: ${firebaseUser.uid}',
+          );
+          final chessUser = createConsistentGuestUser(firebaseUser);
+          await _firestore
+              .collection(Constants.usersCollection)
+              .doc(firebaseUser.uid)
+              .set(chessUser.toMap());
+
+          await updateUserStatusOnline(chessUser.uid!, true);
+          return chessUser;
+        }
+      } else {
+        // User document doesn't exist, create a new guest user document
+        final chessUser = createConsistentGuestUser(firebaseUser);
+
+        await _firestore
+            .collection(Constants.usersCollection)
+            .doc(firebaseUser.uid)
+            .set(chessUser.toMap());
+
+        logger.i(
+          'Created guest user document for existing anonymous session: ${chessUser.uid}',
+        );
+        return chessUser;
+      }
+    } catch (e) {
+      logger.e('Error handling anonymous user session: $e');
+      // Fallback: create new anonymous session
+      return await signInAnonymously();
+    }
+  }
+
+  /// Validate guest user document structure
+  /// Ensures guest users have all required fields for game matching
+  bool validateGuestUserDocument(Map<String, dynamic> userData) {
+    try {
+      // Check required fields for game matching
+      final requiredFields = [
+        Constants.uid,
+        Constants.displayName,
+        Constants.isGuest,
+        Constants.isOnline,
+        Constants.classicalRating,
+        Constants.blitzRating,
+        Constants.tempoRating,
+        Constants.gamesPlayed,
+        Constants.gamesWon,
+        Constants.gamesLost,
+        Constants.gamesDraw,
+      ];
+
+      for (String field in requiredFields) {
+        if (!userData.containsKey(field)) {
+          logger.w('Guest user document missing required field: $field');
+          return false;
+        }
+      }
+
+      // Validate data types and values
+      if (userData[Constants.isGuest] != true) {
+        logger.w('Guest user document has isGuest set to false');
+        return false;
+      }
+
+      // Validate rating fields are integers and within reasonable range
+      final ratingFields = [
+        Constants.classicalRating,
+        Constants.blitzRating,
+        Constants.tempoRating,
+      ];
+
+      for (String field in ratingFields) {
+        final rating = userData[field];
+        if (rating is! int || rating < 100 || rating > 3000) {
+          logger.w(
+            'Guest user document has invalid rating for $field: $rating',
+          );
+          return false;
+        }
+      }
+
+      logger.i('Guest user document validation passed');
+      return true;
+    } catch (e) {
+      logger.e('Error validating guest user document: $e');
+      return false;
+    }
+  }
+
+  /// Create a consistent guest user document with all required fields
+  /// This ensures guest users can participate in game matching
+  ChessUser createConsistentGuestUser(User firebaseUser) {
+    return ChessUser(
+      uid: firebaseUser.uid,
+      displayName: 'Guest-${firebaseUser.uid.substring(0, 5)}',
+      isGuest: true,
+      isOnline: true,
+      removeAds: false,
+      // Ensure all required fields for game matching are present
+      classicalRating: 1200,
+      blitzRating: 1200,
+      tempoRating: 1200,
+      gamesPlayed: 0,
+      gamesWon: 0,
+      gamesLost: 0,
+      gamesDraw: 0,
+      achievements: [],
+      friends: [],
+      friendRequestsSent: [],
+      friendRequestsReceived: [],
+      blockedUsers: [],
+      winStreak: {},
+      savedGames: [],
+      preferences: {},
+      fcmToken: '',
+      lastSeen: DateTime.now(),
+    );
+  }
+
+  /// Ensure guest user document has all required fields for game matching
+  /// Updates existing document if fields are missing
+  Future<ChessUser> ensureGuestUserDocumentComplete(
+    String userId,
+    Map<String, dynamic> existingData,
+  ) async {
+    try {
+      // Create a complete guest user from existing data
+      ChessUser existingUser = ChessUser.fromMap(existingData);
+
+      // Check if document needs updates
+      bool needsUpdate = false;
+      Map<String, dynamic> updates = {};
+
+      // Ensure required rating fields exist
+      if (existingUser.classicalRating == 0) {
+        updates[Constants.classicalRating] = 1200;
+        needsUpdate = true;
+      }
+      if (existingUser.blitzRating == 0) {
+        updates[Constants.blitzRating] = 1200;
+        needsUpdate = true;
+      }
+      if (existingUser.tempoRating == 0) {
+        updates[Constants.tempoRating] = 1200;
+        needsUpdate = true;
+      }
+
+      // Ensure isGuest is properly set
+      if (!existingUser.isGuest) {
+        updates[Constants.isGuest] = true;
+        needsUpdate = true;
+      }
+
+      // Update document if needed
+      if (needsUpdate) {
+        await _firestore
+            .collection(Constants.usersCollection)
+            .doc(userId)
+            .update(updates);
+
+        logger.i('Updated guest user document with missing fields: $userId');
+
+        // Return updated user
+        return ChessUser.fromMap({...existingData, ...updates});
+      }
+
+      return existingUser;
+    } catch (e) {
+      logger.e('Error ensuring guest user document completeness: $e');
+      rethrow;
     }
   }
 
@@ -60,10 +279,10 @@ class UserService {
     return _firestore
         .collection(Constants.usersCollection)
         .where(Constants.isOnline, isEqualTo: true)
-        .where(
-          Constants.isGuest,
-          isEqualTo: false,
-        ) // Exclude guest users from count
+        // .where(
+        //   Constants.isGuest,
+        //   isEqualTo: false,
+        // ) // Exclude guest users from count
         .snapshots(
           includeMetadataChanges: false,
         ) // Only get actual data changes
@@ -224,8 +443,9 @@ class UserService {
     String email,
     String password,
     String name,
-    String countryCode,
-  ) async {
+    String countryCode, {
+    BuildContext? context,
+  }) async {
     try {
       final User? anonymousUser = _auth.currentUser;
       AuthCredential? credential;
@@ -252,6 +472,12 @@ class UserService {
             .collection(Constants.usersCollection)
             .doc(anonymousUser.uid)
             .update(updatedUser.toMap());
+
+        // Immediately update UserProvider if context is provided
+        if (context != null && context.mounted) {
+          await updateUserProviderAfterSignUp(context, updatedUser);
+        }
+
         logger.i('User account upgraded: ${anonymousUser.email}');
         return updatedUser;
       } else {

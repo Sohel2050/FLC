@@ -6,7 +6,6 @@ import 'package:flutter_chess_app/providers/game_provider.dart';
 import 'package:flutter_chess_app/providers/settings_provoder.dart';
 import 'package:flutter_chess_app/providers/user_provider.dart';
 import 'package:flutter_chess_app/providers/admob_provider.dart';
-import 'package:flutter_chess_app/services/migration_service.dart';
 import 'package:flutter_chess_app/services/admob_service.dart';
 import 'package:flutter_chess_app/push_notification/notification_service.dart';
 import 'package:flutter_chess_app/screens/home_screen.dart';
@@ -70,7 +69,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final UserService _userService = UserService();
 
-  /// Show app launch ad for non-premium users
+  /// Show app launch ad for non-premium users and guest users
   void _showAppLaunchAd(ChessUser user) async {
     final adMobProvider = Provider.of<AdMobProvider>(context, listen: false);
 
@@ -79,17 +78,26 @@ class _MyAppState extends State<MyApp> {
       await adMobProvider.loadAdMobConfig();
     }
 
+    // Use improved guest user ad logic
+    bool shouldShowAd;
+    if (user.isGuest) {
+      shouldShowAd = adMobProvider.shouldShowAppLaunchAdForGuestUser(user);
+    } else {
+      shouldShowAd = adMobProvider.shouldShowAppLaunchAd(user.removeAds);
+    }
+
     // Check if we should show the ad
-    if (!adMobProvider.shouldShowAppLaunchAd(user.removeAds)) {
+    if (!shouldShowAd) {
       return;
     }
 
     // Set loading state
     adMobProvider.setInterstitialAdLoading(true);
 
-    // Load and show the app open ad
+    // Load and show the app open ad with proper error handling for guest users
     AdMobService.loadAndShowAppOpenAd(
       context: context,
+      user: user,
       onAdClosed: () {
         // Clear loading state
         adMobProvider.setInterstitialAdLoading(false);
@@ -137,53 +145,94 @@ class _MyAppState extends State<MyApp> {
               body: Center(child: CircularProgressIndicator()),
             );
           }
-          if (snapshot.hasData && snapshot.data!.emailVerified) {
-            // Instead of calling signIn again, directly fetch user data
-            return FutureBuilder<DocumentSnapshot>(
-              future:
-                  FirebaseFirestore.instance
-                      .collection(Constants.usersCollection)
-                      .doc(snapshot.data!.uid)
-                      .get(),
-              builder: (context, userSnapshot) {
-                if (userSnapshot.connectionState == ConnectionState.waiting) {
-                  return const Scaffold(
-                    body: Center(child: CircularProgressIndicator()),
-                  );
-                }
 
-                if (userSnapshot.hasData && userSnapshot.data!.exists) {
-                  final user = ChessUser.fromMap(
-                    userSnapshot.data!.data() as Map<String, dynamic>,
-                  );
-                  // Set user in provider
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    final userService = UserService();
-                    if (context.mounted) {
-                      Provider.of<UserProvider>(
-                        context,
-                        listen: false,
-                      ).setUser(user);
+          if (snapshot.hasData) {
+            final user = snapshot.data!;
 
-                      // set user online status and cleanup any stale status
-                      if (!user.isGuest) {
-                        userService.cleanupOnlineStatus(user.uid!);
+            // Handle anonymous users (guest users)
+            if (user.isAnonymous) {
+              return FutureBuilder<ChessUser>(
+                future: _userService.handleAnonymousUserSession(user),
+                builder: (context, userSnapshot) {
+                  if (userSnapshot.connectionState == ConnectionState.waiting) {
+                    return const Scaffold(
+                      body: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+
+                  if (userSnapshot.hasData) {
+                    final chessUser = userSnapshot.data!;
+                    // Set user in provider
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (context.mounted) {
+                        Provider.of<UserProvider>(
+                          context,
+                          listen: false,
+                        ).setUser(chessUser);
+
+                        // Show app launch ad for guest users
+                        _showAppLaunchAd(chessUser);
                       }
+                    });
 
-                      // Show app launch ad for non-premium users
-                      _showAppLaunchAd(user);
-                    }
-                  });
+                    return HomeScreen(user: chessUser);
+                  } else {
+                    // Failed to handle anonymous user, go to login
+                    return const LoginScreen();
+                  }
+                },
+              );
+            }
 
-                  return HomeScreen(user: user);
-                } else {
-                  // User document doesn't exist, sign out
-                  _userService.signOut();
-                  return const LoginScreen();
-                }
-              },
-            );
+            // Handle verified email users
+            if (user.emailVerified) {
+              return FutureBuilder<DocumentSnapshot>(
+                future:
+                    FirebaseFirestore.instance
+                        .collection(Constants.usersCollection)
+                        .doc(user.uid)
+                        .get(),
+                builder: (context, userSnapshot) {
+                  if (userSnapshot.connectionState == ConnectionState.waiting) {
+                    return const Scaffold(
+                      body: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+
+                  if (userSnapshot.hasData && userSnapshot.data!.exists) {
+                    final chessUser = ChessUser.fromMap(
+                      userSnapshot.data!.data() as Map<String, dynamic>,
+                    );
+                    // Set user in provider
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      final userService = UserService();
+                      if (context.mounted) {
+                        Provider.of<UserProvider>(
+                          context,
+                          listen: false,
+                        ).setUser(chessUser);
+
+                        // set user online status and cleanup any stale status
+                        if (!chessUser.isGuest) {
+                          userService.cleanupOnlineStatus(chessUser.uid!);
+                        }
+
+                        // Show app launch ad for non-premium users
+                        _showAppLaunchAd(chessUser);
+                      }
+                    });
+
+                    return HomeScreen(user: chessUser);
+                  } else {
+                    // User document doesn't exist, sign out
+                    _userService.signOut();
+                    return const LoginScreen();
+                  }
+                },
+              );
+            }
           }
+
           return const LoginScreen();
         },
       ),

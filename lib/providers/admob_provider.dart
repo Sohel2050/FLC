@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:logger/logger.dart';
 import '../models/admob_config_model.dart';
+import '../models/user_model.dart';
 import '../utils/constants.dart';
 
 class AdMobProvider with ChangeNotifier {
@@ -160,5 +161,41 @@ class AdMobProvider with ChangeNotifier {
   bool shouldShowAppLaunchAd(bool? userRemoveAds) {
     // Check general ad conditions - this will show on every app launch for non-premium users
     return shouldShowAds(userRemoveAds);
+  }
+
+  /// Check if app launch ad should be shown for guest users specifically
+  /// This method ensures persistent guest users see ads properly
+  bool shouldShowAppLaunchAdForGuestUser(ChessUser? user) {
+    try {
+      // Don't show ads if configuration is not loaded
+      if (_adMobConfig == null) {
+        _logger.w(
+          'AdMob config not loaded, cannot show app launch ad for guest user',
+        );
+        return false;
+      }
+
+      // Don't show ads if ads are disabled in configuration
+      if (!isAdsEnabled) {
+        _logger.i(
+          'Ads disabled in configuration, not showing app launch ad for guest user',
+        );
+        return false;
+      }
+
+      // For guest users, always show ads (they can't purchase ad removal)
+      if (user != null && user.isGuest) {
+        _logger.i('Guest user detected, showing app launch ad');
+        return true;
+      }
+
+      // For regular users, check their ad removal preference
+      return shouldShowAds(user?.removeAds);
+    } catch (e) {
+      _logger.e(
+        'Error checking if app launch ad should be shown for guest user: $e',
+      );
+      return false;
+    }
   }
 }

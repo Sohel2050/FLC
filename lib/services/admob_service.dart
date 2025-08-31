@@ -3,6 +3,7 @@ import 'package:logger/logger.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
 import '../providers/admob_provider.dart';
+import '../models/user_model.dart';
 
 class AdMobService {
   static final Logger _logger = Logger();
@@ -57,6 +58,38 @@ class AdMobService {
     return adMobProvider.shouldShowAds(userRemoveAds);
   }
 
+  /// Check if ads should be shown for guest users specifically
+  /// This method ensures guest users with persistent sessions can see ads
+  static bool shouldShowAdsForGuestUser(BuildContext context, ChessUser? user) {
+    try {
+      final adMobProvider = Provider.of<AdMobProvider>(context, listen: false);
+
+      // Don't show ads if configuration is not loaded
+      if (adMobProvider.adMobConfig == null) {
+        _logger.w('AdMob config not loaded, cannot show ads for guest user');
+        return false;
+      }
+
+      // Don't show ads if ads are disabled in configuration
+      if (!adMobProvider.isAdsEnabled) {
+        _logger.i('Ads disabled in configuration, not showing for guest user');
+        return false;
+      }
+
+      // For guest users, always show ads (they can't purchase ad removal)
+      if (user != null && user.isGuest) {
+        _logger.i('Guest user detected, showing ads');
+        return true;
+      }
+
+      // For regular users, check their ad removal preference
+      return adMobProvider.shouldShowAds(user?.removeAds);
+    } catch (e) {
+      _logger.e('Error checking if ads should be shown for guest user: $e');
+      return false;
+    }
+  }
+
   /// Get the current interstitial ad instance
   static InterstitialAd? get interstitialAd => _interstitialAd;
 
@@ -97,11 +130,12 @@ class AdMobService {
     );
   }
 
-  /// Load and show an app open ad
+  /// Load and show an app open ad with enhanced guest user support
   static Future<void> loadAndShowAppOpenAd({
     required BuildContext context,
     required VoidCallback onAdClosed,
     VoidCallback? onAdFailedToLoad,
+    ChessUser? user,
   }) async {
     try {
       final adUnitId = getAppOpenAdUnitId(context);
@@ -117,7 +151,18 @@ class AdMobService {
         return;
       }
 
+      // Log user type for debugging
+      if (user != null) {
+        _logger.i(
+          'Loading app open ad for ${user.isGuest ? 'guest' : 'registered'} user: ${user.uid}',
+        );
+      }
+
       _logger.i('Loading and showing app open ad with ID: $adUnitId');
+
+      // Dispose any existing app open ad
+      _appOpenAd?.dispose();
+      _appOpenAd = null;
 
       await AppOpenAd.load(
         adUnitId: adUnitId,
@@ -126,6 +171,7 @@ class AdMobService {
           onAdLoaded: (AppOpenAd ad) {
             try {
               _logger.i('App open ad loaded, setting up callbacks and showing');
+              _appOpenAd = ad;
 
               ad.fullScreenContentCallback = FullScreenContentCallback<
                 AppOpenAd
@@ -143,6 +189,7 @@ class AdMobService {
                   try {
                     _logger.i('App open ad dismissed full screen content');
                     ad.dispose();
+                    _appOpenAd = null;
                     onAdClosed();
                   } catch (e) {
                     _logger.e(
@@ -150,6 +197,7 @@ class AdMobService {
                     );
                     try {
                       ad.dispose();
+                      _appOpenAd = null;
                       onAdClosed();
                     } catch (cleanupError) {
                       _logger.e(
@@ -167,6 +215,7 @@ class AdMobService {
                       'App open ad failed to show full screen content: ${error.message} (Code: ${error.code})',
                     );
                     ad.dispose();
+                    _appOpenAd = null;
                     onAdFailedToLoad?.call();
                   } catch (e) {
                     _logger.e(
@@ -174,6 +223,7 @@ class AdMobService {
                     );
                     try {
                       ad.dispose();
+                      _appOpenAd = null;
                       onAdFailedToLoad?.call();
                     } catch (cleanupError) {
                       _logger.e(
@@ -189,6 +239,7 @@ class AdMobService {
               _logger.e('Error setting up or showing loaded app open ad: $e');
               try {
                 ad.dispose();
+                _appOpenAd = null;
                 onAdFailedToLoad?.call();
               } catch (cleanupError) {
                 _logger.e(
@@ -202,6 +253,7 @@ class AdMobService {
               _logger.e(
                 'App open ad failed to load: ${error.message} (Code: ${error.code})',
               );
+              _appOpenAd = null;
               onAdFailedToLoad?.call();
             } catch (e) {
               _logger.e('Error in app open ad onAdFailedToLoad callback: $e');
@@ -212,6 +264,7 @@ class AdMobService {
     } catch (e) {
       _logger.e('Critical error loading and showing app open ad: $e');
       try {
+        _appOpenAd = null;
         onAdFailedToLoad?.call();
       } catch (callbackError) {
         _logger.e('Error in critical failure callback: $callbackError');
@@ -321,6 +374,16 @@ class AdMobService {
     _rewardedAd = null;
     _isRewardedAdReady = false;
   }
+
+  /// Dispose app open ad
+  static void disposeAppOpenAd() {
+    _appOpenAd?.dispose();
+    _appOpenAd = null;
+    _logger.i('App open ad disposed');
+  }
+
+  /// Get the current app open ad instance
+  static AppOpenAd? get appOpenAd => _appOpenAd;
 
   /// Load and show a rewarded ad with reward callback
   static Future<void> loadAndShowRewardedAd({
