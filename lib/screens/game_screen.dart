@@ -346,7 +346,7 @@ class _GameScreenState extends State<GameScreen> {
 
       setState(() {
         _isInAudioRoom = true;
-        _isMicrophoneEnabled = false; // Start with mic disabled
+        _isMicrophoneEnabled = true; // Start with mic enabled
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -393,7 +393,7 @@ class _GameScreenState extends State<GameScreen> {
 
       setState(() {
         _isInAudioRoom = true;
-        _isMicrophoneEnabled = false;
+        _isMicrophoneEnabled = true;
       });
     } catch (e) {
       _gameProvider.logger.e('Failed to auto-join audio room: $e');
@@ -1291,30 +1291,6 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  void _showPremiumRequiredDialog() async {
-    final result = await AudioAccessDialog.show(context: context);
-
-    if (result == AudioAccessAction.watchAd) {
-      _hasTemporaryAudioAccess = true;
-      // User watched ad, they can now use audio features
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Audio room access granted! You can now use voice chat.',
-          ),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } else if (result == AudioAccessAction.premium) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Visit Profile screen to upgrade to Premium'),
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
   void _toggleMicrophone() async {
     // Ensure engine is initialized before attempting to control microphone
     if (!_isZegoEngineInitialized) {
@@ -1563,7 +1539,7 @@ class _GameScreenState extends State<GameScreen> {
       // Update UI state to match ZegoCloud state
       if (mounted) {
         setState(() {
-          _isMicrophoneEnabled = false; // Microphone starts muted
+          _isMicrophoneEnabled = true; // Microphone starts enabled
           _isSpeakerMuted = false; // Speaker starts unmuted
         });
       }
