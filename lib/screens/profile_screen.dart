@@ -414,14 +414,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         text: 'Sign In',
                         icon: Icons.login,
                         isFullWidth: true,
-                        onPressed: () {
-                          // Navigate to sign in screen and remove all previous routes
-                          Navigator.of(context).pushAndRemoveUntil(
-                            MaterialPageRoute(
-                              builder: (context) => const LoginScreen(),
-                            ),
-                            (route) => false,
+                        onPressed: () async {
+                          // first set the this user to offline
+                          await userService.updateUserStatusOnline(
+                            widget.user.uid!,
+                            true,
                           );
+
+                          if (context.mounted) {
+                            // Navigate to sign in screen and remove all previous routes
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(
+                                builder: (context) => const LoginScreen(),
+                              ),
+                              (route) => false,
+                            );
+                          }
                         },
                       ),
                     ],
