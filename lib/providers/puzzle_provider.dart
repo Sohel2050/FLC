@@ -118,12 +118,16 @@ class PuzzleProvider extends ChangeNotifier {
 
   // Loading states
   bool _isLoading = false;
+  bool _isInitializing = false;
   String? _errorMessage;
+  bool _hasInitialized = false;
 
   // Getters
   PuzzleSession? get currentSession => _currentSession;
   bool get isLoading => _isLoading;
+  bool get isInitializing => _isInitializing;
   String? get errorMessage => _errorMessage;
+  bool get hasInitialized => _hasInitialized;
   bool get hasPuzzleActive =>
       _currentSession != null &&
       _currentSession!.state == PuzzleSessionState.active;
@@ -142,12 +146,18 @@ class PuzzleProvider extends ChangeNotifier {
   void setUserId(String userId) {
     if (_currentUserId != userId) {
       _currentUserId = userId;
-      _loadUserProgress();
+      _loadUserProgressWithErrorHandling();
     }
   }
 
   /// Initialize the provider and load puzzles
   Future<void> initialize({String? userId}) async {
+    if (_isInitializing) {
+      _logger.w('Initialization already in progress');
+      return;
+    }
+
+    _isInitializing = true;
     _setLoading(true);
     _clearError();
 
@@ -158,21 +168,29 @@ class PuzzleProvider extends ChangeNotifier {
         _currentUserId = userId;
       }
 
-      // Load all puzzles and organize by difficulty
-      await _loadPuzzlesByDifficulty();
+      // Load all puzzles and organize by difficulty with timeout
+      await _loadPuzzlesByDifficultyWithTimeout();
 
       // Load user progress if user ID is available
       if (_currentUserId != null) {
-        await _loadUserProgress();
+        await _loadUserProgressWithErrorHandling();
       }
 
+      _hasInitialized = true;
       _logger.i('PuzzleProvider initialized successfully');
     } catch (e) {
       _logger.e('Error initializing PuzzleProvider: $e');
-      _setError('Failed to initialize puzzles: $e');
+      _setError(_getErrorMessage(e));
     } finally {
+      _isInitializing = false;
       _setLoading(false);
     }
+  }
+
+  /// Retry initialization
+  Future<void> retryInitialization() async {
+    _hasInitialized = false;
+    await initialize(userId: _currentUserId);
   }
 
   /// Start a new puzzle session
@@ -417,37 +435,79 @@ class PuzzleProvider extends ChangeNotifier {
 
   // Private helper methods
 
-  /// Load puzzles organized by difficulty
-  Future<void> _loadPuzzlesByDifficulty() async {
+  /// Load puzzles organized by difficulty with timeout
+  Future<void> _loadPuzzlesByDifficultyWithTimeout() async {
     _puzzlesByDifficulty.clear();
 
-    for (final difficulty in PuzzleDifficulty.values) {
-      final puzzles = await _puzzleService.getPuzzlesByDifficulty(difficulty);
-      _puzzlesByDifficulty[difficulty] = puzzles;
+    try {
+      // Add timeout to prevent hanging
+      await Future.wait(
+        PuzzleDifficulty.values.map((difficulty) async {
+          try {
+            final puzzles = await _puzzleService
+                .getPuzzlesByDifficulty(difficulty)
+                .timeout(const Duration(seconds: 10));
+            _puzzlesByDifficulty[difficulty] = puzzles;
+            _logger.i(
+              'Loaded ${puzzles.length} puzzles for ${difficulty.displayName}',
+            );
+          } catch (e) {
+            _logger.w(
+              'Failed to load puzzles for ${difficulty.displayName}: $e',
+            );
+            _puzzlesByDifficulty[difficulty] = []; // Set empty list as fallback
+          }
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      // Check if we have any puzzles at all
+      final totalPuzzles = _puzzlesByDifficulty.values.fold<int>(
+        0,
+        (sum, puzzles) => sum + puzzles.length,
+      );
+
+      if (totalPuzzles == 0) {
+        throw Exception('No puzzles could be loaded from any difficulty level');
+      }
+
+      _logger.i('Successfully loaded puzzles for all difficulty levels');
+    } catch (e) {
+      _logger.e('Error loading puzzles by difficulty: $e');
+      rethrow;
     }
   }
 
-  /// Load user progress for all difficulties
-  Future<void> _loadUserProgress() async {
+  /// Load user progress for all difficulties with error handling
+  Future<void> _loadUserProgressWithErrorHandling() async {
     if (_currentUserId == null) return;
 
     _progressByDifficulty.clear();
 
     try {
-      final allProgress = await _puzzleService.getAllUserProgress(
-        _currentUserId!,
-      );
+      final allProgress = await _puzzleService
+          .getAllUserProgress(_currentUserId!)
+          .timeout(const Duration(seconds: 15));
 
       // Organize progress by difficulty
       for (final progress in allProgress) {
-        final difficulty = progress.difficulty;
-        _progressByDifficulty[difficulty] ??= [];
-        _progressByDifficulty[difficulty]!.add(progress);
+        try {
+          final difficulty = progress.difficulty;
+          _progressByDifficulty[difficulty] ??= [];
+          _progressByDifficulty[difficulty]!.add(progress);
+        } catch (e) {
+          _logger.w('Error processing progress record: $e');
+          // Continue with other progress records
+        }
       }
 
       _logger.i('Loaded progress for ${allProgress.length} puzzles');
     } catch (e) {
       _logger.e('Error loading user progress: $e');
+      // Don't rethrow - progress loading failure shouldn't prevent puzzle access
+      // Initialize empty progress for all difficulties
+      for (final difficulty in PuzzleDifficulty.values) {
+        _progressByDifficulty[difficulty] = [];
+      }
     }
   }
 
@@ -611,6 +671,29 @@ class PuzzleProvider extends ChangeNotifier {
   /// Clear error message
   void _clearError() {
     _errorMessage = null;
+  }
+
+  /// Get user-friendly error message
+  String _getErrorMessage(dynamic error) {
+    if (error == null) return 'Unknown error occurred';
+
+    final errorString = error.toString().toLowerCase();
+
+    if (errorString.contains('timeout')) {
+      return 'Loading timed out. Please check your connection and try again.';
+    } else if (errorString.contains('network') ||
+        errorString.contains('connection')) {
+      return 'Network error. Please check your internet connection.';
+    } else if (errorString.contains('no puzzles') ||
+        errorString.contains('empty')) {
+      return 'No puzzles available. Please try again later.';
+    } else if (errorString.contains('format') || errorString.contains('json')) {
+      return 'Puzzle data is corrupted. Please try again.';
+    } else if (errorString.contains('permission')) {
+      return 'Permission denied. Please check app permissions.';
+    } else {
+      return 'Failed to load puzzles. Please try again.';
+    }
   }
 
   @override

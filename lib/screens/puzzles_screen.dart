@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../models/puzzle_model.dart';
 import '../providers/puzzle_provider.dart';
 import '../providers/user_provider.dart';
+import '../utils/puzzle_error_handler.dart';
+import '../widgets/puzzle_loading_widget.dart';
 import 'puzzle_board_screen.dart';
 
 class PuzzlesScreen extends StatefulWidget {
@@ -20,14 +22,24 @@ class _PuzzlesScreenState extends State<PuzzlesScreen> {
   }
 
   void _initializePuzzles() async {
-    final puzzleProvider = context.read<PuzzleProvider>();
-    final userProvider = context.read<UserProvider>();
+    try {
+      final puzzleProvider = context.read<PuzzleProvider>();
+      final userProvider = context.read<UserProvider>();
 
-    // Initialize with user ID if available
-    final userId = userProvider.user?.isGuest == false
-        ? userProvider.user?.uid
-        : null;
-    await puzzleProvider.initialize(userId: userId);
+      // Initialize with user ID if available
+      final userId = userProvider.user?.isGuest == false
+          ? userProvider.user?.uid
+          : null;
+      await puzzleProvider.initialize(userId: userId);
+    } catch (e) {
+      if (mounted) {
+        PuzzleErrorHandler.handlePuzzleServiceError(
+          context,
+          e,
+          onRetry: _initializePuzzles,
+        );
+      }
+    }
   }
 
   @override
@@ -40,47 +52,52 @@ class _PuzzlesScreenState extends State<PuzzlesScreen> {
       ),
       body: Consumer<PuzzleProvider>(
         builder: (context, puzzleProvider, child) {
-          if (puzzleProvider.isLoading) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Loading puzzles...'),
-                ],
-              ),
+          // Show loading state
+          if (puzzleProvider.isLoading || puzzleProvider.isInitializing) {
+            return PuzzleLoadingWidget(
+              message: puzzleProvider.isInitializing
+                  ? 'Initializing puzzles...'
+                  : 'Loading puzzles...',
+              showRetry: false,
             );
           }
 
+          // Show error state
           if (puzzleProvider.errorMessage != null) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Failed to load puzzles',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    puzzleProvider.errorMessage!,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _initializePuzzles,
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
+            return PuzzleErrorWidget(
+              title: 'Failed to Load Puzzles',
+              message: puzzleProvider.errorMessage!,
+              onRetry: () async {
+                await puzzleProvider.retryInitialization();
+              },
+              onCancel: () => Navigator.of(context).pop(),
+            );
+          }
+
+          // Check if puzzles are available
+          if (!puzzleProvider.hasInitialized) {
+            return PuzzleErrorWidget(
+              title: 'Puzzles Not Available',
+              message: 'Puzzles have not been initialized yet.',
+              onRetry: _initializePuzzles,
+              onCancel: () => Navigator.of(context).pop(),
+            );
+          }
+
+          // Check if any puzzles exist
+          final totalPuzzles = PuzzleDifficulty.values.fold<int>(
+            0,
+            (sum, difficulty) =>
+                sum + puzzleProvider.getPuzzlesForDifficulty(difficulty).length,
+          );
+
+          if (totalPuzzles == 0) {
+            return PuzzleEmptyWidget(
+              title: 'No Puzzles Available',
+              message:
+                  'There are no puzzles available at the moment. Please try again later.',
+              onRetry: _initializePuzzles,
+              onBack: () => Navigator.of(context).pop(),
             );
           }
 
@@ -333,18 +350,37 @@ class _PuzzlesScreenState extends State<PuzzlesScreen> {
     PuzzleProvider puzzleProvider,
   ) async {
     try {
+      // Show loading indicator for puzzle selection
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Loading puzzle...'),
+            ],
+          ),
+        ),
+      );
+
       // Get the first unsolved puzzle for this difficulty
       final puzzle = await puzzleProvider.getFirstUnsolvedPuzzle(difficulty);
 
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+
       if (puzzle == null) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'No puzzles available for ${difficulty.displayName} difficulty',
-              ),
-              backgroundColor: Colors.orange,
-            ),
+          PuzzleErrorHandler.showNoPuzzlesAvailable(
+            context,
+            difficulty: difficulty.displayName,
+            onRetry: () =>
+                _onDifficultySelected(context, difficulty, puzzleProvider),
           );
         }
         return;
@@ -359,12 +395,14 @@ class _PuzzlesScreenState extends State<PuzzlesScreen> {
         );
       }
     } catch (e) {
+      // Close loading dialog if still open
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to load puzzle: $e'),
-            backgroundColor: Colors.red,
-          ),
+        Navigator.of(context).pop();
+        PuzzleErrorHandler.handlePuzzleServiceError(
+          context,
+          e,
+          onRetry: () =>
+              _onDifficultySelected(context, difficulty, puzzleProvider),
         );
       }
     }

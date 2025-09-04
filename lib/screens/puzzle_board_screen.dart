@@ -6,6 +6,9 @@ import 'package:square_bishop/square_bishop.dart';
 import '../models/puzzle_model.dart';
 import '../providers/puzzle_provider.dart';
 import '../providers/settings_provoder.dart';
+import '../utils/puzzle_error_handler.dart';
+import '../widgets/puzzle_completion_dialog.dart';
+import '../widgets/puzzle_loading_widget.dart';
 
 class PuzzleBoardScreen extends StatefulWidget {
   final PuzzleModel puzzle;
@@ -21,6 +24,9 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
   late SquaresState _state;
   late PuzzleProvider _puzzleProvider;
   bool _isInitialized = false;
+  bool _flipBoard = false;
+  bool _hasError = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -29,70 +35,114 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
     _initializePuzzle();
   }
 
-  void _initializePuzzle() {
+  void _initializePuzzle() async {
     try {
-      // Create game from FEN position
-      _game = bishop.Game(
-        variant: bishop.Variant.standard(),
-        fen: widget.puzzle.fen,
-      );
+      // Validate puzzle data first
+      if (widget.puzzle.fen.isEmpty) {
+        throw Exception('Puzzle has invalid position data');
+      }
+
+      if (widget.puzzle.solution.isEmpty) {
+        throw Exception('Puzzle has no solution moves');
+      }
+
+      // Create game from FEN position with error handling
+      try {
+        _game = bishop.Game(
+          variant: bishop.Variant.standard(),
+          fen: widget.puzzle.fen,
+        );
+      } catch (e) {
+        throw Exception('Invalid chess position: ${widget.puzzle.fen}');
+      }
+
+      // Validate the game state
+      if (_game.state.result != null) {
+        throw Exception('Puzzle position is already game over');
+      }
 
       // Create squares state for the puzzle
       // For puzzles, we always play as the side to move
       final playerColor = _game.state.turn;
       _state = _game.squaresState(playerColor);
 
+      // Start the puzzle session with error handling
+      try {
+        await _puzzleProvider.startPuzzle(widget.puzzle);
+      } catch (e) {
+        throw Exception('Failed to start puzzle session: $e');
+      }
+
       setState(() {
         _isInitialized = true;
+        _hasError = false;
+        _errorMessage = null;
+      });
+    } catch (e) {
+      setState(() {
+        _hasError = true;
+        _errorMessage = PuzzleErrorHandler.getErrorMessage(e);
       });
 
-      // Start the puzzle session
-      _puzzleProvider.startPuzzle(widget.puzzle);
-    } catch (e) {
-      // Handle FEN parsing error
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to load puzzle: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      Navigator.of(context).pop();
+      // Show error and navigate back after delay
+      if (mounted) {
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
+        });
+      }
     }
   }
 
   void _onMove(Move move) async {
-    if (!_isInitialized) return;
+    if (!_isInitialized || _hasError) return;
 
-    // Make the move in the game
-    final success = _game.makeSquaresMove(move);
-    if (!success) return;
-
-    // Update the squares state
-    final playerColor = _game.state.turn == Squares.white
-        ? Squares.black
-        : Squares.white;
-    _state = _game.squaresState(playerColor);
-
-    // Notify the puzzle provider about the move
-    final moveString = move.toString();
-    final isValidMove = await _puzzleProvider.makeMove(moveString);
-
-    if (isValidMove) {
-      // Check if puzzle is solved
-      final session = _puzzleProvider.currentSession;
-      if (session != null && session.isCompleted) {
-        _showPuzzleCompletedDialog();
-      } else {
-        // Make the opponent's response move if there is one
-        _makeOpponentMove();
+    try {
+      // Make the move in the game
+      final success = _game.makeSquaresMove(move);
+      if (!success) {
+        _showIncorrectMoveMessage();
+        return;
       }
-    } else {
-      // Invalid move - reset the board state
-      _resetBoardState();
-      _showIncorrectMoveMessage();
-    }
 
-    setState(() {});
+      // Update the squares state
+      final playerColor = _game.state.turn == Squares.white
+          ? Squares.black
+          : Squares.white;
+      _state = _game.squaresState(playerColor);
+
+      // Notify the puzzle provider about the move
+      final moveString = move.toString();
+      final isValidMove = await _puzzleProvider.makeMove(moveString);
+
+      if (isValidMove) {
+        // Check if puzzle is solved
+        final session = _puzzleProvider.currentSession;
+        if (session != null && session.isCompleted) {
+          _showPuzzleCompletedDialog();
+        } else {
+          // Make the opponent's response move if there is one
+          _makeOpponentMove();
+        }
+      } else {
+        // Invalid move - reset the board state
+        _resetBoardState();
+        _showIncorrectMoveMessage();
+      }
+
+      setState(() {});
+    } catch (e) {
+      // Handle move processing errors
+      if (mounted) {
+        PuzzleErrorHandler.showPuzzleDataError(
+          context,
+          puzzleId: widget.puzzle.id,
+          onRetry: () => _resetPuzzle(),
+        );
+      }
+      _resetBoardState();
+    }
   }
 
   void _makeOpponentMove() {
@@ -148,55 +198,61 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
     );
   }
 
-  void _showPuzzleCompletedDialog() {
+  void _showPuzzleCompletedDialog() async {
     final session = _puzzleProvider.currentSession;
     if (session == null) return;
 
-    showDialog(
+    // Check if there's a next puzzle available
+    final hasNextPuzzle = await _hasNextPuzzle();
+
+    if (!mounted) return;
+
+    final action = await PuzzleCompletionDialog.show(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 28),
-            SizedBox(width: 8),
-            Text('Puzzle Solved!'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Congratulations! You solved the puzzle.'),
-            const SizedBox(height: 8),
-            Text('Time: ${_formatDuration(session.solveTime)}'),
-            if (session.hintsUsed > 0) Text('Hints used: ${session.hintsUsed}'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(); // Close dialog
-              _resetPuzzle();
-            },
-            child: const Text('Retry'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.of(context).pop(); // Close dialog
-              await _nextPuzzle();
-            },
-            child: const Text('Next Puzzle'),
-          ),
-        ],
-      ),
+      session: session,
+      hasNextPuzzle: hasNextPuzzle,
     );
+
+    if (!mounted) return;
+
+    switch (action) {
+      case PuzzleCompletionAction.retry:
+        _resetPuzzle();
+        break;
+      case PuzzleCompletionAction.nextPuzzle:
+        await _nextPuzzle();
+        break;
+      case null:
+        // Dialog was dismissed without action
+        break;
+    }
   }
 
   void _resetPuzzle() {
     _puzzleProvider.resetPuzzle();
     _resetBoardState();
     setState(() {});
+  }
+
+  Future<bool> _hasNextPuzzle() async {
+    try {
+      // Get the current puzzle difficulty
+      final currentDifficulty = widget.puzzle.difficulty;
+
+      // Get all puzzles for this difficulty
+      final puzzles = _puzzleProvider.getPuzzlesForDifficulty(
+        currentDifficulty,
+      );
+
+      // Find current puzzle index
+      final currentIndex = puzzles.indexWhere((p) => p.id == widget.puzzle.id);
+
+      // Check if there's a next puzzle
+      return currentIndex >= 0 && currentIndex < puzzles.length - 1;
+    } catch (e) {
+      debugPrint('Error checking for next puzzle: $e');
+      return false;
+    }
   }
 
   Future<void> _nextPuzzle() async {
@@ -227,233 +283,500 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
   }
 
   Future<void> _requestHint() async {
-    final hint = await _puzzleProvider.requestHint();
-    if (hint != null && mounted) {
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.lightbulb, color: Colors.amber),
-              SizedBox(width: 8),
-              Text('Hint'),
-            ],
-          ),
-          content: Text(hint),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Got it'),
-            ),
-          ],
-        ),
-      );
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No more hints available for this puzzle.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+    try {
+      final hint = await _puzzleProvider.requestHint();
+      if (hint != null && mounted) {
+        _showHintBottomSheet(hint);
+      } else if (mounted) {
+        PuzzleErrorHandler.showNoPuzzlesAvailable(context, difficulty: 'hints');
+      }
+    } catch (e) {
+      if (mounted) {
+        PuzzleErrorHandler.handlePuzzleServiceError(
+          context,
+          e,
+          onRetry: _requestHint,
+        );
+      }
     }
   }
 
-  String _formatDuration(Duration duration) {
-    final minutes = duration.inMinutes;
-    final seconds = duration.inSeconds % 60;
-    return '$minutes:${seconds.toString().padLeft(2, '0')}';
-  }
+  void _showHintBottomSheet(String hint) {
+    final session = _puzzleProvider.currentSession;
+    if (session == null) return;
 
-  @override
-  Widget build(BuildContext context) {
-    if (!_isInitialized) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Loading Puzzle...')),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    final settingsProvider = context.read<SettingsProvider>();
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('${widget.puzzle.difficulty.displayName} Puzzle'),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        elevation: 0,
-        actions: [
-          Consumer<PuzzleProvider>(
-            builder: (context, puzzleProvider, child) {
-              final session = puzzleProvider.currentSession;
-              final hasMoreHints = session?.hasMoreHints ?? false;
-
-              return IconButton(
-                onPressed: hasMoreHints ? _requestHint : null,
-                icon: Icon(
-                  Icons.lightbulb,
-                  color: hasMoreHints ? null : Colors.grey,
-                ),
-                tooltip: hasMoreHints ? 'Get Hint' : 'No more hints',
-              );
-            },
-          ),
-          IconButton(
-            onPressed: _resetPuzzle,
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Reset Puzzle',
-          ),
-        ],
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      body: SafeArea(
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Puzzle info section
+            // Handle bar
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.lightbulb,
+                    color: Colors.amber,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Hint ${session.hintsUsed}/${widget.puzzle.hints.length}',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Puzzle hint to help you solve this position',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Hint content
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(16),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.amber.withValues(alpha: 0.3),
+                  width: 1,
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Objective
-                  Text(
-                    widget.puzzle.objective,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // Puzzle metadata
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          widget.puzzle.difficulty.displayName,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(context).colorScheme.onPrimary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Rating: ${widget.puzzle.rating}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      const Spacer(),
-                      Consumer<PuzzleProvider>(
-                        builder: (context, puzzleProvider, child) {
-                          final session = puzzleProvider.currentSession;
-                          final hintsUsed = session?.hintsUsed ?? 0;
-                          final totalHints = widget.puzzle.hints.length;
-
-                          return Row(
-                            children: [
-                              Icon(
-                                Icons.lightbulb,
-                                size: 16,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '$hintsUsed/$totalHints',
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.onSurfaceVariant,
-                                    ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ],
+              child: Text(
+                hint,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(height: 1.5),
               ),
             ),
+            const SizedBox(height: 20),
 
-            const SizedBox(height: 16),
-
-            // Chess board
-            Expanded(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: BoardController(
-                    state: _state.board,
-                    playState: _state.state,
-                    pieceSet: settingsProvider.getPieceSet(),
-                    theme: settingsProvider.boardTheme,
-                    animatePieces: settingsProvider.animatePieces,
-                    labelConfig: settingsProvider.showLabels
-                        ? LabelConfig.standard
-                        : LabelConfig.disabled,
-                    moves: _state.moves,
-                    onMove: _onMove,
-                    onPremove: _onMove,
-                    markerTheme: MarkerTheme(
-                      empty: MarkerTheme.dot,
-                      piece: MarkerTheme.corners(),
+            // Hint usage info
+            if (session.hintsUsed < widget.puzzle.hints.length)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
                     ),
-                    promotionBehaviour: PromotionBehaviour.autoPremove,
-                  ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '${widget.puzzle.hints.length - session.hintsUsed} more hints available',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
+            const SizedBox(height: 20),
 
-            // Bottom action buttons
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _resetPuzzle,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Reset'),
-                    ),
+            // Action buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Got it'),
                   ),
+                ),
+                if (session.hintsUsed < widget.puzzle.hints.length) ...[
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Consumer<PuzzleProvider>(
-                      builder: (context, puzzleProvider, child) {
-                        final session = puzzleProvider.currentSession;
-                        final hasMoreHints = session?.hasMoreHints ?? false;
-
-                        return ElevatedButton.icon(
-                          onPressed: hasMoreHints ? _requestHint : null,
-                          icon: const Icon(Icons.lightbulb),
-                          label: const Text('Hint'),
-                        );
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _requestHint();
                       },
+                      icon: const Icon(Icons.lightbulb, size: 18),
+                      label: const Text('Next Hint'),
                     ),
                   ),
                 ],
-              ),
+              ],
             ),
+
+            // Add bottom padding for safe area
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
           ],
         ),
       ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Show loading state
+    if (!_isInitialized && !_hasError) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Loading Puzzle...')),
+        body: const PuzzleLoadingWidget(message: 'Setting up puzzle...'),
+      );
+    }
+
+    // Show error state
+    if (_hasError) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Puzzle Error')),
+        body: PuzzleErrorWidget(
+          title: 'Failed to Load Puzzle',
+          message: _errorMessage ?? 'Unknown error occurred',
+          onRetry: () {
+            setState(() {
+              _hasError = false;
+              _errorMessage = null;
+            });
+            _initializePuzzle();
+          },
+          onCancel: () => Navigator.of(context).pop(),
+        ),
+      );
+    }
+
+    return Consumer<SettingsProvider>(
+      builder: (context, settingsProvider, child) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('${widget.puzzle.difficulty.displayName} Puzzle'),
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            elevation: 0,
+            actions: [
+              Consumer<PuzzleProvider>(
+                builder: (context, puzzleProvider, child) {
+                  final session = puzzleProvider.currentSession;
+                  final hasMoreHints = session?.hasMoreHints ?? false;
+                  final hintsUsed = session?.hintsUsed ?? 0;
+                  final totalHints = widget.puzzle.hints.length;
+
+                  return Stack(
+                    children: [
+                      IconButton(
+                        onPressed: hasMoreHints ? _requestHint : null,
+                        icon: Icon(
+                          Icons.lightbulb,
+                          color: hasMoreHints
+                              ? (hintsUsed > 0 ? Colors.amber : null)
+                              : Colors.grey,
+                        ),
+                        tooltip: hasMoreHints
+                            ? 'Get Hint ($hintsUsed/$totalHints used)'
+                            : 'No more hints available',
+                      ),
+                      if (hintsUsed > 0)
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              color: Colors.amber,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              '$hintsUsed',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+              IconButton(
+                onPressed: () {
+                  setState(() {
+                    _flipBoard = !_flipBoard;
+                  });
+                },
+                icon: const Icon(Icons.flip),
+                tooltip: 'Flip Board',
+              ),
+              IconButton(
+                onPressed: _resetPuzzle,
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Reset Puzzle',
+              ),
+            ],
+          ),
+          body: SafeArea(
+            child: Column(
+              children: [
+                // Puzzle info section
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(16),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Objective
+                      Text(
+                        widget.puzzle.objective,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Puzzle metadata
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              widget.puzzle.difficulty.displayName,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Rating: ${widget.puzzle.rating}',
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                          const Spacer(),
+                          Consumer<PuzzleProvider>(
+                            builder: (context, puzzleProvider, child) {
+                              final session = puzzleProvider.currentSession;
+                              final hintsUsed = session?.hintsUsed ?? 0;
+                              final totalHints = widget.puzzle.hints.length;
+                              final hasUsedHints = hintsUsed > 0;
+                              final hasMoreHints = hintsUsed < totalHints;
+
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: hasUsedHints
+                                      ? Colors.amber.withValues(alpha: 0.2)
+                                      : Theme.of(
+                                          context,
+                                        ).colorScheme.surfaceContainerHigh,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: hasUsedHints
+                                      ? Border.all(
+                                          color: Colors.amber.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                          width: 1,
+                                        )
+                                      : null,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.lightbulb,
+                                      size: 16,
+                                      color: hasUsedHints
+                                          ? Colors.amber[700]
+                                          : Theme.of(
+                                              context,
+                                            ).colorScheme.onSurfaceVariant,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '$hintsUsed/$totalHints',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: hasUsedHints
+                                                ? Colors.amber[700]
+                                                : Theme.of(context)
+                                                      .colorScheme
+                                                      .onSurfaceVariant,
+                                            fontWeight: hasUsedHints
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
+                                          ),
+                                    ),
+                                    if (!hasMoreHints && totalHints > 0) ...[
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Icons.check_circle,
+                                        size: 14,
+                                        color: Colors.amber[700],
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Chess board
+                Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: BoardController(
+                        state: _flipBoard
+                            ? _state.board.flipped()
+                            : _state.board,
+                        playState: _state.state,
+                        pieceSet: settingsProvider.getPieceSet(),
+                        theme: settingsProvider.boardTheme,
+                        animatePieces: settingsProvider.animatePieces,
+                        labelConfig: settingsProvider.showLabels
+                            ? LabelConfig.standard
+                            : LabelConfig.disabled,
+                        moves: _state.moves,
+                        onMove: _onMove,
+                        onPremove: _onMove,
+                        markerTheme: MarkerTheme(
+                          empty: MarkerTheme.dot,
+                          piece: MarkerTheme.corners(),
+                        ),
+                        promotionBehaviour: PromotionBehaviour.autoPremove,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Bottom action buttons
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _resetPuzzle,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Reset'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Consumer<PuzzleProvider>(
+                          builder: (context, puzzleProvider, child) {
+                            final session = puzzleProvider.currentSession;
+                            final hasMoreHints = session?.hasMoreHints ?? false;
+                            final hintsUsed = session?.hintsUsed ?? 0;
+                            final totalHints = widget.puzzle.hints.length;
+
+                            return ElevatedButton.icon(
+                              onPressed: hasMoreHints ? _requestHint : null,
+                              icon: Icon(
+                                Icons.lightbulb,
+                                color: hasMoreHints
+                                    ? (hintsUsed > 0 ? Colors.amber : null)
+                                    : null,
+                              ),
+                              label: Text(
+                                hasMoreHints
+                                    ? 'Hint ($hintsUsed/$totalHints)'
+                                    : 'No Hints Left',
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: hasMoreHints
+                                    ? (hintsUsed > 0
+                                          ? Colors.amber.withValues(alpha: 0.1)
+                                          : null)
+                                    : null,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

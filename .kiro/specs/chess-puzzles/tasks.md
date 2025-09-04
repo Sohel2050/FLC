@@ -47,42 +47,42 @@
   - Implement move handling and validation against puzzle solution
   - _Requirements: 3.1, 3.2, 3.3, 8.1, 8.2, 8.3_
 
-- [ ] 8. Add hint system to puzzle board
+- [x] 8. Add hint system to puzzle board
   - Add hint button to puzzle board screen
   - Display hints in a dialog or bottom sheet
   - Track number of hints used and disable button when limit reached
   - Show hint counter in the UI
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [ ] 9. Create puzzle completion dialog
+- [x] 9. Create puzzle completion dialog
   - Show success dialog when puzzle is solved correctly
   - Display completion time and whether hints were used
   - Add "Next Puzzle" and "Retry" buttons
   - Handle navigation to next puzzle or puzzle reset
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
 
-- [ ] 10. Implement basic progress tracking
+- [x] 10. Implement basic progress tracking
   - Save puzzle completion status to SharedPreferences
   - Track completion time and hints used for each puzzle
   - Update progress counters in puzzle selection screen
   - Calculate and display completion percentage per difficulty
   - _Requirements: 7.1, 7.2, 7.3, 7.5_
 
-- [ ] 11. Integrate with existing game settings
+- [x] 11. Integrate with existing game settings
   - Apply user's board theme to puzzle board
   - Use selected piece set for puzzle pieces
   - Respect board animation and flip preferences
   - Maintain consistent UI styling with existing screens
   - _Requirements: 8.1, 8.2, 8.3_
 
-- [ ] 12. Add basic error handling
+- [x] 12. Add basic error handling
   - Handle puzzle loading failures gracefully
   - Show user-friendly error messages
   - Add loading indicators for puzzle operations
   - Implement fallback for missing puzzle data
   - _Requirements: 6.5_
 
-- [ ] 13. Test puzzle functionality
+- [x] 13. Test puzzle functionality
   - Test puzzle loading and validation logic
   - Verify hint system works correctly
   - Test progress tracking and persistence

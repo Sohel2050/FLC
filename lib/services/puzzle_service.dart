@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logger/logger.dart';
 import '../models/puzzle_model.dart';
 import '../models/puzzle_progress.dart';
+import '../utils/fallback_puzzles.dart';
 
 /// Service for managing chess puzzles data and progress
 class PuzzleService {
@@ -22,18 +23,124 @@ class PuzzleService {
     try {
       _logger.i('Loading puzzles from assets');
       final String jsonString = await rootBundle.loadString(_puzzleAssetPath);
+
+      if (jsonString.isEmpty) {
+        throw Exception('Puzzle file is empty');
+      }
+
       final Map<String, dynamic> jsonData = json.decode(jsonString);
 
-      final List<dynamic> puzzlesJson = jsonData['puzzles'] as List<dynamic>;
-      _cachedPuzzles = puzzlesJson
-          .map((json) => PuzzleModel.fromJson(json as Map<String, dynamic>))
-          .toList();
+      if (!jsonData.containsKey('puzzles')) {
+        throw Exception('Invalid puzzle file format: missing puzzles array');
+      }
 
-      _logger.i('Successfully loaded ${_cachedPuzzles!.length} puzzles');
+      final List<dynamic> puzzlesJson = jsonData['puzzles'] as List<dynamic>;
+
+      if (puzzlesJson.isEmpty) {
+        _logger.w('No puzzles found in assets file');
+        _cachedPuzzles = [];
+        return _cachedPuzzles!;
+      }
+
+      final List<PuzzleModel> validPuzzles = [];
+      int invalidCount = 0;
+
+      // Parse puzzles with error handling for individual puzzle validation
+      for (int i = 0; i < puzzlesJson.length; i++) {
+        try {
+          final puzzleJson = puzzlesJson[i] as Map<String, dynamic>;
+          final puzzle = PuzzleModel.fromJson(puzzleJson);
+
+          // Validate puzzle data
+          if (_validatePuzzleData(puzzle)) {
+            validPuzzles.add(puzzle);
+          } else {
+            invalidCount++;
+            _logger.w('Skipping invalid puzzle at index $i: ${puzzle.id}');
+          }
+        } catch (e) {
+          invalidCount++;
+          _logger.w('Error parsing puzzle at index $i: $e');
+        }
+      }
+
+      if (validPuzzles.isEmpty) {
+        _logger.w(
+          'No valid puzzles found in puzzle file, using fallback puzzles',
+        );
+        _cachedPuzzles = FallbackPuzzles.getFallbackPuzzles();
+        return _cachedPuzzles!;
+      }
+
+      if (invalidCount > 0) {
+        _logger.w(
+          'Skipped $invalidCount invalid puzzles out of ${puzzlesJson.length}',
+        );
+      }
+
+      _cachedPuzzles = validPuzzles;
+      _logger.i('Successfully loaded ${_cachedPuzzles!.length} valid puzzles');
+      return _cachedPuzzles!;
+    } on FormatException catch (e) {
+      _logger.e('JSON parsing error: $e, using fallback puzzles');
+      _cachedPuzzles = FallbackPuzzles.getFallbackPuzzles();
+      return _cachedPuzzles!;
+    } on Exception catch (e) {
+      _logger.e(
+        'Error loading puzzles from assets: $e, using fallback puzzles',
+      );
+      _cachedPuzzles = FallbackPuzzles.getFallbackPuzzles();
       return _cachedPuzzles!;
     } catch (e) {
-      _logger.e('Error loading puzzles from assets: $e');
-      throw Exception('Failed to load puzzles: $e');
+      _logger.e('Unexpected error loading puzzles: $e, using fallback puzzles');
+      _cachedPuzzles = FallbackPuzzles.getFallbackPuzzles();
+      return _cachedPuzzles!;
+    }
+  }
+
+  /// Validate puzzle data integrity
+  bool _validatePuzzleData(PuzzleModel puzzle) {
+    try {
+      // Check required fields
+      if (puzzle.id.isEmpty) {
+        _logger.w('Puzzle has empty ID');
+        return false;
+      }
+
+      if (puzzle.fen.isEmpty) {
+        _logger.w('Puzzle ${puzzle.id} has empty FEN');
+        return false;
+      }
+
+      if (puzzle.solution.isEmpty) {
+        _logger.w('Puzzle ${puzzle.id} has empty solution');
+        return false;
+      }
+
+      if (puzzle.objective.isEmpty) {
+        _logger.w('Puzzle ${puzzle.id} has empty objective');
+        return false;
+      }
+
+      // Validate FEN format (basic check)
+      final fenParts = puzzle.fen.split(' ');
+      if (fenParts.length < 4) {
+        _logger.w('Puzzle ${puzzle.id} has invalid FEN format');
+        return false;
+      }
+
+      // Validate solution moves are not empty
+      for (final move in puzzle.solution) {
+        if (move.trim().isEmpty) {
+          _logger.w('Puzzle ${puzzle.id} has empty move in solution');
+          return false;
+        }
+      }
+
+      return true;
+    } catch (e) {
+      _logger.w('Error validating puzzle ${puzzle.id}: $e');
+      return false;
     }
   }
 
@@ -50,10 +157,13 @@ class PuzzleService {
       _logger.i(
         'Found ${filteredPuzzles.length} puzzles for difficulty: ${difficulty.displayName}',
       );
+
+      // Return empty list instead of throwing if no puzzles found
       return filteredPuzzles;
     } catch (e) {
       _logger.e('Error getting puzzles by difficulty $difficulty: $e');
-      rethrow;
+      // Return empty list as fallback instead of rethrowing
+      return [];
     }
   }
 
@@ -159,13 +269,18 @@ class PuzzleService {
           '$_puzzleProgressPrefix${progress.userId}_${progress.puzzleId}';
       final jsonString = json.encode(progress.toJson());
 
-      await prefs.setString(key, jsonString);
+      final success = await prefs.setString(key, jsonString);
+      if (!success) {
+        throw Exception('Failed to save progress to local storage');
+      }
+
       _logger.i(
         'Saved progress for puzzle ${progress.puzzleId} for user ${progress.userId}',
       );
     } catch (e) {
       _logger.e('Error saving puzzle progress: $e');
-      rethrow;
+      // Don't rethrow for progress saving failures - log and continue
+      // This prevents the app from crashing if storage is full or unavailable
     }
   }
 
@@ -211,9 +326,10 @@ class PuzzleService {
       }
 
       // Count completed puzzles by difficulty
+      int corruptedRecords = 0;
       for (final key in userProgressKeys) {
         final jsonString = prefs.getString(key);
-        if (jsonString != null) {
+        if (jsonString != null && jsonString.isNotEmpty) {
           try {
             final jsonData = json.decode(jsonString) as Map<String, dynamic>;
             final progress = PuzzleProgress.fromJson(jsonData);
@@ -223,16 +339,34 @@ class PuzzleService {
                   (stats[progress.difficulty] ?? 0) + 1;
             }
           } catch (e) {
+            corruptedRecords++;
             _logger.w('Error parsing progress data for key $key: $e');
+            // Remove corrupted record
+            try {
+              await prefs.remove(key);
+            } catch (removeError) {
+              _logger.w('Failed to remove corrupted record $key: $removeError');
+            }
           }
         }
+      }
+
+      if (corruptedRecords > 0) {
+        _logger.w(
+          'Removed $corruptedRecords corrupted progress records for user $userId',
+        );
       }
 
       _logger.i('Completion stats for user $userId: $stats');
       return stats;
     } catch (e) {
       _logger.e('Error getting completion stats for user $userId: $e');
-      return {};
+      // Return empty stats as fallback
+      final Map<PuzzleDifficulty, int> fallbackStats = {};
+      for (final difficulty in PuzzleDifficulty.values) {
+        fallbackStats[difficulty] = 0;
+      }
+      return fallbackStats;
     }
   }
 
