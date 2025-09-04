@@ -44,6 +44,4 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 .env
-.kiro/specs/guest-user-improvements/design.md
-.kiro/specs/guest-user-improvements/requirements.md
-.kiro/specs/guest-user-improvements/tasks.md
+.kiro
