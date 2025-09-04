@@ -113,7 +113,8 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
       _state = _game.squaresState(playerColor);
 
       // Notify the puzzle provider about the move
-      final moveString = move.toString();
+      final moveString = move
+          .algebraic(); // Use algebraic notation like "Bxf7+"
       final isValidMove = await _puzzleProvider.makeMove(moveString);
 
       if (isValidMove) {
@@ -145,18 +146,30 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
     }
   }
 
-  void _makeOpponentMove() {
+  void _makeOpponentMove() async {
     final session = _puzzleProvider.currentSession;
     if (session == null) return;
 
-    final solution = session.puzzle.solution;
     final userMoves = session.userMoves;
 
+    // Try to get engine solution first
+    final engineSolution = await _puzzleProvider.getEngineSolution(
+      session.puzzle.id,
+    );
+
+    List<String> solutionMoves;
+    if (engineSolution != null && engineSolution.isNotEmpty) {
+      solutionMoves = engineSolution;
+    } else {
+      // Fallback to predefined solution
+      solutionMoves = session.puzzle.solution;
+    }
+
     // Check if there's an opponent response move
-    if (userMoves.length < solution.length) {
+    if (userMoves.length < solutionMoves.length) {
       final nextMoveIndex = userMoves.length;
-      if (nextMoveIndex < solution.length) {
-        final opponentMoveString = solution[nextMoveIndex];
+      if (nextMoveIndex < solutionMoves.length) {
+        final opponentMoveString = solutionMoves[nextMoveIndex];
 
         // Make the opponent move using the move string
         try {
@@ -614,6 +627,55 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
                                     context,
                                   ).colorScheme.onSurfaceVariant,
                                 ),
+                          ),
+                          const SizedBox(width: 12),
+                          // Engine solution indicator
+                          FutureBuilder<bool>(
+                            future: _puzzleProvider.hasEngineSolution(
+                              widget.puzzle.id,
+                            ),
+                            builder: (context, snapshot) {
+                              final hasEngineSolution = snapshot.data ?? false;
+                              if (!hasEngineSolution)
+                                return const SizedBox.shrink();
+
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: Colors.blue.withValues(alpha: 0.3),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.psychology,
+                                      size: 12,
+                                      color: Colors.blue[700],
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      'AI',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: Colors.blue[700],
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 10,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
                           const Spacer(),
                           Consumer<PuzzleProvider>(

@@ -168,6 +168,16 @@ class PuzzleProvider extends ChangeNotifier {
         _currentUserId = userId;
       }
 
+      // Initialize Stockfish service for engine solutions
+      try {
+        await _puzzleService.initializeStockfish();
+        _logger.i('Stockfish puzzle service initialized');
+      } catch (e) {
+        _logger.w(
+          'Failed to initialize Stockfish, will use predefined solutions: $e',
+        );
+      }
+
       // Load all puzzles and organize by difficulty with timeout
       await _loadPuzzlesByDifficultyWithTimeout();
 
@@ -235,8 +245,8 @@ class PuzzleProvider extends ChangeNotifier {
       final puzzle = _currentSession!.puzzle;
       final currentMoves = List<String>.from(_currentSession!.userMoves);
 
-      // Validate the move
-      final isValidMove = _puzzleService.validateMove(
+      // Validate the move using engine solution
+      final isValidMove = await _puzzleService.validateMove(
         puzzle,
         currentMoves,
         move,
@@ -257,8 +267,11 @@ class PuzzleProvider extends ChangeNotifier {
         currentMoveIndex: currentMoves.length,
       );
 
-      // Check if puzzle is solved
-      final isSolved = _puzzleService.isPuzzleSolved(puzzle, currentMoves);
+      // Check if puzzle is solved using engine solution
+      final isSolved = await _puzzleService.isPuzzleSolved(
+        puzzle,
+        currentMoves,
+      );
 
       if (isSolved) {
         // Update session state to solved before completing
@@ -424,6 +437,30 @@ class PuzzleProvider extends ChangeNotifier {
       );
     } catch (e) {
       _logger.e('Error getting first unsolved puzzle: $e');
+      return null;
+    }
+  }
+
+  /// Check if a puzzle has an engine solution available
+  Future<bool> hasEngineSolution(String puzzleId) async {
+    try {
+      return await _puzzleService.hasEngineSolution(puzzleId);
+    } catch (e) {
+      _logger.e('Error checking engine solution for $puzzleId: $e');
+      return false;
+    }
+  }
+
+  /// Get engine solution for a puzzle (for hints or analysis)
+  Future<List<String>?> getEngineSolution(String puzzleId) async {
+    try {
+      final puzzle = await _puzzleService.getPuzzleById(puzzleId);
+      if (puzzle == null) return null;
+
+      final solution = await _puzzleService.getPuzzleSolution(puzzle);
+      return solution?.engineMoves;
+    } catch (e) {
+      _logger.e('Error getting engine solution for $puzzleId: $e');
       return null;
     }
   }
@@ -701,6 +738,7 @@ class PuzzleProvider extends ChangeNotifier {
     _currentSession = null;
     _puzzlesByDifficulty.clear();
     _progressByDifficulty.clear();
+    _puzzleService.dispose(); // Clean up Stockfish resources
     super.dispose();
   }
 }

@@ -119,6 +119,40 @@ class PuzzleModel {
     );
   }
 
+  /// Check if this puzzle should prefer engine solutions over predefined
+  /// This can be used to gradually migrate puzzles to engine solutions
+  bool get shouldUseEngineSearch {
+    // For now, allow engine search for all puzzles
+    // You can add logic here to filter by rating, difficulty, or other criteria
+    return true;
+  }
+
+  /// Check if this is a tactical puzzle that benefits from engine analysis
+  bool get isTacticalPuzzle {
+    return tags.any(
+      (tag) => [
+        'tactics',
+        'fork',
+        'pin',
+        'skewer',
+        'sacrifice',
+        'deflection',
+        'decoy',
+        'discovery',
+        'checkmate',
+        'mate',
+      ].contains(tag.toLowerCase()),
+    );
+  }
+
+  /// Get the complexity level based on rating and difficulty
+  String get complexityLevel {
+    if (rating < 1000) return 'Basic';
+    if (rating < 1300) return 'Intermediate';
+    if (rating < 1600) return 'Advanced';
+    return 'Expert';
+  }
+
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;

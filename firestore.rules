@@ -1,0 +1,90 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Puzzle Solutions Collection Rules
+    // This collection stores engine-calculated solutions for puzzles globally
+    match /puzzle_solutions/{puzzleId} {
+      // Allow read access to all authenticated users
+      // Puzzle solutions should be globally accessible for solving puzzles
+      allow read: if request.auth != null;
+      
+      // Allow write (create/update) only for the first user to solve a puzzle
+      // This prevents duplicate solutions and ensures only verified solutions are stored
+      allow create: if request.auth != null
+        && isValidPuzzleSolution(request.resource.data)
+        && !exists(/databases/$(database)/documents/puzzle_solutions/$(puzzleId));
+      
+      // Allow updates only if the user is updating their own solution
+      // or if they are providing a verified engine solution
+      allow update: if request.auth != null
+        && isValidPuzzleSolution(request.resource.data)
+        && (
+          // Original creator can update
+          resource.data.get('createdBy', '') == request.auth.uid
+          // Or if this is a verification update with better engine analysis
+          || (request.resource.data.verified == true 
+              && request.resource.data.calculationDepth > resource.data.get('calculationDepth', 0))
+        );
+      
+      // Prevent deletion to maintain solution integrity
+      allow delete: if false;
+    }
+    
+    // Users Collection - Allow users to read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Game Rooms Collection - For online multiplayer
+    match /game_rooms/{gameId} {
+      allow read, write: if request.auth != null 
+        && (request.auth.uid == resource.data.player1Id 
+            || request.auth.uid == resource.data.player2Id);
+      allow create: if request.auth != null;
+    }
+    
+    // Saved Games Collection - User's saved games
+    match /saved_games/{gameId} {
+      allow read, write: if request.auth != null 
+        && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null;
+    }
+    
+    // Chat Messages Collection - For game chat
+    match /chat_messages/{messageId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null 
+        && request.auth.uid == request.resource.data.senderId;
+      allow update, delete: if false; // Messages are immutable
+    }
+    
+    // Friends Collection - Friend relationships
+    match /friends/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Helper function to validate puzzle solution data structure
+    function isValidPuzzleSolution(data) {
+      return data.keys().hasAll(['puzzleId', 'engineMoves', 'startingFen', 'calculationDepth', 'calculatedAt', 'engine', 'moveCount'])
+        && data.puzzleId is string 
+        && data.puzzleId.size() > 0
+        && data.engineMoves is list
+        && data.engineMoves.size() > 0
+        && data.startingFen is string
+        && data.startingFen.size() > 0
+        && data.calculationDepth is int
+        && data.calculationDepth > 0
+        && data.calculatedAt is timestamp
+        && data.engine is string
+        && data.engine.size() > 0
+        && data.moveCount is int
+        && data.moveCount > 0
+        && data.moveCount == data.engineMoves.size();
+    }
+    
+    // Default rule - deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

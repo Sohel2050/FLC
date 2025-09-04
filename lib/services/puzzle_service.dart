@@ -2,17 +2,26 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logger/logger.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/puzzle_model.dart';
 import '../models/puzzle_progress.dart';
+import '../models/puzzle_solution_model.dart';
 import '../utils/fallback_puzzles.dart';
+import 'stockfish_puzzle_service.dart';
 
 /// Service for managing chess puzzles data and progress
 class PuzzleService {
   static const String _puzzleProgressPrefix = 'puzzle_progress_';
   static const String _puzzleAssetPath = 'assets/puzzles/puzzles.json';
+  static const String _puzzleSolutionsCollection = 'puzzle_solutions';
 
   final Logger _logger = Logger();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final StockfishPuzzleService _stockfishService = StockfishPuzzleService();
+
   List<PuzzleModel>? _cachedPuzzles;
+  final Map<String, PuzzleSolution> _cachedSolutions = {};
+  bool _stockfishInitialized = false;
 
   /// Load all puzzles from assets JSON file
   Future<List<PuzzleModel>> loadPuzzles() async {
@@ -186,8 +195,112 @@ class PuzzleService {
     }
   }
 
-  /// Validate if a move is correct for the current puzzle state
-  bool validateMove(
+  /// Initialize Stockfish service for puzzle solving
+  Future<void> initializeStockfish() async {
+    if (_stockfishInitialized) return;
+
+    try {
+      await _stockfishService.initialize();
+      _stockfishInitialized = true;
+      _logger.i('Stockfish puzzle service initialized');
+    } catch (e) {
+      _logger.e('Failed to initialize Stockfish puzzle service: $e');
+      _stockfishInitialized = false;
+    }
+  }
+
+  /// Get or calculate puzzle solution using engine
+  Future<PuzzleSolution?> getPuzzleSolution(PuzzleModel puzzle) async {
+    try {
+      // Check cached solution first
+      if (_cachedSolutions.containsKey(puzzle.id)) {
+        _logger.i('Using cached solution for puzzle ${puzzle.id}');
+        return _cachedSolutions[puzzle.id];
+      }
+
+      // Check Firestore for existing solution
+      final firestoreSolution = await _getFirestoreSolution(puzzle.id);
+      if (firestoreSolution != null) {
+        _cachedSolutions[puzzle.id] = firestoreSolution;
+        _logger.i('Found Firestore solution for puzzle ${puzzle.id}');
+        return firestoreSolution;
+      }
+
+      // Calculate new solution using engine
+      await initializeStockfish();
+      if (!_stockfishInitialized) {
+        _logger.w(
+          'Stockfish not available, using predefined solution for ${puzzle.id}',
+        );
+        return null;
+      }
+
+      _logger.i('Calculating new engine solution for puzzle ${puzzle.id}');
+      final engineSolution = await _stockfishService.calculatePuzzleSolution(
+        puzzle,
+      );
+
+      // Save solution to Firestore for global access
+      await _saveSolutionToFirestore(engineSolution);
+
+      // Cache the solution
+      _cachedSolutions[puzzle.id] = engineSolution;
+
+      return engineSolution;
+    } catch (e) {
+      _logger.e('Error getting puzzle solution for ${puzzle.id}: $e');
+      return null;
+    }
+  }
+
+  /// Validate if a move is correct using engine solution or fallback to predefined
+  Future<bool> validateMove(
+    PuzzleModel puzzle,
+    List<String> userMoves,
+    String newMove,
+  ) async {
+    try {
+      final int moveIndex = userMoves.length;
+
+      // Try to get engine solution first
+      final engineSolution = await getPuzzleSolution(puzzle);
+
+      List<String> solutionMoves;
+      if (engineSolution != null && engineSolution.engineMoves.isNotEmpty) {
+        solutionMoves = engineSolution.engineMoves;
+        _logger.i(
+          'Using engine solution for validation: ${solutionMoves.join(', ')}',
+        );
+      } else {
+        // Fallback to predefined solution
+        solutionMoves = puzzle.solution;
+        _logger.i(
+          'Using predefined solution for validation: ${solutionMoves.join(', ')}',
+        );
+      }
+
+      // Check if we have more moves in the solution
+      if (moveIndex >= solutionMoves.length) {
+        _logger.w('No more moves expected in solution for puzzle ${puzzle.id}');
+        return false;
+      }
+
+      // Check if the move matches the expected solution move
+      final bool isCorrect = solutionMoves[moveIndex] == newMove;
+
+      _logger.i(
+        'Move validation for puzzle ${puzzle.id}: $newMove ${isCorrect ? 'correct' : 'incorrect'}',
+      );
+      return isCorrect;
+    } catch (e) {
+      _logger.e('Error validating move for puzzle ${puzzle.id}: $e');
+      // Fallback to original validation
+      return _validateMoveWithPredefinedSolution(puzzle, userMoves, newMove);
+    }
+  }
+
+  /// Fallback validation using predefined solution
+  bool _validateMoveWithPredefinedSolution(
     PuzzleModel puzzle,
     List<String> userMoves,
     String newMove,
@@ -214,12 +327,45 @@ class PuzzleService {
     }
   }
 
-  /// Check if the puzzle is completely solved
-  bool isPuzzleSolved(PuzzleModel puzzle, List<String> userMoves) {
+  /// Check if the puzzle is completely solved using engine solution or fallback
+  Future<bool> isPuzzleSolved(
+    PuzzleModel puzzle,
+    List<String> userMoves,
+  ) async {
+    try {
+      // Try to get engine solution first
+      final engineSolution = await getPuzzleSolution(puzzle);
+
+      List<String> solutionMoves;
+      if (engineSolution != null && engineSolution.engineMoves.isNotEmpty) {
+        solutionMoves = engineSolution.engineMoves;
+      } else {
+        // Fallback to predefined solution
+        solutionMoves = puzzle.solution;
+      }
+
+      final bool solved =
+          userMoves.length == solutionMoves.length &&
+          _areMovesCorrect(solutionMoves, userMoves);
+
+      _logger.i('Puzzle ${puzzle.id} solved status: $solved');
+      return solved;
+    } catch (e) {
+      _logger.e('Error checking if puzzle ${puzzle.id} is solved: $e');
+      // Fallback to predefined solution check
+      return _isPuzzleSolvedWithPredefinedSolution(puzzle, userMoves);
+    }
+  }
+
+  /// Fallback check using predefined solution
+  bool _isPuzzleSolvedWithPredefinedSolution(
+    PuzzleModel puzzle,
+    List<String> userMoves,
+  ) {
     try {
       final bool solved =
           userMoves.length == puzzle.solution.length &&
-          _areMovesCorrect(puzzle, userMoves);
+          _areMovesCorrect(puzzle.solution, userMoves);
 
       _logger.i('Puzzle ${puzzle.id} solved status: $solved');
       return solved;
@@ -230,13 +376,13 @@ class PuzzleService {
   }
 
   /// Helper method to check if all user moves match the solution
-  bool _areMovesCorrect(PuzzleModel puzzle, List<String> userMoves) {
-    if (userMoves.length > puzzle.solution.length) {
+  bool _areMovesCorrect(List<String> solutionMoves, List<String> userMoves) {
+    if (userMoves.length > solutionMoves.length) {
       return false;
     }
 
     for (int i = 0; i < userMoves.length; i++) {
-      if (userMoves[i] != puzzle.solution[i]) {
+      if (userMoves[i] != solutionMoves[i]) {
         return false;
       }
     }
@@ -509,5 +655,78 @@ class PuzzleService {
       _logger.e('Error getting first unsolved puzzle: $e');
       return null;
     }
+  }
+
+  /// Get solution from Firestore
+  Future<PuzzleSolution?> _getFirestoreSolution(String puzzleId) async {
+    try {
+      final doc = await _firestore
+          .collection(_puzzleSolutionsCollection)
+          .doc(puzzleId)
+          .get();
+
+      if (doc.exists && doc.data() != null) {
+        return PuzzleSolution.fromJson(doc.data()!);
+      }
+      return null;
+    } catch (e) {
+      _logger.e('Error getting Firestore solution for $puzzleId: $e');
+      return null;
+    }
+  }
+
+  /// Save solution to Firestore
+  Future<void> _saveSolutionToFirestore(PuzzleSolution solution) async {
+    try {
+      await _firestore
+          .collection(_puzzleSolutionsCollection)
+          .doc(solution.puzzleId)
+          .set(solution.toJson());
+
+      _logger.i('Saved solution to Firestore for puzzle ${solution.puzzleId}');
+    } catch (e) {
+      _logger.e(
+        'Error saving solution to Firestore for ${solution.puzzleId}: $e',
+      );
+      // Don't rethrow - this is not critical for puzzle solving
+    }
+  }
+
+  /// Check if a puzzle has an engine solution available
+  Future<bool> hasEngineSolution(String puzzleId) async {
+    try {
+      if (_cachedSolutions.containsKey(puzzleId)) {
+        return true;
+      }
+
+      final solution = await _getFirestoreSolution(puzzleId);
+      return solution != null;
+    } catch (e) {
+      _logger.e('Error checking engine solution for $puzzleId: $e');
+      return false;
+    }
+  }
+
+  /// Get all puzzle solutions from Firestore (for admin purposes)
+  Future<List<PuzzleSolution>> getAllSolutions() async {
+    try {
+      final querySnapshot = await _firestore
+          .collection(_puzzleSolutionsCollection)
+          .get();
+
+      return querySnapshot.docs
+          .map((doc) => PuzzleSolution.fromJson(doc.data()))
+          .toList();
+    } catch (e) {
+      _logger.e('Error getting all solutions: $e');
+      return [];
+    }
+  }
+
+  /// Dispose of resources
+  void dispose() {
+    _stockfishService.dispose();
+    _cachedSolutions.clear();
+    _logger.i('PuzzleService disposed');
   }
 }

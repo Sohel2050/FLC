@@ -1,0 +1,43 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "puzzle_solutions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "calculatedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "puzzle_solutions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "engine",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "calculationDepth",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "puzzle_solutions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "verified",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "calculatedAt",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
