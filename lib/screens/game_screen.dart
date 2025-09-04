@@ -42,7 +42,7 @@ class _GameScreenState extends State<GameScreen> {
 
   // Audio room state variables
   bool _isInAudioRoom = false;
-  bool _isMicrophoneEnabled = true;
+  bool _isMicrophoneEnabled = false;
   bool _isSpeakerMuted = false;
   bool _hasTemporaryAudioAccess = false; // For rewarded ad access
   bool _isZegoEngineInitialized = false;
