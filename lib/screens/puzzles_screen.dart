@@ -18,7 +18,12 @@ class _PuzzlesScreenState extends State<PuzzlesScreen> {
   @override
   void initState() {
     super.initState();
-    _initializePuzzles();
+    // Use post-frame callback to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _initializePuzzles();
+      }
+    });
   }
 
   void _initializePuzzles() async {
