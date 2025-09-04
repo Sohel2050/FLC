@@ -1,0 +1,708 @@
+{
+  "puzzles": [
+    {
+      "id": "beginner_001",
+      "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R w KQkq - 0 4",
+      "solution": ["Bxf7+", "Ke7", "Nd5+"],
+      "objective": "White to play and win material",
+      "difficulty": "beginner",
+      "rating": 850,
+      "hints": [
+        "Look for a forcing move that attacks the king",
+        "Consider a bishop sacrifice on f7",
+        "After Bxf7+ Ke7, you can fork the king and queen with Nd5+"
+      ],
+      "tags": ["fork", "sacrifice", "tactics"]
+    },
+    {
+      "id": "beginner_002",
+      "fen": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2",
+      "solution": ["Qh5"],
+      "objective": "White to play and threaten checkmate",
+      "difficulty": "beginner",
+      "rating": 800,
+      "hints": [
+        "Look for a move that attacks multiple squares",
+        "The queen can move to a powerful square",
+        "Qh5 threatens both the pawn on e5 and checkmate on f7"
+      ],
+      "tags": ["queen", "threat", "checkmate"]
+    },
+    {
+      "id": "beginner_003",
+      "fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R w KQkq - 0 4",
+      "solution": ["Ng5"],
+      "objective": "White to play and attack f7",
+      "difficulty": "beginner",
+      "rating": 820,
+      "hints": [
+        "The f7 square is weak in Black's position",
+        "Your knight can jump to attack f7",
+        "Ng5 attacks both f7 and h7"
+      ],
+      "tags": ["knight", "weak square", "attack"]
+    },
+    {
+      "id": "beginner_004",
+      "fen": "rnbqkb1r/pppp1ppp/5n2/4p3/4P3/3P4/PPP2PPP/RNBQKBNR w KQkq - 0 3",
+      "solution": ["Bg5"],
+      "objective": "White to play and pin the knight",
+      "difficulty": "beginner",
+      "rating": 830,
+      "hints": [
+        "The knight on f6 is defending important squares",
+        "You can pin pieces to more valuable pieces behind them",
+        "Bg5 pins the knight to the queen"
+      ],
+      "tags": ["pin", "bishop", "development"]
+    },
+    {
+      "id": "beginner_005",
+      "fen": "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3",
+      "solution": ["Bb5"],
+      "objective": "White to play and pin the knight",
+      "difficulty": "beginner",
+      "rating": 840,
+      "hints": [
+        "The knight on c6 is undefended",
+        "You can pin it to the king",
+        "Bb5 creates a pin and develops your bishop"
+      ],
+      "tags": ["pin", "bishop", "knight"]
+    },
+    {
+      "id": "beginner_006",
+      "fen": "rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R w KQkq - 0 4",
+      "solution": ["Bxf7+", "Kxf7", "Ng5+"],
+      "objective": "White to play and win material",
+      "difficulty": "beginner",
+      "rating": 860,
+      "hints": [
+        "Look for a sacrifice that leads to a fork",
+        "The bishop can sacrifice itself for a greater gain",
+        "After Bxf7+ Kxf7, Ng5+ forks king and queen"
+      ],
+      "tags": ["sacrifice", "fork", "knight"]
+    },
+    {
+      "id": "beginner_007",
+      "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4",
+      "solution": ["Ng5"],
+      "objective": "White to play and threaten f7",
+      "difficulty": "beginner",
+      "rating": 870,
+      "hints": [
+        "The f7 square is only defended by the king",
+        "Your knight can jump to attack it",
+        "Ng5 puts pressure on f7 and h7"
+      ],
+      "tags": ["knight", "weak square", "pressure"]
+    },
+    {
+      "id": "beginner_008",
+      "fen": "rnbqkbnr/ppp2ppp/3p4/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3",
+      "solution": ["Bc4"],
+      "objective": "White to play and develop with tempo",
+      "difficulty": "beginner",
+      "rating": 810,
+      "hints": [
+        "Develop your pieces toward the center",
+        "The bishop can go to an active square",
+        "Bc4 develops and eyes the f7 weakness"
+      ],
+      "tags": ["development", "bishop", "tempo"]
+    },
+    {
+      "id": "beginner_009",
+      "fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQ1RK1 w kq - 0 5",
+      "solution": ["Bg5"],
+      "objective": "White to play and pin the knight",
+      "difficulty": "beginner",
+      "rating": 880,
+      "hints": [
+        "The knight on f6 is a key defender",
+        "You can pin it to the queen",
+        "Bg5 creates a strong pin"
+      ],
+      "tags": ["pin", "bishop", "queen"]
+    },
+    {
+      "id": "beginner_010",
+      "fen": "rnbqkb1r/pppp1ppp/5n2/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 3",
+      "solution": ["d3"],
+      "objective": "White to play and support the center",
+      "difficulty": "beginner",
+      "rating": 790,
+      "hints": [
+        "Your e4 pawn needs support",
+        "The d-pawn can help control the center",
+        "d3 supports e4 and opens a diagonal for your bishop"
+      ],
+      "tags": ["pawn structure", "center", "support"]
+    },
+    
+{
+      "id": "easy_001",
+      "fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQ1RK1 w kq - 0 5",
+      "solution": ["Bxf7+", "Rxf7", "Ne4"],
+      "objective": "White to play and win the bishop",
+      "difficulty": "easy",
+      "rating": 1050,
+      "hints": [
+        "Look for a way to deflect the rook from defending the bishop",
+        "A sacrifice can sometimes win material",
+        "After Bxf7+ Rxf7, the bishop on c5 is undefended"
+      ],
+      "tags": ["deflection", "sacrifice", "material"]
+    },
+    {
+      "id": "easy_002",
+      "fen": "r2qkb1r/ppp2ppp/2n1pn2/3p4/2PP4/2N1PN2/PP3PPP/R1BQKB1R w KQkq - 0 6",
+      "solution": ["cxd5", "exd5", "Nxd5"],
+      "objective": "White to play and win a pawn",
+      "difficulty": "easy",
+      "rating": 1080,
+      "hints": [
+        "The knight on c6 is overloaded",
+        "Opening the center can create tactical opportunities",
+        "After cxd5 exd5, Nxd5 attacks both knight and bishop"
+      ],
+      "tags": ["overloaded piece", "center", "fork"]
+    },
+    {
+      "id": "easy_003",
+      "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R w KQkq - 0 4",
+      "solution": ["Ng5", "d6", "Qf3"],
+      "objective": "White to play and threaten mate",
+      "difficulty": "easy",
+      "rating": 1100,
+      "hints": [
+        "Attack the weak f7 square first",
+        "After defending f7, look for another attacking piece",
+        "The queen can join the attack on f7"
+      ],
+      "tags": ["attack", "mate threat", "coordination"]
+    },
+    {
+      "id": "easy_004",
+      "fen": "rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R w KQkq - 0 4",
+      "solution": ["Ng5", "Nh5", "Qxh5"],
+      "objective": "White to play and win material",
+      "difficulty": "easy",
+      "rating": 1120,
+      "hints": [
+        "The knight on f6 is the main defender",
+        "Force it to move to a worse square",
+        "After Ng5, the knight has limited options"
+      ],
+      "tags": ["knight hunt", "material", "pressure"]
+    },
+    {
+      "id": "easy_005",
+      "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4",
+      "solution": ["d3", "d6", "Bg5"],
+      "objective": "White to play and create pressure",
+      "difficulty": "easy",
+      "rating": 1060,
+      "hints": [
+        "Develop your pieces with purpose",
+        "The knight on f6 is a key defender",
+        "Pin the knight to create weaknesses"
+      ],
+      "tags": ["development", "pin", "pressure"]
+    },
+    {
+      "id": "easy_006",
+      "fen": "rnbqkb1r/ppp2ppp/3p1n2/4p3/4P3/3P1N2/PPP2PPP/RNBQKB1R w KQkq - 0 4",
+      "solution": ["Bg5", "Be7", "Bxf6"],
+      "objective": "White to play and damage pawn structure",
+      "difficulty": "easy",
+      "rating": 1090,
+      "hints": [
+        "Pin the knight to limit Black's options",
+        "Force Black to make a decision about the pin",
+        "Capturing the knight damages Black's kingside"
+      ],
+      "tags": ["pin", "pawn structure", "bishop pair"]
+    },
+    {
+      "id": "easy_007",
+      "fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQ1RK1 w kq - 0 5",
+      "solution": ["Nd5", "Nxd5", "exd5"],
+      "objective": "White to play and improve pawn structure",
+      "difficulty": "easy",
+      "rating": 1070,
+      "hints": [
+        "Centralize your knight with tempo",
+        "Force favorable exchanges",
+        "The resulting pawn structure favors White"
+      ],
+      "tags": ["centralization", "exchange", "pawn structure"]
+    },
+    {
+      "id": "easy_008",
+      "fen": "rnbqkb1r/pppp1ppp/5n2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 3",
+      "solution": ["Nxe5", "d6", "Nf3"],
+      "objective": "White to play and win a pawn",
+      "difficulty": "easy",
+      "rating": 1040,
+      "hints": [
+        "The e5 pawn is undefended",
+        "Calculate the consequences of capturing",
+        "You can retreat the knight safely"
+      ],
+      "tags": ["tactics", "pawn grab", "calculation"]
+    },
+    {
+      "id": "easy_009",
+      "fen": "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R w KQkq - 0 4",
+      "solution": ["0-0", "d6", "Re1"],
+      "objective": "White to play and increase pressure",
+      "difficulty": "easy",
+      "rating": 1030,
+      "hints": [
+        "Safety first - get your king to safety",
+        "Then look for ways to increase pressure",
+        "The e-file can become important"
+      ],
+      "tags": ["castling", "rook", "pressure"]
+    },
+    {
+      "id": "easy_010",
+      "fen": "rnbqk2r/pppp1ppp/5n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQK2R w KQkq - 0 4",
+      "solution": ["Bxf7+", "Kf8", "Bb3"],
+      "objective": "White to play and disrupt Black's king",
+      "difficulty": "easy",
+      "rating": 1110,
+      "hints": [
+        "A check can disrupt the opponent's plans",
+        "Force the king to move",
+        "Retreat the bishop to safety while maintaining pressure"
+      ],
+      "tags": ["check", "king safety", "disruption"]
+    },
+
+    {
+      "id": "medium_001",
+      "fen": "r2qkb1r/ppp2ppp/2n1pn2/3p4/2PP4/2N1PN2/PP3PPP/R1BQKB1R w KQkq - 0 6",
+      "solution": ["Nxd5", "exd5", "cxd5", "Nb4", "Bb5+"],
+      "objective": "White to play and win material",
+      "difficulty": "medium",
+      "rating": 1250,
+      "hints": [
+        "The knight on d5 is a strong outpost",
+        "Calculate the sequence after capturing",
+        "A discovered check can win material"
+      ],
+      "tags": ["knight outpost", "calculation", "discovered check"]
+    },
+    {
+      "id": "medium_002",
+      "fen": "r1bq1rk1/ppp2ppp/2n1pn2/3p4/2PP4/2N1PN2/PP3PPP/R1BQKB1R w KQ - 0 7",
+      "solution": ["cxd5", "exd5", "Nxd5", "Nxd5", "Qxd5"],
+      "objective": "White to play and centralize the queen",
+      "difficulty": "medium",
+      "rating": 1280,
+      "hints": [
+        "Opening the center benefits the better developed side",
+        "Force exchanges to reach an endgame",
+        "The queen becomes very active in the center"
+      ],
+      "tags": ["center control", "queen activity", "exchanges"]
+    },
+    {
+      "id": "medium_003",
+      "fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQ1RK1 w kq - 0 5",
+      "solution": ["Nd5", "Nxd5", "exd5", "Ne7", "Nxe7+"],
+      "objective": "White to play and win the bishop pair",
+      "difficulty": "medium",
+      "rating": 1300,
+      "hints": [
+        "Centralize with tempo",
+        "Force the knight to a worse square",
+        "The bishop pair will be a long-term advantage"
+      ],
+      "tags": ["centralization", "bishop pair", "long-term advantage"]
+    },
+    {
+      "id": "medium_004",
+      "fen": "r2qkb1r/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2QKB1R w KQkq - 0 7",
+      "solution": ["Nxd5", "exd5", "cxd5", "Nb4", "Qb3"],
+      "objective": "White to play and attack b7",
+      "difficulty": "medium",
+      "rating": 1320,
+      "hints": [
+        "Open lines for your pieces",
+        "The b7 pawn becomes a target",
+        "Coordinate queen and bishop for maximum pressure"
+      ],
+      "tags": ["pawn storm", "coordination", "weak pawns"]
+    },
+    {
+      "id": "medium_005",
+      "fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQ1RK1 w kq - 0 5",
+      "solution": ["Bg5", "h6", "Bh4", "g5", "Bg3"],
+      "objective": "White to play and weaken Black's kingside",
+      "difficulty": "medium",
+      "rating": 1270,
+      "hints": [
+        "Pin the knight to create pressure",
+        "Force pawn moves around the enemy king",
+        "Retreat the bishop to maintain the pin"
+      ],
+      "tags": ["pin", "pawn storm", "king safety"]
+    },
+    {
+      "id": "medium_006",
+      "fen": "rnbqk2r/ppp2ppp/3p1n2/4p3/1bPP4/2N2N2/PP3PPP/R1BQKB1R w KQkq - 0 6",
+      "solution": ["a3", "Bxc3+", "bxc3", "Nxe4", "Qd5"],
+      "objective": "White to play and win material",
+      "difficulty": "medium",
+      "rating": 1290,
+      "hints": [
+        "Force the bishop to make a decision",
+        "The knight on e4 becomes vulnerable",
+        "Centralize your queen with tempo"
+      ],
+      "tags": ["bishop hunt", "material", "centralization"]
+    },
+    {
+      "id": "medium_007",
+      "fen": "r1bq1rk1/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["cxd5", "exd5", "Nxd5", "Nxd5", "Bxd5"],
+      "objective": "White to play and dominate the center",
+      "difficulty": "medium",
+      "rating": 1310,
+      "hints": [
+        "Open the center to activate your pieces",
+        "The bishop becomes very strong on d5",
+        "Control key central squares"
+      ],
+      "tags": ["center control", "bishop dominance", "piece activity"]
+    },
+    {
+      "id": "medium_008",
+      "fen": "r2qkb1r/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2QKB1R w KQkq - 0 7",
+      "solution": ["d5", "exd5", "cxd5", "Ne7", "e4"],
+      "objective": "White to play and gain space advantage",
+      "difficulty": "medium",
+      "rating": 1260,
+      "hints": [
+        "Advance in the center with tempo",
+        "Force the knight to retreat",
+        "Build a strong pawn center"
+      ],
+      "tags": ["pawn center", "space advantage", "tempo"]
+    },
+    {
+      "id": "medium_009",
+      "fen": "r1bqk2r/pppp1ppp/2n2n2/2b1p3/2B1P3/3P1N2/PPP2PPP/RNBQ1RK1 w kq - 0 5",
+      "solution": ["a4", "a6", "a5", "Bd6", "Nd5"],
+      "objective": "White to play and restrict Black's pieces",
+      "difficulty": "medium",
+      "rating": 1240,
+      "hints": [
+        "Restrict the enemy bishop's mobility",
+        "Use pawn advances to gain space",
+        "Centralize your knight when the time is right"
+      ],
+      "tags": ["space", "restriction", "pawn advances"]
+    },
+    {
+      "id": "medium_010",
+      "fen": "rnbq1rk1/ppp2ppp/3p1n2/4p3/2PP4/2N2N2/PP3PPP/R1BQKB1R w KQ - 0 6",
+      "solution": ["d5", "Ne8", "Bg5", "f6", "Be3"],
+      "objective": "White to play and improve piece coordination",
+      "difficulty": "medium",
+      "rating": 1330,
+      "hints": [
+        "Advance the pawn to gain space",
+        "Force the knight to a passive square",
+        "Develop your pieces harmoniously"
+      ],
+      "tags": ["space", "piece coordination", "development"]
+    },
+
+    {
+      "id": "hard_001",
+      "fen": "r2q1rk1/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["Nxd5", "exd5", "cxd5", "Ne7", "e4", "Nf5", "Qb3"],
+      "objective": "White to play and create multiple threats",
+      "difficulty": "hard",
+      "rating": 1450,
+      "hints": [
+        "Open the center with a knight sacrifice",
+        "Build a strong pawn center",
+        "Create multiple threats simultaneously"
+      ],
+      "tags": ["knight sacrifice", "multiple threats", "initiative"]
+    },
+    {
+      "id": "hard_002",
+      "fen": "r1bq1rk1/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["d5", "exd5", "cxd5", "Ne7", "Nd4", "c6", "dxc6"],
+      "objective": "White to play and destroy Black's pawn structure",
+      "difficulty": "hard",
+      "rating": 1480,
+      "hints": [
+        "Advance the pawn to create tension",
+        "Force Black to make difficult decisions",
+        "Destroy the pawn structure for long-term advantage"
+      ],
+      "tags": ["pawn breaks", "pawn structure", "positional advantage"]
+    },
+    {
+      "id": "hard_003",
+      "fen": "r2qkb1r/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2QKB1R w KQkq - 0 7",
+      "solution": ["Nxd5", "Nxd5", "cxd5", "Nb4", "Bb5+", "c6", "dxc6"],
+      "objective": "White to play and win material by force",
+      "difficulty": "hard",
+      "rating": 1520,
+      "hints": [
+        "Sacrifice the knight to open lines",
+        "Use discovered check to win material",
+        "Calculate the forced sequence accurately"
+      ],
+      "tags": ["forced sequence", "discovered check", "material gain"]
+    },
+    {
+      "id": "hard_004",
+      "fen": "r1bq1rk1/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["Bxf6", "gxf6", "Nh4", "f5", "Qg4+", "Kh8", "Qg6"],
+      "objective": "White to play and create mating attack",
+      "difficulty": "hard",
+      "rating": 1500,
+      "hints": [
+        "Sacrifice the bishop to open the kingside",
+        "Bring the knight into the attack",
+        "The queen delivers the final blow"
+      ],
+      "tags": ["bishop sacrifice", "mating attack", "king hunt"]
+    },
+    {
+      "id": "hard_005",
+      "fen": "r2q1rk1/ppp2ppp/2n1pn2/3p1b2/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["cxd5", "exd5", "Nxd5", "Nxd5", "Bxd5", "c6", "Bb3"],
+      "objective": "White to play and maintain central dominance",
+      "difficulty": "hard",
+      "rating": 1460,
+      "hints": [
+        "Open the center to activate your pieces",
+        "Maintain the strong bishop on the long diagonal",
+        "Keep pressure on Black's position"
+      ],
+      "tags": ["central dominance", "bishop pair", "pressure"]
+    },
+    {
+      "id": "hard_006",
+      "fen": "r1bq1rk1/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["Ne4", "Nxe4", "dxe4", "Nh5", "Bh2", "f5", "exf5"],
+      "objective": "White to play and gain kingside attack",
+      "difficulty": "hard",
+      "rating": 1490,
+      "hints": [
+        "Centralize the knight with tempo",
+        "Open lines toward the enemy king",
+        "Build up pressure on the kingside"
+      ],
+      "tags": ["knight centralization", "kingside attack", "pawn storm"]
+    },
+    {
+      "id": "hard_007",
+      "fen": "r2qkb1r/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2QKB1R w KQkq - 0 7",
+      "solution": ["d5", "exd5", "cxd5", "Ne7", "Nd4", "Nf5", "Nxf5"],
+      "objective": "White to play and simplify to winning endgame",
+      "difficulty": "hard",
+      "rating": 1470,
+      "hints": [
+        "Advance the pawn to gain space",
+        "Force favorable exchanges",
+        "Reach a superior endgame position"
+      ],
+      "tags": ["pawn advances", "exchanges", "endgame advantage"]
+    },
+    {
+      "id": "hard_008",
+      "fen": "r1bq1rk1/ppp2ppp/2n1pn2/3p1b2/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["Nh4", "Bxd4", "Qxd4", "g6", "Nf5", "gxf5", "Qg4+"],
+      "objective": "White to play and exploit weak dark squares",
+      "difficulty": "hard",
+      "rating": 1510,
+      "hints": [
+        "Target the weak dark squares around Black's king",
+        "Force exchanges that favor your attack",
+        "The queen becomes very powerful on g4"
+      ],
+      "tags": ["dark squares", "queen attack", "weak squares"]
+    },
+    {
+      "id": "hard_009",
+      "fen": "r2q1rk1/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["Qb3", "b6", "cxd5", "exd5", "Nxd5", "Nxd5", "Bxd5"],
+      "objective": "White to play and create pressure on b7",
+      "difficulty": "hard",
+      "rating": 1440,
+      "hints": [
+        "Attack the b7 pawn immediately",
+        "Force Black to weaken the queenside",
+        "Follow up with central action"
+      ],
+      "tags": ["queenside pressure", "weak pawns", "coordination"]
+    },
+    {
+      "id": "hard_010",
+      "fen": "r1bq1rk1/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["Re1", "Re8", "Rxe8+", "Qxe8", "cxd5", "exd5", "Nxd5"],
+      "objective": "White to play and win material in the endgame",
+      "difficulty": "hard",
+      "rating": 1530,
+      "hints": [
+        "Simplify the position with rook exchanges",
+        "Open the center after simplification",
+        "The knight becomes dominant in the endgame"
+      ],
+      "tags": ["rook exchange", "endgame", "knight dominance"]
+    },
+
+    {
+      "id": "expert_001",
+      "fen": "r2q1rk1/ppp2ppp/2n1pn2/3p1b2/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["Nxd5", "Nxd5", "cxd5", "Ne7", "Bxf6", "gxf6", "Nh4", "Ng6", "Qg4"],
+      "objective": "White to play and create unstoppable mating attack",
+      "difficulty": "expert",
+      "rating": 1650,
+      "hints": [
+        "Sacrifice material to open the enemy king",
+        "Coordinate multiple pieces for the attack",
+        "Calculate the forced mating sequence"
+      ],
+      "tags": ["mating attack", "piece sacrifice", "calculation"]
+    },
+    {
+      "id": "expert_002",
+      "fen": "r1bq1rk1/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["d5", "exd5", "cxd5", "Ne7", "e4", "c6", "dxc6", "bxc6", "e5"],
+      "objective": "White to play and create passed pawns",
+      "difficulty": "expert",
+      "rating": 1680,
+      "hints": [
+        "Advance pawns to create weaknesses",
+        "Force Black to make concessions",
+        "Create multiple passed pawns for the endgame"
+      ],
+      "tags": ["pawn storm", "passed pawns", "endgame preparation"]
+    },
+    {
+      "id": "expert_003",
+      "fen": "r2q1rk1/ppp2ppp/2n1pn2/3p1b2/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["Bxf6", "Bxf6", "cxd5", "exd5", "Nxd5", "Bxd5", "Qxd5", "Qf6", "Qxf6"],
+      "objective": "White to play and reach winning queen endgame",
+      "difficulty": "expert",
+      "rating": 1720,
+      "hints": [
+        "Exchange pieces to reach a favorable endgame",
+        "The queen endgame is winning for White",
+        "Calculate the precise sequence of exchanges"
+      ],
+      "tags": ["exchanges", "queen endgame", "technique"]
+    },
+    {
+      "id": "expert_004",
+      "fen": "r1bq1rk1/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["Nh4", "g6", "f4", "Nh5", "Bxh5", "gxh5", "f5", "exf5", "Rxf5"],
+      "objective": "White to play and dominate the kingside",
+      "difficulty": "expert",
+      "rating": 1700,
+      "hints": [
+        "Initiate a pawn storm on the kingside",
+        "Sacrifice pieces to open lines",
+        "The rook becomes dominant on the f-file"
+      ],
+      "tags": ["pawn storm", "piece sacrifice", "rook dominance"]
+    },
+    {
+      "id": "expert_005",
+      "fen": "r2q1rk1/ppp2ppp/2n1pn2/3p1b2/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["cxd5", "exd5", "Nxd5", "Nxd5", "Bxd5", "c6", "Bb3", "Qd7", "Qd4"],
+      "objective": "White to play and maintain long-term pressure",
+      "difficulty": "expert",
+      "rating": 1660,
+      "hints": [
+        "Open the center to activate your pieces",
+        "Maintain the bishop pair advantage",
+        "Keep constant pressure on Black's position"
+      ],
+      "tags": ["bishop pair", "long-term pressure", "positional play"]
+    },
+    {
+      "id": "expert_006",
+      "fen": "r1bq1rk1/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["Ne4", "Nxe4", "dxe4", "Nh5", "g3", "f5", "exf5", "Bxf5", "Qd5+"],
+      "objective": "White to play and create perpetual check",
+      "difficulty": "expert",
+      "rating": 1640,
+      "hints": [
+        "Centralize the knight to create threats",
+        "Open lines for your pieces",
+        "Force a perpetual check to secure the draw"
+      ],
+      "tags": ["perpetual check", "knight sacrifice", "tactical draw"]
+    },
+    {
+      "id": "expert_007",
+      "fen": "r2q1rk1/ppp2ppp/2n1pn2/3p1b2/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["Qb3", "Qd7", "cxd5", "exd5", "Nxd5", "Nxd5", "Bxd5", "c6", "Bf3"],
+      "objective": "White to play and win the exchange",
+      "difficulty": "expert",
+      "rating": 1710,
+      "hints": [
+        "Attack multiple targets simultaneously",
+        "Force Black into a difficult position",
+        "Win material through tactical means"
+      ],
+      "tags": ["multiple threats", "tactical win", "material advantage"]
+    },
+    {
+      "id": "expert_008",
+      "fen": "r1bq1rk1/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["Bxf6", "gxf6", "Qd2", "f5", "Qh6", "Rg8", "Ng5", "Qf6", "Qxh7+"],
+      "objective": "White to play and deliver checkmate",
+      "difficulty": "expert",
+      "rating": 1750,
+      "hints": [
+        "Sacrifice the bishop to weaken the king",
+        "Bring all pieces into the attack",
+        "The mate is forced after the correct sequence"
+      ],
+      "tags": ["forced mate", "bishop sacrifice", "king hunt"]
+    },
+    {
+      "id": "expert_009",
+      "fen": "r2q1rk1/ppp2ppp/2n1pn2/3p1b2/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["d5", "exd5", "cxd5", "Ne7", "Nd4", "Bxd4", "Qxd4", "c6", "dxc6"],
+      "objective": "White to play and create connected passed pawns",
+      "difficulty": "expert",
+      "rating": 1690,
+      "hints": [
+        "Advance the central pawn with tempo",
+        "Force favorable exchanges",
+        "Create unstoppable passed pawns"
+      ],
+      "tags": ["passed pawns", "pawn majority", "endgame advantage"]
+    },
+    {
+      "id": "expert_010",
+      "fen": "r1bq1rk1/ppp2ppp/2n1pn2/3p4/2PP1B2/2N2N2/PP3PPP/R2Q1RK1 w - - 0 8",
+      "solution": ["Re1", "Re8", "Rxe8+", "Qxe8", "Qd2", "Qd7", "Re1", "Re8", "Rxe8+"],
+      "objective": "White to play and force repetition",
+      "difficulty": "expert",
+      "rating": 1630,
+      "hints": [
+        "Simplify the position with exchanges",
+        "Force the opponent into a repetitive pattern",
+        "Secure the draw through repetition"
+      ],
+      "tags": ["repetition", "draw technique", "rook endgame"]
+    }
+  ]
+}
