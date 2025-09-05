@@ -190,10 +190,16 @@ class PuzzleService {
   bool validateMove(
     PuzzleModel puzzle,
     List<String> userMoves,
-    String newMove,
-  ) {
+    String newMove, {
+    bool hasOpponentFirstMove = false,
+  }) {
     try {
-      final int moveIndex = userMoves.length;
+      // Calculate the expected move index in the solution
+      // If opponent played first move automatically, offset by 1
+      int moveIndex = userMoves.length;
+      if (hasOpponentFirstMove) {
+        moveIndex += 1; // Account for the opponent's automatic first move
+      }
 
       // Check if we have more moves in the solution
       if (moveIndex >= puzzle.solution.length) {
@@ -205,7 +211,7 @@ class PuzzleService {
       final bool isCorrect = puzzle.solution[moveIndex] == newMove;
 
       _logger.i(
-        'Move validation for puzzle ${puzzle.id}: $newMove ${isCorrect ? 'correct' : 'incorrect'}',
+        'Move validation for puzzle ${puzzle.id}: $newMove ${isCorrect ? 'correct' : 'incorrect'} (moveIndex: $moveIndex, hasOpponentFirstMove: $hasOpponentFirstMove)',
       );
       return isCorrect;
     } catch (e) {

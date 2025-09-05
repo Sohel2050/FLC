@@ -4,6 +4,27 @@ import 'package:logger/logger.dart';
 import '../models/puzzle_model.dart';
 import '../models/puzzle_progress.dart';
 import '../services/puzzle_service.dart';
+import 'package:squares/squares.dart';
+
+// Class to represent the pattern of moves in a puzzle
+class PuzzleMovePattern {
+  final List<bool> isUserMove; // true for user moves, false for opponent moves
+  final int playerColor; // Squares.white or Squares.black
+  final bool opponentMovesFirst;
+  final int expectedUserMoves;
+
+  PuzzleMovePattern({
+    required this.isUserMove,
+    required this.playerColor,
+    required this.opponentMovesFirst,
+    required this.expectedUserMoves,
+  });
+
+  @override
+  String toString() {
+    return 'PuzzleMovePattern(userMoves: ${isUserMove.length}, expectedUserMoves: $expectedUserMoves, playerColor: $playerColor, opponentFirst: $opponentMovesFirst)';
+  }
+}
 
 /// Enum representing the current state of a puzzle session
 enum PuzzleSessionState {
@@ -221,7 +242,11 @@ class PuzzleProvider extends ChangeNotifier {
   }
 
   /// Make a move in the current puzzle
-  Future<bool> makeMove(String move) async {
+  Future<bool> makeMove(
+    String move, {
+    required List<bool> isUserMove,
+    required int expectedUserMoves,
+  }) async {
     if (_currentSession == null ||
         _currentSession!.state != PuzzleSessionState.active) {
       _logger.w('No active puzzle session to make move');
@@ -235,11 +260,28 @@ class PuzzleProvider extends ChangeNotifier {
       final puzzle = _currentSession!.puzzle;
       final currentMoves = List<String>.from(_currentSession!.userMoves);
 
+      // Find the solution index for the current user move
+      int solutionIndex = -1;
+      int userMovesSeen = 0;
+
+      for (int i = 0; i < isUserMove.length; i++) {
+        if (isUserMove[i]) {
+          if (userMovesSeen == currentMoves.length) {
+            solutionIndex = i;
+            break;
+          }
+          userMovesSeen++;
+        }
+      }
+
       // Validate the move
-      final isValidMove = _puzzleService.validateMove(
-        puzzle,
-        currentMoves,
-        move,
+      final isValidMove =
+          solutionIndex >= 0 &&
+          solutionIndex < puzzle.solution.length &&
+          puzzle.solution[solutionIndex] == move;
+
+      _logger.i(
+        'Move validation: solutionIndex=$solutionIndex, expected=${solutionIndex >= 0 ? puzzle.solution[solutionIndex] : 'none'}, actual=$move, valid=$isValidMove',
       );
 
       if (!isValidMove) {
@@ -258,7 +300,11 @@ class PuzzleProvider extends ChangeNotifier {
       );
 
       // Check if puzzle is solved
-      final isSolved = _puzzleService.isPuzzleSolved(puzzle, currentMoves);
+      final isSolved = currentMoves.length == expectedUserMoves;
+
+      _logger.i(
+        'Puzzle completion check: userMoves=${currentMoves.length}, expected=$expectedUserMoves, solved=$isSolved',
+      );
 
       if (isSolved) {
         // Update session state to solved before completing

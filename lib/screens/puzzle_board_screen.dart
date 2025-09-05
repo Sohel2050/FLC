@@ -10,6 +10,26 @@ import '../utils/puzzle_error_handler.dart';
 import '../widgets/puzzle_completion_dialog.dart';
 import '../widgets/puzzle_loading_widget.dart';
 
+// Class to represent the pattern of moves in a puzzle
+class PuzzleMovePattern {
+  final List<bool> isUserMove; // true for user moves, false for opponent moves
+  final Squares playerColor;
+  final bool opponentMovesFirst;
+  final int expectedUserMoves;
+
+  PuzzleMovePattern({
+    required this.isUserMove,
+    required this.playerColor,
+    required this.opponentMovesFirst,
+    required this.expectedUserMoves,
+  });
+
+  @override
+  String toString() {
+    return 'PuzzleMovePattern(userMoves: ${isUserMove.length}, expectedUserMoves: $expectedUserMoves, playerColor: $playerColor, opponentFirst: $opponentMovesFirst)';
+  }
+}
+
 class PuzzleBoardScreen extends StatefulWidget {
   final PuzzleModel puzzle;
 
@@ -20,6 +40,7 @@ class PuzzleBoardScreen extends StatefulWidget {
 }
 
 class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
+  late PuzzleMovePattern _movePattern;
   late bishop.Game _game;
   late SquaresState _state;
   late PuzzleProvider _puzzleProvider;
@@ -61,9 +82,13 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
         throw Exception('Puzzle position is already game over');
       }
 
-      // Create squares state for the puzzle
-      // For puzzles, we always play as the side to move
-      final playerColor = _game.state.turn;
+      // Analyze the puzzle solution to determine move pattern
+      final movePattern = _analyzePuzzlePattern();
+      _movePattern = movePattern;
+      debugPrint('Puzzle ${widget.puzzle.id}: Move pattern: $movePattern');
+
+      // Determine player color based on the pattern
+      final playerColor = movePattern.playerColor;
       _state = _game.squaresState(playerColor);
 
       // Start the puzzle session with error handling
@@ -78,6 +103,15 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
         _hasError = false;
         _errorMessage = null;
       });
+
+      // Play opponent moves automatically if needed
+      if (movePattern.opponentMovesFirst) {
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) {
+            _makeOpponentFirstMove();
+          }
+        });
+      }
     } catch (e) {
       setState(() {
         _hasError = true;
@@ -112,18 +146,38 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
           : Squares.white;
       _state = _game.squaresState(playerColor);
 
-      // Notify the puzzle provider about the move
-      final moveString = move.toString();
-      final isValidMove = await _puzzleProvider.makeMove(moveString);
+      // Convert move to UCI notation to match puzzle solution format
+      final moveString = move.algebraic();
+
+      // Check if this puzzle has an opponent first move (multi-move with player as opposite color)
+      final hasOpponentFirstMove = widget.puzzle.solution.length > 1;
+      debugPrint(
+        'User move: $moveString, hasOpponentFirstMove: $hasOpponentFirstMove',
+      );
+
+      final isValidMove = await _puzzleProvider.makeMove(
+        moveString,
+        isUserMove: _movePattern.isUserMove,
+        expectedUserMoves: _movePattern.expectedUserMoves,
+      );
 
       if (isValidMove) {
         // Check if puzzle is solved
         final session = _puzzleProvider.currentSession;
         if (session != null && session.isCompleted) {
-          _showPuzzleCompletedDialog();
+          // Add a small delay before showing completion dialog
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted) {
+              _showPuzzleCompletedDialog();
+            }
+          });
         } else {
-          // Make the opponent's response move if there is one
-          _makeOpponentMove();
+          // Make the opponent's response move after a delay to make it visible
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            if (mounted) {
+              _makeOpponentMove();
+            }
+          });
         }
       } else {
         // Invalid move - reset the board state
@@ -145,6 +199,56 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
     }
   }
 
+  void _makeOpponentFirstMove() {
+    // This method handles cases where the opponent needs to play the first move
+    // to set up the puzzle position (like in puzzle 001KR where Black plays Kg8 first)
+
+    final session = _puzzleProvider.currentSession;
+    if (session == null) return;
+
+    final solution = session.puzzle.solution;
+    if (solution.isEmpty) return;
+
+    final firstSolutionMove = solution.first;
+    debugPrint('Making opponent first move: $firstSolutionMove');
+
+    try {
+      // Make the first move from the solution as the opponent's move
+      final success = _game.makeMoveString(firstSolutionMove);
+
+      if (success) {
+        // Update the squares state for the new position
+        final playerColor = _game.state.turn;
+        _state = _game.squaresState(playerColor);
+
+        setState(() {});
+
+        // Show a brief message about the opponent's move
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Opponent played: ${_formatMoveForDisplay(firstSolutionMove)}',
+            ),
+            backgroundColor: Colors.blue,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        debugPrint('Failed to make opponent first move: $firstSolutionMove');
+      }
+    } catch (e) {
+      debugPrint('Could not make opponent first move: $e');
+      // If we can't make the move, just continue with the puzzle as is
+    }
+  }
+
+  String _formatMoveForDisplay(String uciMove) {
+    // Convert UCI move to a more readable format
+    // For now, just return the UCI notation, but this could be enhanced
+    // to show algebraic notation like "Kg8" instead of "h8g8"
+    return uciMove;
+  }
+
   void _makeOpponentMove() {
     final session = _puzzleProvider.currentSession;
     if (session == null) return;
@@ -152,28 +256,77 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
     final solution = session.puzzle.solution;
     final userMoves = session.userMoves;
 
-    // Check if there's an opponent response move
-    if (userMoves.length < solution.length) {
-      final nextMoveIndex = userMoves.length;
-      if (nextMoveIndex < solution.length) {
-        final opponentMoveString = solution[nextMoveIndex];
+    // Use the move pattern to find the next opponent move
+    int nextOpponentMoveIndex = -1;
+    int userMovesSeen = 0;
 
-        // Make the opponent move using the move string
-        try {
-          // Try to make the move using the move string
-          final success = _game.makeMoveString(opponentMoveString);
-
-          if (success) {
-            // Update state after opponent move
-            final playerColor = _game.state.turn;
-            _state = _game.squaresState(playerColor);
-            setState(() {});
-          }
-        } catch (e) {
-          // Handle move parsing error
-          debugPrint('Error making opponent move: $e');
+    // Find the next opponent move after the current user moves
+    for (int i = 0; i < _movePattern.isUserMove.length; i++) {
+      if (_movePattern.isUserMove[i]) {
+        userMovesSeen++;
+        if (userMovesSeen > userMoves.length) {
+          // We've found all user moves, now look for the next opponent move
+          break;
+        }
+      } else {
+        // This is an opponent move
+        if (userMovesSeen == userMoves.length) {
+          // This is the next opponent move to play
+          nextOpponentMoveIndex = i;
+          break;
         }
       }
+    }
+
+    debugPrint(
+      'Looking for opponent move at index $nextOpponentMoveIndex, userMoves: ${userMoves.length}, solution length: ${solution.length}',
+    );
+
+    // Check if there's an opponent response move
+    if (nextOpponentMoveIndex >= 0 && nextOpponentMoveIndex < solution.length) {
+      final opponentMoveString = solution[nextOpponentMoveIndex];
+      debugPrint('Making opponent move: $opponentMoveString');
+
+      // Make the opponent move using UCI notation
+      try {
+        // Parse the UCI move and make it
+        final success = _game.makeMoveString(opponentMoveString);
+
+        if (success) {
+          // Update state after opponent move
+          final playerColor = _game.state.turn;
+          _state = _game.squaresState(playerColor);
+          setState(() {});
+
+          // Show a brief message about the opponent's move
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Opponent played: ${_formatMoveForDisplay(opponentMoveString)}',
+              ),
+              backgroundColor: Colors.blue,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+
+          // Check if puzzle is completed after opponent's move
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              final updatedSession = _puzzleProvider.currentSession;
+              if (updatedSession != null && updatedSession.isCompleted) {
+                _showPuzzleCompletedDialog();
+              }
+            }
+          });
+        } else {
+          debugPrint('Failed to make opponent move: $opponentMoveString');
+        }
+      } catch (e) {
+        // Handle move parsing error
+        debugPrint('Error making opponent move: $e');
+      }
+    } else {
+      debugPrint('No more opponent moves in solution');
     }
   }
 
@@ -777,6 +930,68 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
           ),
         );
       },
+    );
+  }
+
+  /// Analyze the puzzle solution to determine the move pattern
+  PuzzleMovePattern _analyzePuzzlePattern() {
+    final solution = widget.puzzle.solution;
+    final fenTurn = _game.state.turn; // This is a color value
+
+    // Convert to Squares (int) - using constants for comparison
+    final fenTurnSquares = fenTurn == 0
+        ? Squares.white
+        : Squares.black; // 0 = white, 1 = black
+
+    // Simulate the solution to determine who plays each move
+    final testGame = bishop.Game(
+      variant: bishop.Variant.standard(),
+      fen: widget.puzzle.fen,
+    );
+
+    List<bool> isUserMove = [];
+    var currentTurn = fenTurn;
+
+    // For single move puzzles, the player plays as the side to move
+    if (solution.length == 1) {
+      return PuzzleMovePattern(
+        isUserMove: [true],
+        playerColor: fenTurnSquares,
+        opponentMovesFirst: false,
+        expectedUserMoves: 1,
+      );
+    }
+
+    // For multi-move puzzles, determine the pattern based on memory rule:
+    // "Player is assigned the color opposite to the one to move in the FEN"
+    final playerColorSquares = fenTurnSquares == Squares.white
+        ? Squares.black
+        : Squares.white;
+    final playerColorValue = fenTurn == 0 ? 1 : 0; // Opposite color value
+
+    // Determine which moves are user moves vs opponent moves
+    for (int i = 0; i < solution.length; i++) {
+      final isPlayer = currentTurn == playerColorValue;
+      isUserMove.add(isPlayer);
+
+      // Simulate making the move to get the next turn
+      try {
+        testGame.makeMoveString(solution[i]);
+        currentTurn = testGame.state.turn;
+      } catch (e) {
+        debugPrint('Error simulating move ${solution[i]}: $e');
+        break;
+      }
+    }
+
+    final opponentMovesFirst = isUserMove.isNotEmpty && !isUserMove.first;
+    final expectedUserMoves = isUserMove.where((isUser) => isUser).length;
+
+    return PuzzleMovePattern(
+      isUserMove: isUserMove,
+      playerColor: playerColorSquares,
+      opponentMovesFirst: opponentMovesFirst,
+      expectedUserMoves: expectedUserMoves,
     );
   }
 }
