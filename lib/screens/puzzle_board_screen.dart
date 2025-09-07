@@ -10,26 +10,6 @@ import '../utils/puzzle_error_handler.dart';
 import '../widgets/puzzle_completion_dialog.dart';
 import '../widgets/puzzle_loading_widget.dart';
 
-// Class to represent the pattern of moves in a puzzle
-class PuzzleMovePattern {
-  final List<bool> isUserMove; // true for user moves, false for opponent moves
-  final Squares playerColor;
-  final bool opponentMovesFirst;
-  final int expectedUserMoves;
-
-  PuzzleMovePattern({
-    required this.isUserMove,
-    required this.playerColor,
-    required this.opponentMovesFirst,
-    required this.expectedUserMoves,
-  });
-
-  @override
-  String toString() {
-    return 'PuzzleMovePattern(userMoves: ${isUserMove.length}, expectedUserMoves: $expectedUserMoves, playerColor: $playerColor, opponentFirst: $opponentMovesFirst)';
-  }
-}
-
 class PuzzleBoardScreen extends StatefulWidget {
   final PuzzleModel puzzle;
 
@@ -88,7 +68,7 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
       debugPrint('Puzzle ${widget.puzzle.id}: Move pattern: $movePattern');
 
       // Determine player color based on the pattern
-      final playerColor = movePattern.playerColor;
+      final playerColor = movePattern.playerColor; // Already an int
       _state = _game.squaresState(playerColor);
 
       // Start the puzzle session with error handling
@@ -938,11 +918,6 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
     final solution = widget.puzzle.solution;
     final fenTurn = _game.state.turn; // This is a color value
 
-    // Convert to Squares (int) - using constants for comparison
-    final fenTurnSquares = fenTurn == 0
-        ? Squares.white
-        : Squares.black; // 0 = white, 1 = black
-
     // Simulate the solution to determine who plays each move
     final testGame = bishop.Game(
       variant: bishop.Variant.standard(),
@@ -956,7 +931,7 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
     if (solution.length == 1) {
       return PuzzleMovePattern(
         isUserMove: [true],
-        playerColor: fenTurnSquares,
+        playerColor: fenTurn, // Use the int value directly
         opponentMovesFirst: false,
         expectedUserMoves: 1,
       );
@@ -964,9 +939,6 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
 
     // For multi-move puzzles, determine the pattern based on memory rule:
     // "Player is assigned the color opposite to the one to move in the FEN"
-    final playerColorSquares = fenTurnSquares == Squares.white
-        ? Squares.black
-        : Squares.white;
     final playerColorValue = fenTurn == 0 ? 1 : 0; // Opposite color value
 
     // Determine which moves are user moves vs opponent moves
@@ -989,7 +961,7 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
 
     return PuzzleMovePattern(
       isUserMove: isUserMove,
-      playerColor: playerColorSquares,
+      playerColor: playerColorValue, // Use the int value instead of Squares
       opponentMovesFirst: opponentMovesFirst,
       expectedUserMoves: expectedUserMoves,
     );
