@@ -33,6 +33,7 @@ void main() {
         rating: 800,
         hints: ['hint1', 'hint2'],
         tags: ['test'],
+        opponentPlaysFirst: false,
       );
 
       // Test correct first move
@@ -61,6 +62,7 @@ void main() {
         rating: 800,
         hints: ['hint1'],
         tags: ['test'],
+        opponentPlaysFirst: false,
       );
 
       // Test incomplete puzzle
@@ -83,6 +85,7 @@ void main() {
         rating: 800,
         hints: ['First hint', 'Second hint'],
         tags: ['test'],
+        opponentPlaysFirst: false,
       );
 
       expect(puzzleService.getNextHint(puzzle, 0), 'First hint');

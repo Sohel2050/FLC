@@ -21,6 +21,7 @@
       "objective": "Black plays first, then White to mate in 1",
       "difficulty": "beginner",
       "rating": 658,
+      "opponentPlaysFirst": true,
       "hints": [
         "Black's king is forced to move to g8 to escape check",
         "After Kg8, look for a back rank mate opportunity",
@@ -35,6 +36,7 @@
       "objective": "White to play and win",
       "difficulty": "beginner",
       "rating": 946,
+      "opponentPlaysFirst": true,
       "hints": [
         "Centralize your king",
         "Force Black into zugzwang",
@@ -42,30 +44,18 @@
       ],
       "tags": ["crushing", "endgame", "pawnEndgame", "zugzwang"]
     },
-    {
-      "id": "001wb",
-      "fen": "r3k2r/pb1p1ppp/1b4q1/1Q2P3/8/2NP1Pn1/PP4PP/R1B2R1K w kq - 1 17",
-      "solution": ["h1g3", "g6h5"],
-      "objective": "White to play, Black mates in 1",
-      "difficulty": "beginner",
-      "rating": 1246,
-      "hints": [
-        "White's king is exposed",
-        "Black's queen has a powerful square",
-        "Qh5 is mate after the king takes the knight"
-      ],
-      "tags": ["mate", "mateIn1", "middlegame"]
-    },
+    
     {
       "id": "002GQ",
       "fen": "5rk1/5ppp/4p3/4N3/8/1Pn5/5PPP/5RK1 w - - 0 28",
       "solution": ["f1c1", "c3e2", "g1f1", "e2c1"],
-      "objective": "White to play and Black wins material",
+      "objective": "Black to play wins material",
       "difficulty": "beginner",
       "rating": 654,
+      "opponentPlaysFirst": true,
       "hints": [
         "The knight on c3 can fork",
-        "Move the rook to attack it",
+        "The knight junp",
         "The fork on e2 wins the exchange"
       ],
       "tags": ["crushing", "endgame", "fork"]

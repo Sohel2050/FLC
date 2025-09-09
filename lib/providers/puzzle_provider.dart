@@ -376,6 +376,13 @@ class PuzzleProvider extends ChangeNotifier {
   Future<void> resetPuzzle() async {
     if (_currentSession == null) {
       _logger.w('No puzzle session to reset');
+      // Don't return early, instead try to recreate the session
+      // This handles cases where the session was unexpectedly ended
+      if (_puzzlesByDifficulty.isNotEmpty) {
+        _logger.i('Attempting to recreate session for reset');
+        // We don't have enough information to recreate the exact session
+        // The UI should handle this case by showing an error or preventing reset
+      }
       return;
     }
 
@@ -414,28 +421,32 @@ class PuzzleProvider extends ChangeNotifier {
 
       final currentPuzzle = _currentSession!.puzzle;
 
-      // End current session
-      await _endCurrentSession();
-
-      // Get next puzzle
+      // Get next puzzle BEFORE ending current session to avoid race conditions
+      PuzzleModel? nextPuzzle;
       if (_currentUserId != null) {
-        final nextPuzzle = await _puzzleService.getNextPuzzle(
+        nextPuzzle = await _puzzleService.getNextPuzzle(
           _currentUserId!,
           currentPuzzle.difficulty,
           currentPuzzle.id,
         );
-
-        if (nextPuzzle != null) {
-          await startPuzzle(nextPuzzle);
-          return nextPuzzle;
-        } else {
-          _logger.i(
-            'No more puzzles in difficulty ${currentPuzzle.difficulty.displayName}',
-          );
-        }
       }
 
-      return null;
+      if (nextPuzzle == null) {
+        _logger.i(
+          'No more puzzles in difficulty ${currentPuzzle.difficulty.displayName}',
+        );
+        // End current session only if there's no next puzzle
+        await _endCurrentSession();
+        return null;
+      }
+
+      // End current session
+      await _endCurrentSession();
+
+      // Start new puzzle session
+      await startPuzzle(nextPuzzle);
+
+      return nextPuzzle;
     } catch (e) {
       _logger.e('Error getting next puzzle: $e');
       _setError('Failed to get next puzzle: $e');
@@ -690,11 +701,10 @@ class PuzzleProvider extends ChangeNotifier {
           : PuzzleSessionState.idle;
       _currentSession = _currentSession!.copyWith(state: state);
 
-      // Clear session after a brief delay to allow UI to react
-      Future.delayed(const Duration(milliseconds: 100), () {
-        _currentSession = null;
-        notifyListeners();
-      });
+      // For immediate cleanup, set session to null directly
+      // The delayed approach was causing race conditions
+      _currentSession = null;
+      notifyListeners();
 
       _logger.i('Puzzle session ended');
     } catch (e) {

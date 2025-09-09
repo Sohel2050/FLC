@@ -17,6 +17,7 @@ PuzzleModel _$PuzzleModelFromJson(Map<String, dynamic> json) => PuzzleModel(
   hints: (json['hints'] as List<dynamic>).map((e) => e as String).toList(),
   rating: (json['rating'] as num).toInt(),
   tags: (json['tags'] as List<dynamic>).map((e) => e as String).toList(),
+  opponentPlaysFirst: json['opponentPlaysFirst'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$PuzzleModelToJson(PuzzleModel instance) =>
@@ -29,6 +30,7 @@ Map<String, dynamic> _$PuzzleModelToJson(PuzzleModel instance) =>
       'hints': instance.hints,
       'rating': instance.rating,
       'tags': instance.tags,
+      'opponentPlaysFirst': instance.opponentPlaysFirst,
     };
 
 const _$PuzzleDifficultyEnumMap = {

@@ -69,6 +69,9 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
 
       // Determine player color based on the pattern
       final playerColor = movePattern.playerColor; // Already an int
+
+      // Set the initial board state from the player's perspective
+      // This ensures the UI always shows the board from the player's viewpoint
       _state = _game.squaresState(playerColor);
 
       // Start the puzzle session with error handling
@@ -121,10 +124,8 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
       }
 
       // Update the squares state
-      final playerColor = _game.state.turn == Squares.white
-          ? Squares.black
-          : Squares.white;
-      _state = _game.squaresState(playerColor);
+      // Set the board state from the player's perspective
+      _state = _game.squaresState(_movePattern.playerColor);
 
       // Convert move to UCI notation to match puzzle solution format
       final moveString = move.algebraic();
@@ -198,8 +199,8 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
 
       if (success) {
         // Update the squares state for the new position
-        final playerColor = _game.state.turn;
-        _state = _game.squaresState(playerColor);
+        // After opponent's move, set the board state from the player's perspective
+        _state = _game.squaresState(_movePattern.playerColor);
 
         setState(() {});
 
@@ -274,8 +275,8 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
 
         if (success) {
           // Update state after opponent move
-          final playerColor = _game.state.turn;
-          _state = _game.squaresState(playerColor);
+          // Set the board state from the player's perspective
+          _state = _game.squaresState(_movePattern.playerColor);
           setState(() {});
 
           // Show a brief message about the opponent's move
@@ -317,8 +318,8 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
       fen: widget.puzzle.fen,
     );
 
-    final playerColor = _game.state.turn;
-    _state = _game.squaresState(playerColor);
+    // Set the board state from the player's perspective
+    _state = _game.squaresState(_movePattern.playerColor);
   }
 
   void _showIncorrectMoveMessage() {
@@ -362,9 +363,15 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
   }
 
   void _resetPuzzle() {
-    _puzzleProvider.resetPuzzle();
-    _resetBoardState();
-    setState(() {});
+    // Check if we have an active session before trying to reset
+    if (_puzzleProvider.currentSession == null) {
+      // If no session, reinitialize the puzzle
+      _initializePuzzle();
+    } else {
+      _puzzleProvider.resetPuzzle();
+      _resetBoardState();
+      setState(() {});
+    }
   }
 
   Future<bool> _hasNextPuzzle() async {
@@ -389,28 +396,44 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
   }
 
   Future<void> _nextPuzzle() async {
-    final nextPuzzle = await _puzzleProvider.nextPuzzle();
-    if (nextPuzzle != null) {
-      // Replace current screen with new puzzle
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => PuzzleBoardScreen(puzzle: nextPuzzle),
-          ),
-        );
+    try {
+      final nextPuzzle = await _puzzleProvider.nextPuzzle();
+      if (nextPuzzle != null) {
+        // Replace current screen with new puzzle
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => PuzzleBoardScreen(puzzle: nextPuzzle),
+            ),
+          );
+        }
+      } else {
+        // No more puzzles, go back to difficulty selection
+        if (mounted) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Congratulations! You completed all puzzles in this difficulty.',
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
-    } else {
-      // No more puzzles, go back to difficulty selection
+    } catch (e) {
+      // Handle errors in navigation
       if (mounted) {
-        Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Congratulations! You completed all puzzles in this difficulty.',
+              'Error loading next puzzle. Please try again.',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: Colors.red,
           ),
         );
+        // Go back to the previous screen
+        Navigator.of(context).pop();
       }
     }
   }
@@ -918,15 +941,6 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
     final solution = widget.puzzle.solution;
     final fenTurn = _game.state.turn; // This is a color value
 
-    // Simulate the solution to determine who plays each move
-    final testGame = bishop.Game(
-      variant: bishop.Variant.standard(),
-      fen: widget.puzzle.fen,
-    );
-
-    List<bool> isUserMove = [];
-    var currentTurn = fenTurn;
-
     // For single move puzzles, the player plays as the side to move
     if (solution.length == 1) {
       return PuzzleMovePattern(
@@ -937,26 +951,26 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
       );
     }
 
-    // For multi-move puzzles, determine the pattern based on memory rule:
-    // "Player is assigned the color opposite to the one to move in the FEN"
-    final playerColorValue = fenTurn == 0 ? 1 : 0; // Opposite color value
+    // Use the explicit opponentPlaysFirst field if available
+    // This is more reliable than trying to determine it from the solution
+    final opponentMovesFirst = widget.puzzle.opponentPlaysFirst;
+
+    // Determine player color based on the opponentMovesFirst flag
+    // If opponent moves first, player is the opposite color of the FEN turn
+    // If opponent doesn't move first, player is the same color as the FEN turn
+    final playerColorValue = opponentMovesFirst
+        ? (fenTurn == 0 ? 1 : 0) // Opposite color
+        : fenTurn; // Same color
 
     // Determine which moves are user moves vs opponent moves
+    List<bool> isUserMove = [];
     for (int i = 0; i < solution.length; i++) {
-      final isPlayer = currentTurn == playerColorValue;
-      isUserMove.add(isPlayer);
-
-      // Simulate making the move to get the next turn
-      try {
-        testGame.makeMoveString(solution[i]);
-        currentTurn = testGame.state.turn;
-      } catch (e) {
-        debugPrint('Error simulating move ${solution[i]}: $e');
-        break;
-      }
+      // If opponent moves first, user moves are at odd indices (1, 3, 5...)
+      // If opponent doesn't move first, user moves are at even indices (0, 2, 4...)
+      final isUser = opponentMovesFirst ? (i % 2 == 1) : (i % 2 == 0);
+      isUserMove.add(isUser);
     }
 
-    final opponentMovesFirst = isUserMove.isNotEmpty && !isUserMove.first;
     final expectedUserMoves = isUserMove.where((isUser) => isUser).length;
 
     return PuzzleMovePattern(

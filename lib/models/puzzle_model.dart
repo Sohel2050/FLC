@@ -78,6 +78,9 @@ class PuzzleModel {
   /// Categories/tags for the puzzle (e.g., "tactics", "endgame", "fork")
   final List<String> tags;
 
+  /// Whether the opponent/CPU plays the first move in this puzzle
+  final bool opponentPlaysFirst;
+
   const PuzzleModel({
     required this.id,
     required this.fen,
@@ -87,6 +90,8 @@ class PuzzleModel {
     required this.hints,
     required this.rating,
     required this.tags,
+    this.opponentPlaysFirst =
+        false, // Default to false for backward compatibility
   });
 
   /// Create PuzzleModel from JSON
@@ -106,6 +111,7 @@ class PuzzleModel {
     List<String>? hints,
     int? rating,
     List<String>? tags,
+    bool? opponentPlaysFirst,
   }) {
     return PuzzleModel(
       id: id ?? this.id,
@@ -116,6 +122,7 @@ class PuzzleModel {
       hints: hints ?? this.hints,
       rating: rating ?? this.rating,
       tags: tags ?? this.tags,
+      opponentPlaysFirst: opponentPlaysFirst ?? this.opponentPlaysFirst,
     );
   }
 
@@ -130,6 +137,6 @@ class PuzzleModel {
 
   @override
   String toString() {
-    return 'PuzzleModel(id: $id, objective: $objective, difficulty: $difficulty, rating: $rating)';
+    return 'PuzzleModel(id: $id, objective: $objective, difficulty: $difficulty, rating: $rating, opponentPlaysFirst: $opponentPlaysFirst)';
   }
 }

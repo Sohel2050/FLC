@@ -159,7 +159,11 @@ void main() {
 
         // Start the puzzle in the provider
         await puzzleProvider.startPuzzle(testPuzzle);
-        await puzzleProvider.makeMove('e4'); // Solve the puzzle
+        await puzzleProvider.makeMove(
+          'e4',
+          isUserMove: [true],
+          expectedUserMoves: 1,
+        ); // Solve the puzzle
 
         await tester.pumpWidget(
           MultiProvider(
