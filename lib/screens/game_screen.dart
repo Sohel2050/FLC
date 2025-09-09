@@ -1526,8 +1526,8 @@ class _GameScreenState extends State<GameScreen> {
   /// Initialize audio states to ensure UI reflects ZegoCloud state
   Future<void> _initializeAudioStates() async {
     try {
-      // Set initial microphone state (start with microphone disabled for better UX)
-      await ZegoExpressEngine.instance.muteMicrophone(true);
+      // Set initial microphone state (start with microphone enabled for immediate communication)
+      await ZegoExpressEngine.instance.muteMicrophone(false);
 
       // Set initial speaker state (start with speaker enabled)
       await ZegoExpressEngine.instance.muteSpeaker(false);
@@ -1541,7 +1541,7 @@ class _GameScreenState extends State<GameScreen> {
       }
 
       _gameProvider.logger.i(
-        'Audio states initialized: mic=muted, speaker=unmuted',
+        'Audio states initialized: mic=unmuted, speaker=unmuted',
       );
     } catch (e) {
       _gameProvider.logger.w('Failed to initialize audio states: $e');
