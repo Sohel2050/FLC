@@ -426,9 +426,7 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Error loading next puzzle. Please try again.',
-            ),
+            content: Text('Error loading next puzzle. Please try again.'),
             backgroundColor: Colors.red,
           ),
         );
