@@ -77,10 +77,11 @@
     {
       "id": "001om",
       "fen": "5r1k/pp4pp/5p2/1BbQp1r1/6K1/7P/1PP3P1/3R3R w - - 2 26",
-      "solution": ["g4h4", "c5f2", "h3g3", "f2g3"],
-      "objective": "White to play and gets mated",
+      "solution": ["g4h4", "c5f2", "g2g3", "f2g3"],
+      "objective": "Mate in 2",
       "difficulty": "beginner",
       "rating": 1018,
+      "opponentPlaysFirst": true,
       "hints": [
         "White's king is in great danger",
         "Black's bishop can deliver mate",
@@ -91,10 +92,11 @@
     {
       "id": "001pC",
       "fen": "r4rk1/pp3ppp/3b4/2p1pPB1/7N/2PP3n/PP4PP/R2Q1RqK w - - 5 18",
-      "solution": ["a1g1", "h3f2"],
-      "objective": "White to play and Black delivers smothered mate",
+      "solution": ["f1g1", "h3f2"],
+      "objective": "Smothered mate, Mate in 1",
       "difficulty": "beginner",
       "rating": 809,
+      "opponentPlaysFirst": true,
       "hints": [
         "The knight on h3 has a powerful move",
         "Smothered mate pattern",
@@ -106,9 +108,10 @@
       "id": "002CP",
       "fen": "r5k1/pp4pp/4p1q1/4p3/3n4/P5P1/1PP2Q1P/2KR1R2 w - - 4 24",
       "solution": ["f2e3", "g6c2"],
-      "objective": "White to play and gets mated in 1",
+      "objective": "Mated in 1",
       "difficulty": "beginner",
       "rating": 926,
+      "opponentPlaysFirst": true,
       "hints": [
         "Black's queen is very active",
         "White's king is vulnerable",

@@ -704,7 +704,14 @@ class PuzzleProvider extends ChangeNotifier {
       // For immediate cleanup, set session to null directly
       // The delayed approach was causing race conditions
       _currentSession = null;
-      notifyListeners();
+
+      // Use scheduleMicrotask to defer notifyListeners() to avoid calling
+      // it during the build phase, which causes Flutter errors
+      scheduleMicrotask(() {
+        if (!_isInitializing && !_isLoading) {
+          notifyListeners();
+        }
+      });
 
       _logger.i('Puzzle session ended');
     } catch (e) {
