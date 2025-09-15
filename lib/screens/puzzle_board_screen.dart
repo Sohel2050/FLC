@@ -115,6 +115,9 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
   void _onMove(Move move) async {
     if (!_isInitialized || _hasError) return;
 
+    // Log the square click for debugging
+    debugPrint('Square clicked: ${move.algebraic()}');
+
     try {
       // Make the move in the game
       final success = _game.makeSquaresMove(move);
@@ -204,16 +207,16 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
 
         setState(() {});
 
-        // Show a brief message about the opponent's move
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Opponent played: ${_formatMoveForDisplay(firstSolutionMove)}',
-            ),
-            backgroundColor: Colors.blue,
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        // // Show a brief message about the opponent's move
+        // ScaffoldMessenger.of(context).showSnackBar(
+        //   SnackBar(
+        //     content: Text(
+        //       'Opponent played: ${_formatMoveForDisplay(firstSolutionMove)}',
+        //     ),
+        //     backgroundColor: Colors.blue,
+        //     duration: const Duration(seconds: 2),
+        //   ),
+        // );
       } else {
         debugPrint('Failed to make opponent first move: $firstSolutionMove');
       }
@@ -694,15 +697,15 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
                   );
                 },
               ),
-              IconButton(
-                onPressed: () {
-                  setState(() {
-                    _flipBoard = !_flipBoard;
-                  });
-                },
-                icon: const Icon(Icons.flip),
-                tooltip: 'Flip Board',
-              ),
+              // IconButton(
+              //   onPressed: () {
+              //     setState(() {
+              //       _flipBoard = !_flipBoard;
+              //     });
+              //   },
+              //   icon: const Icon(Icons.flip),
+              //   tooltip: 'Flip Board',
+              // ),
               IconButton(
                 onPressed: _resetPuzzle,
                 icon: const Icon(Icons.refresh),
