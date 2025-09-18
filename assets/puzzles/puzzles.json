@@ -168,9 +168,10 @@
       "id": "000rO",
       "fen": "3R4/8/K7/pB2b3/1p6/1P2k3/3p4/8 w - - 4 58",
       "solution": ["a6a5", "e5c7", "a5b4", "c7d8"],
-      "objective": "White to play and win material",
+      "objective": "Win material",
       "difficulty": "easy",
       "rating": 1110,
+      "opponentPlaysFirst": true,
       "hints": [
         "Look for a hanging piece",
         "The Rook on d8 can be forked",
@@ -182,7 +183,7 @@
       "id": "001Wz",
       "fen": "4r1k1/5ppp/r1p5/p1n1RP2/8/2P2N1P/2P3P1/3R2K1 b - - 0 21",
       "solution": ["e8e5", "d1d8", "e5e8", "d8e8"],
-      "objective": "White to play and win material",
+      "objective": "Find mate in 2",
       "difficulty": "easy",
       "rating": 1120,
       "opponentPlaysFirst": true,
@@ -197,14 +198,14 @@
       "id": "001wR",
       "fen": "6nr/pp3p1p/k1p5/8/1QN5/2P1P3/4KPqP/8 b - - 5 26",
       "solution": ["b7b5", "b4a5", "a6b7", "c4d6", "b7b8", "a5d8"],
-      "objective": "Black to play and gets mated",
+      "objective": "Find a forced mate in 3",
       "difficulty": "easy",
       "rating": 1172,
       "opponentPlaysFirst": true,
       "hints": [
-        "Push the pawn to attack the queen",
-        "White has a forced mate sequence",
-        "The knight delivers the final blow"
+        "Start with Queen check",
+        "Queen and knight forced mate sequence",
+        "Mate in three with Qd8#"
       ],
       "tags": ["endgame", "long", "mate", "mateIn3"]
     },
@@ -222,6 +223,95 @@
         "Prevent the pawn promotion"
       ],
       "tags": ["endgame", "advantage", "hangingPiece", "short"]
+    },
+    {
+      "id": "003r5",
+      "fen": "r2qr1k1/ppp2ppp/4b3/3P4/1nP2Q2/2N2N1P/PP3KP1/R4R2 w - - 1 15",
+      "solution": ["d5e6", "b4d3", "f2g1", "d3f4"],
+      "objective": "Gain the middle Game advantage",
+      "difficulty": "easy",
+      "rating": 1107,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "The Knight has a crushing move",
+        "The Knight forks the King and Queen",
+        "Nd3# wins the Queen"
+      ],
+      "tags": ["crushing", "fork", "short", "middlegame"]
+    },
+    {
+      "id": "003eP",
+      "fen": "8/r1b1q2k/2p3p1/2Pp4/1P2p1n1/2B1P3/NQ6/2K4R b - - 1 36",
+      "solution": ["h7g8", "h1h8", "g8f7", "h8h7", "f7e8", "h7e7"],
+      "objective": "Black to play and White delivers mate",
+      "difficulty": "easy",
+      "rating": 1156,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "The king moves lead to a material gain",
+        "White's rook creates a skewer pattern",
+        "Win material with Re7#"
+      ],
+      "tags": ["crushing", "exposedKing", "long", "middlegame", "skewer"]
+    },
+    {
+      "id": "0048h",
+      "fen": "4r3/p5k1/2p2R1p/2Pp4/1P1pr1P1/P6P/8/3R3K w - - 1 35",
+      "solution": ["f6c6", "e4e1", "d1e1", "e8e1", "h1g2", "d4d3"],
+      "objective": "Find the crushing endgame move",
+      "difficulty": "easy",
+      "rating": 1166,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "Take out the defender first",
+        "The rook has a powerful move",
+        "Exchange the rooks to start pushing the passed pawn"
+      ],
+      "tags": ["crushing", "exposedKing", "long", "rookEndgame"]
+    },
+    {
+      "id": "004X6",
+      "fen": "1r4k1/p4ppp/2Q5/3pq3/8/P6P/2PR1PP1/Rr4K1 w - - 1 26",
+      "solution": ["a1b1", "b8b1", "d2d1", "b1d1"],
+      "objective": "Mate in 2",
+      "difficulty": "easy",
+      "rating": 1152,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "The rook on b8 is undefended",
+        "Capture it with the rook",
+        "Back rank mate with rook"
+      ],
+      "tags": ["endGame", "mate", "mateIn2", "short"]
+    },
+    {
+      "id": "009IO",
+      "fen": "3rk3/5p1r/p2Np1p1/3bP3/P2n4/8/1P3RPP/5RK1 b - - 4 25",
+      "solution": ["e8e7", "f2f7", "h7f7", "f1f7"],
+      "objective": "Mate in 2",
+      "difficulty": "easy",
+      "rating": 1163,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "The rooks are ready to invade",
+        "Capture the pawn to open lines",
+        "Rxf7 is mate in two"
+      ],
+      "tags": ["endGame", "mate", "mateIn2", "short"]
+    },
+    {
+      "id": "009Os",
+      "fen": "r2b2k1/1p3q1p/p2p4/3P2p1/2P1PRQr/8/P2B3P/2R4K w - - 1 29",
+      "solution": ["g4g3", "h4f4", "d2f4", "f7f4", "g3f4", "g5f4"],
+      "objective": "Win material",
+      "difficulty": "medium",
+      "rating": 1392,
+      "hints": [
+        "Look for a hanging piece",
+        "Take the rook with your rook",
+        "finish with Qxf4"
+      ],
+      "tags": ["crushing", "long", "middlegame"]
     },
     {
       "id": "0017R",
@@ -309,20 +399,6 @@
     },
     
     {
-      "id": "001wr",
-      "fen": "r4rk1/p3ppbp/Pp1q1np1/3PpbB1/2B5/2N5/1PPQ1PPP/3RR1K1 w - - 4 18",
-      "solution": ["f2f3", "d6c5", "g1h1", "c5c4"],
-      "objective": "White to play and Black wins material",
-      "difficulty": "medium",
-      "rating": 987,
-      "hints": [
-        "The pawn move creates weaknesses",
-        "Black's queen becomes very active",
-        "The fork wins material"
-      ],
-      "tags": ["advantage", "fork", "master", "masterVsMaster", "middlegame"]
-    },
-    {
       "id": "001xO",
       "fen": "k1r1b3/p1r1nppp/1p1qpn2/2Np4/1P1P4/PQRBPN2/5PPP/2R3K1 w - - 0 19",
       "solution": ["c3a6", "a7b5", "a6c8", "e8c5", "c8c8"],
@@ -335,20 +411,6 @@
         "White gets a crushing attack"
       ],
       "tags": ["crushing", "master", "masterVsMaster", "middlegame", "sacrifice"]
-    },
-    {
-      "id": "001xl",
-      "fen": "8/4R1k1/p5pp/3B4/5q2/8/5P1P/6K1 b - - 5 40",
-      "solution": ["g7f6", "e7f7", "f6e5", "f7f4"],
-      "objective": "Black to play and gets advantage",
-      "difficulty": "medium",
-      "rating": 1149,
-      "hints": [
-        "Activate the king to support the queen",
-        "White's rook has a skewer",
-        "The queen must move but gets captured"
-      ],
-      "tags": ["advantage", "endgame", "master", "masterVsMaster", "short", "skewer", "superGM"]
     },
     {
       "id": "0018S",
@@ -615,20 +677,7 @@
         "The rook endgame technique is crucial"
       ],
       "tags": ["advancedPawn", "crushing", "defensiveMove", "endgame", "long", "rookEndgame"]
-    },
-    {
-      "id": "003eP",
-      "fen": "8/r1b1q2k/2p3p1/2Pp4/1P2p1n1/2B1P3/NQ6/2K4R b - - 1 36",
-      "solution": ["h7g8", "h1h8", "g8f7", "h8h7", "f7e8", "h7e7"],
-      "objective": "Black to play and White delivers mate",
-      "difficulty": "expert",
-      "rating": 1156,
-      "hints": [
-        "The king moves lead to a forced mate",
-        "White's rook creates a skewer pattern",
-        "The final move is a crushing blow"
-      ],
-      "tags": ["crushing", "exposedKing", "long", "middlegame", "skewer"]
     }
+    
   ]
 }

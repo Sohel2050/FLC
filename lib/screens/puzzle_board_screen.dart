@@ -282,16 +282,16 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
           _state = _game.squaresState(_movePattern.playerColor);
           setState(() {});
 
-          // Show a brief message about the opponent's move
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Opponent played: ${_formatMoveForDisplay(opponentMoveString)}',
-              ),
-              backgroundColor: Colors.blue,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+          // // Show a brief message about the opponent's move
+          // ScaffoldMessenger.of(context).showSnackBar(
+          //   SnackBar(
+          //     content: Text(
+          //       'Opponent played: ${_formatMoveForDisplay(opponentMoveString)}',
+          //     ),
+          //     backgroundColor: Colors.blue,
+          //     duration: const Duration(seconds: 2),
+          //   ),
+          // );
 
           // Check if puzzle is completed after opponent's move
           Future.delayed(const Duration(milliseconds: 500), () {
