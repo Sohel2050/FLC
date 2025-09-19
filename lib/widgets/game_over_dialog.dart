@@ -53,8 +53,8 @@ class _GameOverDialogState extends State<GameOverDialog> {
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (RewardedAd ad) => setState(() => _rewardedAd = ad),
-        onAdFailedToLoad:
-            (LoadAdError error) => setState(() => _rewardedAd = null),
+        onAdFailedToLoad: (LoadAdError error) =>
+            setState(() => _rewardedAd = null),
       ),
     );
   }
@@ -288,18 +288,18 @@ class _GameOverDialogState extends State<GameOverDialog> {
             children: [
               _isRematchAllowed()
                   ? ElevatedButton(
-                    onPressed: () async {
-                      await gameProvider.offerRematch();
-                    },
-                    child: const Text('Rematch'),
-                  )
+                      onPressed: () async {
+                        await gameProvider.offerRematch();
+                      },
+                      child: const Text('Rematch'),
+                    )
                   : ElevatedButton(
-                    onPressed: _rewardedAd != null ? _showRewardedAd : null,
-                    child: const Text('Watch Ad for Rematch'),
-                  ),
+                      onPressed: _rewardedAd != null ? _showRewardedAd : null,
+                      child: const Text('Watch Ad for Rematch'),
+                    ),
               OutlinedButton(
-                onPressed:
-                    () => Navigator.of(context).pop(GameOverAction.newGame),
+                onPressed: () =>
+                    Navigator.of(context).pop(GameOverAction.newGame),
                 child: const Text('New Game'),
               ),
             ],
@@ -318,15 +318,15 @@ class _GameOverDialogState extends State<GameOverDialog> {
       children: [
         _isRematchAllowed()
             ? ElevatedButton(
-              onPressed: () {
-                gameProvider.resetGame(true);
-              },
-              child: const Text('Rematch'),
-            )
+                onPressed: () {
+                  gameProvider.resetGame(true);
+                },
+                child: const Text('Rematch'),
+              )
             : ElevatedButton(
-              onPressed: _rewardedAd != null ? _showRewardedAd : null,
-              child: const Text('Watch Ad for Rematch'),
-            ),
+                onPressed: _rewardedAd != null ? _showRewardedAd : null,
+                child: const Text('Watch Ad for Rematch'),
+              ),
         OutlinedButton(
           onPressed: () {
             Navigator.of(context).pop(GameOverAction.newGame);

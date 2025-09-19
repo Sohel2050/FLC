@@ -243,7 +243,7 @@
       "id": "003eP",
       "fen": "8/r1b1q2k/2p3p1/2Pp4/1P2p1n1/2B1P3/NQ6/2K4R b - - 1 36",
       "solution": ["h7g8", "h1h8", "g8f7", "h8h7", "f7e8", "h7e7"],
-      "objective": "Black to play and White delivers mate",
+      "objective": "Win material",
       "difficulty": "easy",
       "rating": 1156,
       "opponentPlaysFirst": true,
@@ -306,12 +306,88 @@
       "objective": "Win material",
       "difficulty": "medium",
       "rating": 1392,
+      "opponentPlaysFirst": true,
       "hints": [
         "Look for a hanging piece",
         "Take the rook with your rook",
         "finish with Qxf4"
       ],
       "tags": ["crushing", "long", "middlegame"]
+    },
+    {
+      "id": "004mT",
+      "fen": "5Q2/8/1b1kp1p1/5p2/3p4/5qPK/7P/8 b - - 1 51",
+      "solution": ["d6c6", "f8a8", "c6d6", "a8f3"],
+      "objective": "Win material advantage",
+      "difficulty": "medium",
+      "rating": 1338,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "Look for a hanging piece",
+        "The queen can skewer",
+        "Qa8 is crushing"
+      ],
+      "tags": ["advantage", "short", "endGame", "skewer"]
+    },
+    {
+      "id": "004u0",
+      "fen": "6k1/ppq3pp/2p1rp2/4r3/4p1Q1/P5RP/1P3PP1/3R2K1 b - - 3 34",
+      "solution": ["e6e8", "d1d7", "c7d7", "g4d7"],
+      "objective": "Win material advantage",
+      "difficulty": "medium",
+      "rating": 1388,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "The rook can invade",
+        "Force the black queen to capture",
+        "Rd7 to force the queen exchange"
+      ],
+      "tags": ["advantage", "short", "endGame"]
+    },
+    {
+      "id": "005Bm",
+      "fen": "4rk2/p1q5/1p3Q1b/8/1p5N/2P1p3/P3P3/2K5 b - - 0 43",
+      "solution": ["c7f7", "h4g6", "f8g8", "f6h8"],
+      "objective": "Mate in 2",
+      "difficulty": "medium",
+      "rating": 1322,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "The Knight can deliver check",
+        "Ignore the hanging Bishop",
+        "Mate in two with Qh8#"
+      ],
+      "tags": ["mate", "mateIn2", "short", "endGame"]
+    },
+    {
+      "id": "0068B",
+      "fen": "r1q3k1/4bppp/pp2pn2/4B3/8/2N2Q2/PPPR1PPP/6K1 b - - 0 18",
+      "solution": ["f6d7", "d2d7", "c8d7", "f3a8"],
+      "objective": "Win material advantage",
+      "difficulty": "medium",
+      "rating": 1388,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "Deflect the Queen",
+        "Sacrifice the rook to gain material",
+        "Rook on a8 will be undefended"
+      ],
+      "tags": ["crushing", "deflection", "middleGame", "short"]
+    },
+    {
+      "id": "007eS",
+      "fen": "6k1/p4p2/1p5p/4r3/P3B3/1P3P2/2PK2PP/8 w - - 0 29",
+      "solution": ["d2e3", "f7f5", "g2g4", "f5e4"],
+      "objective": "Win material advantage",
+      "difficulty": "medium",
+      "rating": 1297,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "Take advantage of a pin",
+        "The bishop cannot move",
+        "Push pawn to f5"
+      ],
+      "tags": ["advantage", "endGame", "short"]
     },
     {
       "id": "0017R",
