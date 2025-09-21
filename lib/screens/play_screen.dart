@@ -14,6 +14,7 @@ import 'package:flutter_chess_app/widgets/online_players_count_widget.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:provider/provider.dart';
 import '../models/user_model.dart';
+import '../screens/puzzles_screen.dart';
 import '../widgets/game_mode_card.dart';
 import '../widgets/play_mode_button.dart';
 
@@ -280,36 +281,32 @@ class _PlayScreenState extends State<PlayScreen>
                   // Carousel indicators
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children:
-                        Constants.gameModes.asMap().entries.map((entry) {
-                          return GestureDetector(
-                            onTap:
-                                () => _carouselController.animateToPage(
-                                  entry.key,
-                                ),
-                            child: Container(
-                              width: 8.0,
-                              height: 8.0,
-                              margin: const EdgeInsets.symmetric(
-                                vertical: 4.0,
-                                horizontal: 3.0,
-                              ),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: (Theme.of(context).brightness ==
-                                            Brightness.dark
+                    children: Constants.gameModes.asMap().entries.map((entry) {
+                      return GestureDetector(
+                        onTap: () =>
+                            _carouselController.animateToPage(entry.key),
+                        child: Container(
+                          width: 8.0,
+                          height: 8.0,
+                          margin: const EdgeInsets.symmetric(
+                            vertical: 4.0,
+                            horizontal: 3.0,
+                          ),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color:
+                                (Theme.of(context).brightness == Brightness.dark
                                         ? Colors.white
                                         : Colors.black)
                                     .withValues(
-                                      alpha:
-                                          _selectedGameMode == entry.key
-                                              ? 0.9
-                                              : 0.4,
+                                      alpha: _selectedGameMode == entry.key
+                                          ? 0.9
+                                          : 0.4,
                                     ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
+                          ),
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ],
               ),
@@ -408,10 +405,9 @@ class _PlayScreenState extends State<PlayScreen>
                           playerFlag: currentUser.countryCode ?? '',
                           userRating: userRating,
                           gameMode: timeControl,
-                          ratingBasedSearch:
-                              context
-                                  .read<SettingsProvider>()
-                                  .ratingBasedSearch,
+                          ratingBasedSearch: context
+                              .read<SettingsProvider>()
+                              .ratingBasedSearch,
                           context: context,
                         );
 
@@ -432,8 +428,8 @@ class _PlayScreenState extends State<PlayScreen>
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder:
-                                    (context) => GameScreen(user: widget.user),
+                                builder: (context) =>
+                                    GameScreen(user: widget.user),
                               ),
                             );
                           }
@@ -510,9 +506,8 @@ class _PlayScreenState extends State<PlayScreen>
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder:
-                                      (context) =>
-                                          GameScreen(user: widget.user),
+                                  builder: (context) =>
+                                      GameScreen(user: widget.user),
                                 ),
                               );
                             }
@@ -553,6 +548,22 @@ class _PlayScreenState extends State<PlayScreen>
                         context,
                         MaterialPageRoute(
                           builder: (context) => GameScreen(user: widget.user),
+                        ),
+                      );
+                    },
+                    isPrimary: false,
+                    isFullWidth: true,
+                  ),
+                  const SizedBox(height: 12),
+
+                  MainAppButton(
+                    text: 'Puzzles',
+                    icon: Icons.extension,
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const PuzzlesScreen(),
                         ),
                       );
                     },

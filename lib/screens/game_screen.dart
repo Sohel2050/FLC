@@ -233,20 +233,19 @@ class _GameScreenState extends State<GameScreen> {
     if (invitingUserId == null) return;
 
     // Get inviting user details
-    final invitingUser =
-        gameRoom.player1Id == invitingUserId
-            ? ChessUser(
-              uid: gameRoom.player1Id,
-              displayName: gameRoom.player1DisplayName,
-              photoUrl: gameRoom.player1PhotoUrl,
-              countryCode: gameRoom.player1Flag,
-            )
-            : ChessUser(
-              uid: gameRoom.player2Id,
-              displayName: gameRoom.player2DisplayName ?? 'Opponent',
-              photoUrl: gameRoom.player2PhotoUrl,
-              countryCode: gameRoom.player2Flag,
-            );
+    final invitingUser = gameRoom.player1Id == invitingUserId
+        ? ChessUser(
+            uid: gameRoom.player1Id,
+            displayName: gameRoom.player1DisplayName,
+            photoUrl: gameRoom.player1PhotoUrl,
+            countryCode: gameRoom.player1Flag,
+          )
+        : ChessUser(
+            uid: gameRoom.player2Id,
+            displayName: gameRoom.player2DisplayName ?? 'Opponent',
+            photoUrl: gameRoom.player2PhotoUrl,
+            countryCode: gameRoom.player2Flag,
+          );
 
     final result = await AudioRoomInvitationDialog.show(
       context: context,
@@ -261,10 +260,9 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showAudioStartedNotification(GameRoom gameRoom) {
-    final invitingUserName =
-        gameRoom.player1Id == gameRoom.audioRoomInvitedBy
-            ? gameRoom.player1DisplayName
-            : gameRoom.player2DisplayName ?? 'Opponent';
+    final invitingUserName = gameRoom.player1Id == gameRoom.audioRoomInvitedBy
+        ? gameRoom.player1DisplayName
+        : gameRoom.player2DisplayName ?? 'Opponent';
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -370,8 +368,8 @@ class _GameScreenState extends State<GameScreen> {
 
     // Check microphone permission before auto-joining
     final permissionService = PermissionService();
-    final hasPermission =
-        await permissionService.isMicrophonePermissionGranted();
+    final hasPermission = await permissionService
+        .isMicrophonePermissionGranted();
 
     if (!hasPermission) {
       _gameProvider.logger.w(
@@ -458,10 +456,9 @@ class _GameScreenState extends State<GameScreen> {
     if (_gameProvider.isOnlineGame) {
       final gameRoom = _gameProvider.onlineGameRoom;
       if (gameRoom != null) {
-        final opponentId =
-            gameRoom.player1Id == widget.user.uid
-                ? gameRoom.player2Id
-                : gameRoom.player1Id;
+        final opponentId = gameRoom.player1Id == widget.user.uid
+            ? gameRoom.player2Id
+            : gameRoom.player1Id;
         if (opponentId != null) {
           _gameProvider.deleteChatMessages(widget.user.uid!, opponentId);
         }
@@ -660,10 +657,9 @@ class _GameScreenState extends State<GameScreen> {
                       final gameRoom = gameProvider.onlineGameRoom;
                       if (gameRoom == null) return const SizedBox.shrink();
 
-                      final opponentId =
-                          gameRoom.player1Id == widget.user.uid
-                              ? gameRoom.player2Id
-                              : gameRoom.player1Id;
+                      final opponentId = gameRoom.player1Id == widget.user.uid
+                          ? gameRoom.player2Id
+                          : gameRoom.player1Id;
 
                       if (opponentId == null) return const SizedBox.shrink();
 
@@ -684,9 +680,8 @@ class _GameScreenState extends State<GameScreen> {
                             child: UnreadBadgeWidget(
                               count: unreadCount,
                               child: GestureDetector(
-                                onTap:
-                                    () =>
-                                        _showInGameChat(context, gameProvider),
+                                onTap: () =>
+                                    _showInGameChat(context, gameProvider),
                                 child: Icon(Icons.chat),
                               ),
                             ),
@@ -726,18 +721,16 @@ class _GameScreenState extends State<GameScreen> {
                     Padding(
                       padding: const EdgeInsets.all(4.0),
                       child: BoardController(
-                        state:
-                            gameProvider.flipBoard
-                                ? gameProvider.state.board.flipped()
-                                : gameProvider.state.board,
+                        state: gameProvider.flipBoard
+                            ? gameProvider.state.board.flipped()
+                            : gameProvider.state.board,
                         playState: gameProvider.state.state,
                         pieceSet: settingsProvider.getPieceSet(),
                         theme: settingsProvider.boardTheme,
                         animatePieces: settingsProvider.animatePieces,
-                        labelConfig:
-                            settingsProvider.showLabels
-                                ? LabelConfig.standard
-                                : LabelConfig.disabled,
+                        labelConfig: settingsProvider.showLabels
+                            ? LabelConfig.standard
+                            : LabelConfig.disabled,
                         moves: gameProvider.state.moves,
                         onMove: _onMove,
                         onPremove: _onMove,
@@ -760,9 +753,9 @@ class _GameScreenState extends State<GameScreen> {
                             // Handle timeout by calling the GameProvider method
                             final winner =
                                 gameProvider.firstMoveCountdownPlayer ==
-                                        Squares.white
-                                    ? Squares.black
-                                    : Squares.white;
+                                    Squares.white
+                                ? Squares.black
+                                : Squares.white;
                             gameProvider.handleFirstMoveTimeout(winner: winner);
                           },
                         ),
@@ -818,30 +811,27 @@ class _GameScreenState extends State<GameScreen> {
                     left: 0,
                     right: 0,
                     child: FriendRequestWidget(
-                      onAccept:
-                          () => gameProvider.handleFriendRequest(
-                            widget.user.uid!,
-                            gameProvider.friendRequestSenderId!,
-                            true,
-                          ),
-                      onDecline:
-                          () => gameProvider.handleFriendRequest(
-                            widget.user.uid!,
-                            gameProvider.friendRequestSenderId!,
-                            false,
-                          ),
+                      onAccept: () => gameProvider.handleFriendRequest(
+                        widget.user.uid!,
+                        gameProvider.friendRequestSenderId!,
+                        true,
+                      ),
+                      onDecline: () => gameProvider.handleFriendRequest(
+                        widget.user.uid!,
+                        gameProvider.friendRequestSenderId!,
+                        false,
+                      ),
                     ),
                   ),
               ],
             ),
-            bottomNavigationBar:
-                _bannerAd == null
-                    ? SizedBox.shrink()
-                    : Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      height: 52,
-                      child: AdWidget(ad: _bannerAd!),
-                    ),
+            bottomNavigationBar: _bannerAd == null
+                ? SizedBox.shrink()
+                : Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    height: 52,
+                    child: AdWidget(ad: _bannerAd!),
+                  ),
           );
         },
       ),
@@ -853,13 +843,13 @@ class _GameScreenState extends State<GameScreen> {
     GameProvider gameProvider,
     SettingsProvider settingsProvider,
   ) {
-    final int opponentColor =
-        gameProvider.player == Squares.white ? Squares.black : Squares.white;
+    final int opponentColor = gameProvider.player == Squares.white
+        ? Squares.black
+        : Squares.white;
     final bool isOpponentsTurn = gameProvider.game.state.turn == opponentColor;
-    final List<String> opponentCaptured =
-        opponentColor == Squares.white
-            ? gameProvider.whiteCapturedPieces
-            : gameProvider.blackCapturedPieces;
+    final List<String> opponentCaptured = opponentColor == Squares.white
+        ? gameProvider.whiteCapturedPieces
+        : gameProvider.blackCapturedPieces;
     final int materialAdvantage = gameProvider.getMaterialAdvantageForPlayer(
       opponentColor,
     );
@@ -876,10 +866,12 @@ class _GameScreenState extends State<GameScreen> {
                 countryCode: 'US',
                 radius: 20,
                 isEditable: false,
-                backgroundColor:
-                    Theme.of(context).colorScheme.secondaryContainer,
-                placeholderIcon:
-                    gameProvider.vsCPU ? Icons.computer : Icons.person,
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.secondaryContainer,
+                placeholderIcon: gameProvider.vsCPU
+                    ? Icons.computer
+                    : Icons.person,
               ),
               const SizedBox(width: 8),
               Column(
@@ -911,12 +903,11 @@ class _GameScreenState extends State<GameScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color:
-                          isOpponentsTurn
-                              ? Theme.of(context).colorScheme.primaryContainer
-                              : Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
+                      color: isOpponentsTurn
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -933,8 +924,9 @@ class _GameScreenState extends State<GameScreen> {
                   const SizedBox(height: 4),
                   CapturedPiecesWidget(
                     capturedPieces: opponentCaptured,
-                    materialAdvantage:
-                        materialAdvantage > 0 ? materialAdvantage : 0,
+                    materialAdvantage: materialAdvantage > 0
+                        ? materialAdvantage
+                        : 0,
                     isWhite: opponentColor == Squares.white,
                     pieceSet: settingsProvider.getPieceSet(),
                     isCompact: true,
@@ -959,25 +951,27 @@ class _GameScreenState extends State<GameScreen> {
     }
 
     final bool isPlayer1 = gameProvider.player == gameRoom.player1Color;
-    final String opponentDisplayName =
-        isPlayer1
-            ? (gameRoom.player2DisplayName ?? 'Opponent')
-            : gameRoom.player1DisplayName;
-    final String? opponentPhotoUrl =
-        isPlayer1 ? gameRoom.player2PhotoUrl : gameRoom.player1PhotoUrl;
-    final int opponentRating =
-        isPlayer1 ? (gameRoom.player2Rating ?? 1200) : gameRoom.player1Rating;
-    final int? opponentColor =
-        isPlayer1 ? gameRoom.player2Color : gameRoom.player1Color;
-    final String? opponentId =
-        isPlayer1 ? gameRoom.player2Id : gameRoom.player1Id;
+    final String opponentDisplayName = isPlayer1
+        ? (gameRoom.player2DisplayName ?? 'Opponent')
+        : gameRoom.player1DisplayName;
+    final String? opponentPhotoUrl = isPlayer1
+        ? gameRoom.player2PhotoUrl
+        : gameRoom.player1PhotoUrl;
+    final int opponentRating = isPlayer1
+        ? (gameRoom.player2Rating ?? 1200)
+        : gameRoom.player1Rating;
+    final int? opponentColor = isPlayer1
+        ? gameRoom.player2Color
+        : gameRoom.player1Color;
+    final String? opponentId = isPlayer1
+        ? gameRoom.player2Id
+        : gameRoom.player1Id;
     final String? opponentFlag = gameRoom.player2Flag;
 
     final bool isOpponentsTurn = gameProvider.game.state.turn == opponentColor;
-    final List<String> opponentCaptured =
-        opponentColor == Squares.white
-            ? gameProvider.whiteCapturedPieces
-            : gameProvider.blackCapturedPieces;
+    final List<String> opponentCaptured = opponentColor == Squares.white
+        ? gameProvider.whiteCapturedPieces
+        : gameProvider.blackCapturedPieces;
     final int materialAdvantage = gameProvider.getMaterialAdvantageForPlayer(
       opponentColor,
     );
@@ -994,8 +988,9 @@ class _GameScreenState extends State<GameScreen> {
                 countryCode: opponentFlag,
                 radius: 20,
                 isEditable: false,
-                backgroundColor:
-                    Theme.of(context).colorScheme.secondaryContainer,
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.secondaryContainer,
                 placeholderIcon: Icons.person,
               ),
               const SizedBox(width: 8),
@@ -1078,12 +1073,11 @@ class _GameScreenState extends State<GameScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color:
-                          isOpponentsTurn
-                              ? Theme.of(context).colorScheme.primaryContainer
-                              : Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
+                      color: isOpponentsTurn
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -1100,8 +1094,9 @@ class _GameScreenState extends State<GameScreen> {
                   const SizedBox(height: 4),
                   CapturedPiecesWidget(
                     capturedPieces: opponentCaptured,
-                    materialAdvantage:
-                        materialAdvantage > 0 ? materialAdvantage : 0,
+                    materialAdvantage: materialAdvantage > 0
+                        ? materialAdvantage
+                        : 0,
                     isWhite: opponentColor == Squares.white,
                     pieceSet: settingsProvider.getPieceSet(),
                     isCompact: true,
@@ -1158,10 +1153,9 @@ class _GameScreenState extends State<GameScreen> {
   ) {
     final bool isPlayersTurn =
         gameProvider.game.state.turn == gameProvider.player;
-    final List<String> playerCaptured =
-        gameProvider.player == Squares.white
-            ? gameProvider.whiteCapturedPieces
-            : gameProvider.blackCapturedPieces;
+    final List<String> playerCaptured = gameProvider.player == Squares.white
+        ? gameProvider.whiteCapturedPieces
+        : gameProvider.blackCapturedPieces;
     final int materialAdvantage = gameProvider.getMaterialAdvantageForPlayer(
       gameProvider.player,
     );
@@ -1188,9 +1182,11 @@ class _GameScreenState extends State<GameScreen> {
                     gameProvider.isOnlineGame &&
                             gameProvider.onlineGameRoom != null
                         ? (gameProvider.isHost
-                            ? gameProvider.onlineGameRoom!.player1DisplayName
-                            : gameProvider.onlineGameRoom!.player2DisplayName ??
-                                widget.user.displayName)
+                              ? gameProvider.onlineGameRoom!.player1DisplayName
+                              : gameProvider
+                                        .onlineGameRoom!
+                                        .player2DisplayName ??
+                                    widget.user.displayName)
                         : widget.user.displayName,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
@@ -1253,12 +1249,11 @@ class _GameScreenState extends State<GameScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color:
-                          isPlayersTurn
-                              ? Theme.of(context).colorScheme.primaryContainer
-                              : Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHighest,
+                      color: isPlayersTurn
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -1276,8 +1271,9 @@ class _GameScreenState extends State<GameScreen> {
                   const SizedBox(height: 4),
                   CapturedPiecesWidget(
                     capturedPieces: playerCaptured,
-                    materialAdvantage:
-                        materialAdvantage > 0 ? materialAdvantage : 0,
+                    materialAdvantage: materialAdvantage > 0
+                        ? materialAdvantage
+                        : 0,
                     isWhite: gameProvider.player == Squares.white,
                     pieceSet: settingsProvider.getPieceSet(),
                     isCompact: true,
@@ -1312,8 +1308,8 @@ class _GameScreenState extends State<GameScreen> {
 
     // Check if microphone permission is still granted
     final permissionService = PermissionService();
-    final hasPermission =
-        await permissionService.isMicrophonePermissionGranted();
+    final hasPermission = await permissionService
+        .isMicrophonePermissionGranted();
 
     if (!hasPermission) {
       _gameProvider.logger.w('Microphone permission revoked during runtime');
@@ -1426,8 +1422,8 @@ class _GameScreenState extends State<GameScreen> {
 
     // Check microphone permission before initializing ZegoCloud engine
     final permissionService = PermissionService();
-    final hasPermission =
-        await permissionService.isMicrophonePermissionGranted();
+    final hasPermission = await permissionService
+        .isMicrophonePermissionGranted();
 
     if (!hasPermission) {
       throw Exception('Microphone permission is required for voice chat');
@@ -1530,8 +1526,8 @@ class _GameScreenState extends State<GameScreen> {
   /// Initialize audio states to ensure UI reflects ZegoCloud state
   Future<void> _initializeAudioStates() async {
     try {
-      // Set initial microphone state (start with microphone disabled for better UX)
-      await ZegoExpressEngine.instance.muteMicrophone(true);
+      // Set initial microphone state (start with microphone enabled for immediate communication)
+      await ZegoExpressEngine.instance.muteMicrophone(false);
 
       // Set initial speaker state (start with speaker enabled)
       await ZegoExpressEngine.instance.muteSpeaker(false);
@@ -1545,7 +1541,7 @@ class _GameScreenState extends State<GameScreen> {
       }
 
       _gameProvider.logger.i(
-        'Audio states initialized: mic=muted, speaker=unmuted',
+        'Audio states initialized: mic=unmuted, speaker=unmuted',
       );
     } catch (e) {
       _gameProvider.logger.w('Failed to initialize audio states: $e');
@@ -1651,12 +1647,8 @@ class _GameScreenState extends State<GameScreen> {
     };
 
     // Listen for stream updates (when users start/stop publishing)
-    ZegoExpressEngine.onRoomStreamUpdate = (
-      roomID,
-      updateType,
-      streamList,
-      extendedData,
-    ) {
+    ZegoExpressEngine
+        .onRoomStreamUpdate = (roomID, updateType, streamList, extendedData) {
       _gameProvider.logger.i(
         'Stream update - Room: $roomID, Type: $updateType, Streams: ${streamList.map((s) => s.streamID).join(', ')}',
       );
@@ -1954,10 +1946,9 @@ class _GameScreenState extends State<GameScreen> {
     final bool isOpponentsTurn =
         gameProvider.game.state.turn ==
         (isOpponentWhite ? Squares.white : Squares.black);
-    final List<String> opponentCaptured =
-        isOpponentWhite
-            ? gameProvider.whiteCapturedPieces
-            : gameProvider.blackCapturedPieces;
+    final List<String> opponentCaptured = isOpponentWhite
+        ? gameProvider.whiteCapturedPieces
+        : gameProvider.blackCapturedPieces;
     final int materialAdvantage = gameProvider.getMaterialAdvantageForPlayer(
       isOpponentWhite ? Squares.white : Squares.black,
     );
@@ -1974,10 +1965,12 @@ class _GameScreenState extends State<GameScreen> {
                 countryCode: 'US',
                 radius: 20,
                 isEditable: false,
-                backgroundColor:
-                    Theme.of(context).colorScheme.secondaryContainer,
-                placeholderIcon:
-                    gameProvider.vsCPU ? Icons.computer : Icons.person,
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.secondaryContainer,
+                placeholderIcon: gameProvider.vsCPU
+                    ? Icons.computer
+                    : Icons.person,
               ),
               const SizedBox(width: 8),
               Column(
@@ -2007,10 +2000,9 @@ class _GameScreenState extends State<GameScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color:
-                          isOpponentsTurn
-                              ? Theme.of(context).colorScheme.primaryContainer
-                              : Theme.of(context).colorScheme.surfaceVariant,
+                      color: isOpponentsTurn
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(context).colorScheme.surfaceVariant,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -2027,8 +2019,9 @@ class _GameScreenState extends State<GameScreen> {
                   const SizedBox(height: 4),
                   CapturedPiecesWidget(
                     capturedPieces: opponentCaptured,
-                    materialAdvantage:
-                        materialAdvantage > 0 ? materialAdvantage : 0,
+                    materialAdvantage: materialAdvantage > 0
+                        ? materialAdvantage
+                        : 0,
                     isWhite: isOpponentWhite,
                     pieceSet: settingsProvider.getPieceSet(),
                     isCompact: true,
@@ -2051,10 +2044,9 @@ class _GameScreenState extends State<GameScreen> {
     final bool isPlayersTurn =
         gameProvider.game.state.turn ==
         (isPlayerWhite ? Squares.white : Squares.black);
-    final List<String> playerCaptured =
-        isPlayerWhite
-            ? gameProvider.whiteCapturedPieces
-            : gameProvider.blackCapturedPieces;
+    final List<String> playerCaptured = isPlayerWhite
+        ? gameProvider.whiteCapturedPieces
+        : gameProvider.blackCapturedPieces;
     final int materialAdvantage = gameProvider.getMaterialAdvantageForPlayer(
       gameProvider.player,
     );
@@ -2101,10 +2093,9 @@ class _GameScreenState extends State<GameScreen> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color:
-                          isPlayersTurn
-                              ? Theme.of(context).colorScheme.primaryContainer
-                              : Theme.of(context).colorScheme.surfaceVariant,
+                      color: isPlayersTurn
+                          ? Theme.of(context).colorScheme.primaryContainer
+                          : Theme.of(context).colorScheme.surfaceVariant,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -2122,8 +2113,9 @@ class _GameScreenState extends State<GameScreen> {
                   const SizedBox(height: 4),
                   CapturedPiecesWidget(
                     capturedPieces: playerCaptured,
-                    materialAdvantage:
-                        materialAdvantage > 0 ? materialAdvantage : 0,
+                    materialAdvantage: materialAdvantage > 0
+                        ? materialAdvantage
+                        : 0,
                     isWhite: gameProvider.player == Squares.white,
                     pieceSet: settingsProvider.getPieceSet(),
                     isCompact: true,
@@ -2138,20 +2130,19 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showInGameChat(BuildContext context, GameProvider gameProvider) {
-    final opponent =
-        gameProvider.onlineGameRoom?.player1Id == widget.user.uid
-            ? ChessUser(
-              uid: gameProvider.onlineGameRoom?.player2Id,
-              displayName:
-                  gameProvider.onlineGameRoom?.player2DisplayName ?? 'Opponent',
-              photoUrl: gameProvider.onlineGameRoom?.player2PhotoUrl,
-            )
-            : ChessUser(
-              uid: gameProvider.onlineGameRoom?.player1Id,
-              displayName:
-                  gameProvider.onlineGameRoom?.player1DisplayName ?? 'Opponent',
-              photoUrl: gameProvider.onlineGameRoom?.player1PhotoUrl,
-            );
+    final opponent = gameProvider.onlineGameRoom?.player1Id == widget.user.uid
+        ? ChessUser(
+            uid: gameProvider.onlineGameRoom?.player2Id,
+            displayName:
+                gameProvider.onlineGameRoom?.player2DisplayName ?? 'Opponent',
+            photoUrl: gameProvider.onlineGameRoom?.player2PhotoUrl,
+          )
+        : ChessUser(
+            uid: gameProvider.onlineGameRoom?.player1Id,
+            displayName:
+                gameProvider.onlineGameRoom?.player1DisplayName ?? 'Opponent',
+            photoUrl: gameProvider.onlineGameRoom?.player1PhotoUrl,
+          );
 
     showModalBottomSheet(
       context: context,
