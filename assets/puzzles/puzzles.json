@@ -390,12 +390,43 @@
       "tags": ["advantage", "endGame", "short"]
     },
     {
+      "id": "009FP",
+      "fen": "r1b1k1nr/ppp2pbp/3ppqp1/8/2BnP3/N2P2QP/PPP2PP1/R1B1K2R b KQkq - 4 9",
+      "solution": ["e6e5", "c1g5", "f6g5", "g3g5"],
+      "objective": "Win material advantage",
+      "difficulty": "medium",
+      "rating": 1376,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "Take advantage of a trapped piece",
+        "Bg5 traps the queen",
+        "The queen on g5 is hanging"
+      ],
+      "tags": ["advantage", "opening", "short", "trappedPiece"]
+    },
+    {
+      "id": "009zS",
+      "fen": "r3r1k1/1p3p1p/p1p3p1/8/6bP/Q3b3/PP2B1P1/R3K2R w KQ - 2 20",
+      "solution": ["g2g3", "g4e2", "e1e2", "e3c5", "e2f3", "c5a3"],
+      "objective": "Win material advantage",
+      "difficulty": "medium",
+      "rating": 1315,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "Exchange the bishops",
+        "Use the bishop on e3",
+        "The queen on a3 is hanging"
+      ],
+      "tags": ["advantage", "discoveredAttack", "long", "exposedKing", "middleGame"]
+    },
+    {
       "id": "0017R",
       "fen": "r2qk2r/pp2ppbp/1n1p2p1/3Pn3/2P5/2NBBP1P/PP3P2/R2QK2R b KQkq - 0 12",
-      "solution": ["e5c4", "e3c4", "e5c4", "d8a4", "e8d7", "a4c4"],
-      "objective": "Black to play and win material",
-      "difficulty": "medium",
+      "solution": ["e5c4", "d3c4", "b6c4", "d1a4", "d8d7", "a4c4"],
+      "objective": "Win material",
+      "difficulty": "hard",
       "rating": 1694,
+      "opponentPlaysFirst": true,
       "hints": [
         "The knight can capture with tempo",
         "Force favorable exchanges",
@@ -407,9 +438,10 @@
       "id": "001XA",
       "fen": "1qr2rk1/pb2bppp/8/8/2p1N3/P1Bn2P1/2Q2PBP/1R3RK1 b - - 3 23",
       "solution": ["b8c7", "b1b7", "c7b7", "e4f6", "e7f6", "g2b7"],
-      "objective": "Black to play and loses material",
-      "difficulty": "medium",
+      "objective": "Win material",
+      "difficulty": "hard",
       "rating": 1648,
+      "opponentPlaysFirst": true,
       "hints": [
         "Black's queen moves to defend",
         "White has a discovered attack",
@@ -421,36 +453,129 @@
       "id": "001cr",
       "fen": "8/3B2pp/p5k1/2p3P1/1p1p1K2/8/1P6/8 b - - 0 38",
       "solution": ["c5c4", "d7e8"],
-      "objective": "Black to play and gets mated",
-      "difficulty": "medium",
+      "objective": "Mate in 1",
+      "difficulty": "hard",
       "rating": 1703,
+      "opponentPlaysFirst": true,
       "hints": [
-        "Push the passed pawn",
+        "The King cannot move",
         "The bishop delivers mate",
         "Be8 is mate in one"
       ],
       "tags": ["bishopEndgame", "endgame", "mate", "mateIn1"]
     },
     {
-      "id": "001m3",
-      "fen": "7r/6k1/2b1pp2/8/P1N3p1/5nP1/4RP2/Q4K2 w - - 2 38",
-      "solution": ["e2e6", "h8h1", "f1e2", "h1a1"],
-      "objective": "White to play and Black wins material",
-      "difficulty": "medium",
-      "rating": 1467,
+      "id": "001xO",
+      "fen": "k1r1b3/p1r1nppp/1p1qpn2/2Np4/1P1P4/PQRBPN2/5PPP/2R3K1 w - - 0 19",
+      "solution": ["d3a6", "b6c5", "a6c8", "c5c4"],
+      "objective": "Wins material",
+      "difficulty": "hard",
+      "rating": 1812,
+      "opponentPlaysFirst": true,
       "hints": [
-        "The rook sacrifice opens lines",
-        "Black has a back rank threat",
-        "The skewer wins the queen"
+        "The rook sacrifice is powerful",
+        "Take the knight with tempo",
+        "The bishop will be hanging"
       ],
-      "tags": ["advantage", "endgame", "short", "skewer"]
+      "tags": ["crushing", "master", "masterVsMaster", "middlegame", "sacrifice"]
     },
+    {
+      "id": "001uD",
+      "fen": "6k1/1p3pp1/1p5p/2r1p3/2n5/r3PN2/2RnNPPP/2R3K1 b - - 1 32",
+      "solution": ["f7f6", "f3d2", "c4d2", "c2d2", "c5c1", "e2c1"],
+      "objective": "Win advantage",
+      "difficulty": "hard",
+      "rating": 1894,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "Start the exchange sequence",
+        "Exchange pieces favorably",
+        "The rook endgame is better for white"
+      ],
+      "tags": ["advantage", "long", "middlegame"]
+    },
+    {
+      "id": "001aK",
+      "fen": "6k1/5p2/4p3/P1B5/2P4P/4Pnp1/Rb1rN3/5K2 b - - 1 33",
+      "solution": ["d2e2", "f1e2", "g3g2", "e3e4", "f3d4", "e2f2"],
+      "objective": "Defend and gain control of the position",
+      "difficulty": "hard",
+      "rating": 1989,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "Take the rook sacrifice",
+        "Open up lines for the bishop",
+        "Control the position with the King"
+      ],
+      "tags": ["crushing", "endgame", "hangingPiece", "long", "quietMove"]
+    },
+    {
+      "id": "000h0",
+      "fen": "5rk1/p5p1/3bpr1p/1Pp4q/3pR3/1P1Q1N2/P4PPP/4R1K1 w - - 4 22",
+      "solution": ["e4e6", "f6f3", "g2f3", "h5h2", "g1f1", "h2h3", "f1e2", "h3e6"],
+      "objective": "Win material advantage",
+      "difficulty": "hard",
+      "rating": 1930,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "Look for a dangerous attack",
+        "Use a sacrifice to open lines",
+        "The king gets exposed to checks"
+      ],
+      "tags": ["advantage", "interference", "kingsideAttack", "middlegame", "veryLong"]
+    },
+    {
+      "id": "000mr",
+      "fen": "5r1k/5rp1/p7/1b2B2p/1P1P1Pq1/2R1Q3/P3p1P1/2R3K1 w - - 0 41",
+      "solution": ["e3g3", "f7f4", "e5f4", "f8f4"],
+      "objective": "Gain crushing advantage",
+      "difficulty": "hard",
+      "rating": 1941,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "Open up lines for the rooks",
+        "Create threats against the king",
+        "The material advantage is decisive"
+      ],
+      "tags": ["crushing", "middlegame", "short"]
+    },
+    {
+      "id": "001Oo",
+      "fen": "6k1/4p1bp/6p1/1p1pP3/1PpPp3/2P1P3/Q2B1KPP/3q4 b - - 2 23",
+      "solution": ["d1a4", "a2a4", "b5a4", "b4b5", "g8f7", "b5b6"],
+      "objective": "Gain advantage in endgame",
+      "difficulty": "hard",
+      "rating": 2069,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "Exchange queens to reach endgame",
+        "The passed pawn becomes powerful",
+        "The Pawn on b4 is unstoppable"
+      ],
+      "tags": ["crushing", "endgame", "long", "quietMove"]
+    },
+    {
+      "id": "000qP",
+      "fen": "8/7R/8/5p2/4bk1P/8/2r2K2/6R1 w - - 7 51",
+      "solution": ["f2f1", "f4f3", "f1e1", "c2c1", "e1d2", "c1g1"],
+      "objective": "Gain material advantage",
+      "difficulty": "hard",
+      "rating": 2052,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "Activate the king to threaten checkmate",
+        "The rook is hanging",
+        "Rc1 wins material"
+      ],
+      "tags": ["crushing", "endgame", "exposedKing", "long", "skewer"]
+    },
+    
     {
       "id": "001u3",
       "fen": "2r3k1/p1q2pp1/Q3p2p/b1Np4/2nP1P2/4P1P1/5K1P/2B1N3 b - - 3 33",
       "solution": ["b7b6", "a6c8", "g8h7", "c8b7"],
       "objective": "Black to play and White wins material",
-      "difficulty": "medium",
+      "difficulty": "expert",
       "rating": 2175,
       "hints": [
         "Black's queen challenges White's queen",
@@ -459,41 +584,15 @@
       ],
       "tags": ["advantage", "hangingPiece", "middlegame"]
     },
-    {
-      "id": "001uD",
-      "fen": "6k1/1p3pp1/1p5p/2r1p3/2n5/r3PN2/2RnNPPP/2R3K1 b - - 1 32",
-      "solution": ["f7f6", "e3d2", "d2d2", "a3c2", "d2c2", "c3c5", "c2c1"],
-      "objective": "Black to play and gets advantage",
-      "difficulty": "medium",
-      "rating": 1894,
-      "hints": [
-        "Push the pawn to limit White's knight",
-        "Exchange pieces favorably",
-        "The rook endgame is better for Black"
-      ],
-      "tags": ["advantage", "long", "middlegame"]
-    },
     
-    {
-      "id": "001xO",
-      "fen": "k1r1b3/p1r1nppp/1p1qpn2/2Np4/1P1P4/PQRBPN2/5PPP/2R3K1 w - - 0 19",
-      "solution": ["c3a6", "a7b5", "a6c8", "e8c5", "c8c8"],
-      "objective": "White to play and wins material",
-      "difficulty": "medium",
-      "rating": 1812,
-      "hints": [
-        "The rook sacrifice is powerful",
-        "Black must respond to the threats",
-        "White gets a crushing attack"
-      ],
-      "tags": ["crushing", "master", "masterVsMaster", "middlegame", "sacrifice"]
-    },
+    
+    
     {
       "id": "0018S",
       "fen": "2kr3r/pp3p2/4p2p/1N1p2p1/3Q4/1P1P4/2q2PPP/5RK1 b - - 1 20",
       "solution": ["b7b6", "d4a1", "a6a5", "f1c1"],
       "objective": "Black to play and White gets advantage",
-      "difficulty": "hard",
+      "difficulty": "expert",
       "rating": 2560,
       "hints": [
         "Push the pawn to attack the queen",
@@ -507,7 +606,7 @@
       "fen": "6k1/pp1r1pp1/1qp1p2p/4P2P/5Q2/1P4R1/P1Pr1PP1/R5K1 b - - 4 23",
       "solution": ["b6d4", "f4f6", "d4f2", "f6f2", "d2f2", "f2f2"],
       "objective": "Black to play and gets advantage",
-      "difficulty": "hard",
+      "difficulty": "expert",
       "rating": 2389,
       "hints": [
         "Centralize the queen with tempo",
@@ -515,118 +614,6 @@
         "The endgame position is better for Black"
       ],
       "tags": ["advantage", "endgame", "long", "pin"]
-    },
-    {
-      "id": "001Oo",
-      "fen": "6k1/4p1bp/6p1/1p1pP3/1PpPp3/2P1P3/Q2B1KPP/3q4 b - - 2 23",
-      "solution": ["d1a4", "a2a4", "b5a4", "c4b5", "g8f7", "b5b6"],
-      "objective": "Black to play and White gets advantage",
-      "difficulty": "hard",
-      "rating": 2069,
-      "hints": [
-        "Exchange queens to reach endgame",
-        "The passed pawn becomes powerful",
-        "White's king helps advance the pawn"
-      ],
-      "tags": ["crushing", "endgame", "long", "quietMove"]
-    },
-    {
-      "id": "001aK",
-      "fen": "6k1/5p2/4p3/P1B5/2P4P/4Pnp1/Rb1rN3/5K2 b - - 1 33",
-      "solution": ["b2e2", "f1e2", "g3g2", "e3e4", "f3d4", "e2f2"],
-      "objective": "Black to play and gets crushing advantage",
-      "difficulty": "hard",
-      "rating": 1989,
-      "hints": [
-        "The rook sacrifice creates passed pawns",
-        "Advance the pawn with tempo",
-        "The knight controls key squares"
-      ],
-      "tags": ["crushing", "endgame", "hangingPiece", "long", "quietMove"]
-    },
-    {
-      "id": "000qP",
-      "fen": "8/7R/8/5p2/4bk1P/8/2r2K2/6R1 w - - 7 51",
-      "solution": ["f2f1", "f4f3", "f1e1", "c2c1", "e1d2", "c1g1"],
-      "objective": "White to play and Black gets advantage",
-      "difficulty": "hard",
-      "rating": 2052,
-      "hints": [
-        "Activate the king to defend",
-        "Black has a powerful skewer",
-        "The rook endgame is difficult for White"
-      ],
-      "tags": ["crushing", "endgame", "exposedKing", "long", "skewer"]
-    },
-    {
-      "id": "000h0",
-      "fen": "5rk1/p5p1/3bpr1p/1Pp4q/3pR3/1P1Q1N2/P4PPP/4R1K1 w - - 4 22",
-      "solution": ["e4e6", "f6f3", "g2f3", "h5h2", "g1f1", "h2h3", "f1e2", "h3e6"],
-      "objective": "White to play and Black gets advantage",
-      "difficulty": "hard",
-      "rating": 1930,
-      "hints": [
-        "The rook move creates interference",
-        "Black's attack is very dangerous",
-        "The king gets exposed to checks"
-      ],
-      "tags": ["advantage", "interference", "kingsideAttack", "middlegame", "veryLong"]
-    },
-    {
-      "id": "000mr",
-      "fen": "5r1k/5rp1/p7/1b2B2p/1P1P1Pq1/2R1Q3/P3p1P1/2R3K1 w - - 0 41",
-      "solution": ["e3g3", "f8f4", "e5f4", "f7f4"],
-      "objective": "White to play and Black gets crushing advantage",
-      "difficulty": "hard",
-      "rating": 1941,
-      "hints": [
-        "Capture the queen to simplify",
-        "Black's rooks become very active",
-        "The material advantage is decisive"
-      ],
-      "tags": ["crushing", "middlegame"]
-    },
-    {
-      "id": "001h8",
-      "fen": "2r3k1/2r4p/4p1p1/1p1q1pP1/p1bP1P1Q/P6R/5B2/2R3K1 b - - 5 34",
-      "solution": ["c4e2", "h4h7", "c7h7", "c8c1", "h7g7", "c1c7"],
-      "objective": "Black to play and White gets crushing advantage",
-      "difficulty": "hard",
-      "rating": 1780,
-      "hints": [
-        "The bishop sacrifice deflects the queen",
-        "White's attack becomes unstoppable",
-        "The king hunt is decisive"
-      ],
-      "tags": ["crushing", "deflection", "kingsideAttack", "long", "middlegame", "sacrifice"]
-    },
-    {
-      "id": "002Ds",
-      "fen": "8/1pp5/p2p4/P2Pk2p/1PP1p2P/2n1K2P/3N4/8 b - - 0 45",
-      "solution": ["b7b6", "c4b5", "c3d1", "e3e2", "a5b5", "h5a6"],
-      "objective": "Black to play and gets crushing advantage",
-      "difficulty": "hard",
-      "rating": 1987,
-      "hints": [
-        "Push the pawn to create counterplay",
-        "The knight controls key squares",
-        "Black's pawns become unstoppable"
-      ],
-      "tags": ["crushing", "endgame", "knightEndgame", "long"]
-    },
-    {
-      "id": "002Hv",
-      "fen": "8/8/8/3N2p1/5b2/3p3P/5kP1/3K4 w - - 16 56",
-      "solution": ["d5f4", "g5f4", "h3h4", "f2g2", "h4h5", "f4f3", "d1d2", "f3f2"],
-      "objective": "White to play and gets crushing advantage",
-      "difficulty": "hard",
-      "rating": 1603,
-      "hints": [
-        "Sacrifice the knight for two pawns",
-        "Advance the passed pawn quickly",
-        "The pawn promotion is unstoppable"
-      ],
-      "tags": ["advancedPawn", "crushing", "endgame", "veryLong"]
     },
     {
       "id": "002e5",
@@ -685,20 +672,6 @@
       "tags": ["advantage", "middlegame"]
     },
     {
-      "id": "002O7",
-      "fen": "r3qrk1/2p2pp1/p2bpn1p/2ppNb2/3P1P2/1PP1P1B1/P2N2PP/R2Q1RK1 b - - 0 14",
-      "solution": ["f5g4", "e5g4", "f6g4", "d1g4"],
-      "objective": "Black to play and gets crushing advantage",
-      "difficulty": "expert",
-      "rating": 968,
-      "hints": [
-        "Capture the bishop to simplify",
-        "The knight exchange is favorable",
-        "Black's position becomes superior"
-      ],
-      "tags": ["crushing", "middlegame"]
-    },
-    {
       "id": "002xh",
       "fen": "2nk4/8/2PBp1n1/1pK1P1p1/1P4P1/8/8/8 b - - 2 42",
       "solution": ["g6h4", "c5b5", "h4g2", "b5a6", "g2e3", "a6b7"],
@@ -725,35 +698,8 @@
         "The pawn endgame technique is key"
       ],
       "tags": ["crushing", "endgame", "pawnEndgame", "quietMove"]
-    },
-    {
-      "id": "003IX",
-      "fen": "8/3pk3/R7/1R2Pp1p/2PPnKr1/8/8/8 w - - 4 43",
-      "solution": ["f4f5", "e4g3"],
-      "objective": "White to play and gets mated",
-      "difficulty": "expert",
-      "rating": 1718,
-      "hints": [
-        "The king move walks into mate",
-        "Black's knight delivers the final blow",
-        "This is a classic endgame mate pattern"
-      ],
-      "tags": ["endgame", "mate", "mateIn1"]
-    },
-    {
-      "id": "003aS",
-      "fen": "8/8/5k1p/6p1/1R4PP/1p2KP2/8/1r6 w - - 0 43",
-      "solution": ["h4h5", "b3b2", "b4b6", "f6e5", "f3f4", "g5f4"],
-      "objective": "White to play and gets crushing advantage",
-      "difficulty": "expert",
-      "rating": 1959,
-      "hints": [
-        "Advance the passed pawn",
-        "Create a defensive wall with pawns",
-        "The rook endgame technique is crucial"
-      ],
-      "tags": ["advancedPawn", "crushing", "defensiveMove", "endgame", "long", "rookEndgame"]
     }
+    
     
   ]
 }
