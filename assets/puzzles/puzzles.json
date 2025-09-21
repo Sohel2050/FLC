@@ -420,6 +420,36 @@
       "tags": ["advantage", "discoveredAttack", "long", "exposedKing", "middleGame"]
     },
     {
+      "id": "002Tf",
+      "fen": "r3kbnr/ppp1qppp/2n5/3pP3/5B2/4PQ2/PPP2PPP/RN2KB1R w KQkq - 1 7",
+      "solution": ["f1b5", "e7b4", "b1c3", "b4b2"],
+      "objective": "Win material advantage",
+      "difficulty": "medium",
+      "rating": 1576,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "Look for a forcing move",
+        "The Queen can deliver check",
+        "Qb4 is a powerful move"
+      ],
+      "tags": ["advantage", "fork", "short", "opening"]
+    },
+    {
+      "id": "002Uy",
+      "fen": "8/8/1p6/k7/P1R5/1K5r/8/8 w - - 26 64",
+      "solution": ["c4c3", "h3c3", "b3c3", "a5a4", "c3b2", "a4b4"],
+      "objective": "Win the endgame",
+      "difficulty": "medium",
+      "rating": 1572,
+      "opponentPlaysFirst": true,
+      "hints": [
+        "Look for a forcing move",
+        "The Rook can deliver check",
+        "Control the position with the King"
+      ],
+      "tags": ["crushing", "defensiveMove", "endGame", "long", "rookEndgame"]
+    },
+    {
       "id": "0017R",
       "fen": "r2qk2r/pp2ppbp/1n1p2p1/3Pn3/2P5/2NBBP1P/PP3P2/R2QK2R b KQkq - 0 12",
       "solution": ["e5c4", "d3c4", "b6c4", "d1a4", "d8d7", "a4c4"],
@@ -569,49 +599,33 @@
       ],
       "tags": ["crushing", "endgame", "exposedKing", "long", "skewer"]
     },
-    
-    {
-      "id": "001u3",
-      "fen": "2r3k1/p1q2pp1/Q3p2p/b1Np4/2nP1P2/4P1P1/5K1P/2B1N3 b - - 3 33",
-      "solution": ["b7b6", "a6c8", "g8h7", "c8b7"],
-      "objective": "Black to play and White wins material",
-      "difficulty": "expert",
-      "rating": 2175,
-      "hints": [
-        "Black's queen challenges White's queen",
-        "White has a powerful check",
-        "The hanging piece gets captured"
-      ],
-      "tags": ["advantage", "hangingPiece", "middlegame"]
-    },
-    
-    
-    
     {
       "id": "0018S",
       "fen": "2kr3r/pp3p2/4p2p/1N1p2p1/3Q4/1P1P4/2q2PPP/5RK1 b - - 1 20",
-      "solution": ["b7b6", "d4a1", "a6a5", "f1c1"],
-      "objective": "Black to play and White gets advantage",
+      "solution": ["b7b6", "d4a1", "a7a5", "f1c1"],
+      "objective": "Win material advantage",
       "difficulty": "expert",
       "rating": 2560,
+      "opponentPlaysFirst": true,
       "hints": [
-        "Push the pawn to attack the queen",
-        "White has a powerful pin",
-        "The rook move creates threats"
+        "Reroute the Queen",
+        "Move the Queen to a1",
+        "The Black Queen is in skewer"
       ],
       "tags": ["advantage", "endgame", "pin"]
     },
     {
       "id": "001Hi",
       "fen": "6k1/pp1r1pp1/1qp1p2p/4P2P/5Q2/1P4R1/P1Pr1PP1/R5K1 b - - 4 23",
-      "solution": ["b6d4", "f4f6", "d4f2", "f6f2", "d2f2", "f2f2"],
-      "objective": "Black to play and gets advantage",
+      "solution": ["b6d4", "f4f6", "d4f2", "f6f2", "d2f2", "g1f2"],
+      "objective": "Gain material advantage",
       "difficulty": "expert",
       "rating": 2389,
+      "opponentPlaysFirst": true,
       "hints": [
-        "Centralize the queen with tempo",
-        "Force favorable exchanges",
-        "The endgame position is better for Black"
+        "Avoid the Queen exchange",
+        "Qf6 to threaten mate",
+        "Take on f2"
       ],
       "tags": ["advantage", "endgame", "long", "pin"]
     },
@@ -619,9 +633,10 @@
       "id": "002e5",
       "fen": "r2q4/pp1n1kbp/3P2b1/6N1/6Q1/P3P3/6P1/4K2R b K - 1 21",
       "solution": ["f7g8", "g4c4", "g8h8", "h1h7", "g6h7", "g5f7"],
-      "objective": "Black to play and White delivers mate",
+      "objective": "Find the mating sequence",
       "difficulty": "expert",
       "rating": 2583,
+      "opponentPlaysFirst": true,
       "hints": [
         "The king moves into a mating net",
         "White has a beautiful sacrifice",
@@ -633,12 +648,13 @@
       "id": "002e8",
       "fen": "r3nrk1/1b3pp1/4pb2/p3q3/1p1N4/3B2R1/PPPQN2P/1K4R1 b - - 1 23",
       "solution": ["a8d8", "d2h6", "g7g6", "g3h3"],
-      "objective": "Black to play and White gets crushing advantage",
+      "objective": "Find a crushing advantage",
       "difficulty": "expert",
       "rating": 2465,
+      "opponentPlaysFirst": true,
       "hints": [
-        "Defend with the rook move",
-        "White's pin becomes very dangerous",
+        "Reroute the Queen",
+        "Qh6 is a strong move",
         "The kingside attack is unstoppable"
       ],
       "tags": ["crushing", "defensiveMove", "master", "middlegame", "pin"]
