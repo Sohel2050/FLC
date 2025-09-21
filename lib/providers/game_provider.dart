@@ -233,14 +233,12 @@ class GameProvider extends ChangeNotifier {
 
   /// Resigns the current game, setting the game result to a win for the opponent.
   Future<void> resignGame({String? userId}) async {
-    final winnerColor =
-        _game.state.turn == Squares.white ? Squares.black : Squares.white;
-    final winnerId =
-        _isOnlineGame && _onlineGameRoom != null
-            ? (_isHost
-                ? _onlineGameRoom!.player2Id
-                : _onlineGameRoom!.player1Id)
-            : null; // For local/CPU, winnerId is not relevant for Firestore
+    final winnerColor = _game.state.turn == Squares.white
+        ? Squares.black
+        : Squares.white;
+    final winnerId = _isOnlineGame && _onlineGameRoom != null
+        ? (_isHost ? _onlineGameRoom!.player2Id : _onlineGameRoom!.player1Id)
+        : null; // For local/CPU, winnerId is not relevant for Firestore
 
     _gameResultNotifier.value = WonGameResignation(winner: winnerColor);
     _stopTimers(); // Stop timers immediately on resignation
@@ -278,8 +276,9 @@ class GameProvider extends ChangeNotifier {
       return;
     }
 
-    final String offeringPlayerId =
-        _isHost ? _onlineGameRoom!.player1Id : _onlineGameRoom!.player2Id!;
+    final String offeringPlayerId = _isHost
+        ? _onlineGameRoom!.player1Id
+        : _onlineGameRoom!.player2Id!;
 
     await _gameService.offerDraw(_onlineGameRoom!.gameId, offeringPlayerId);
     _logger.i('Draw offer initiated by $offeringPlayerId');
@@ -315,8 +314,9 @@ class GameProvider extends ChangeNotifier {
       return;
     }
 
-    final String offeringPlayerId =
-        _isHost ? _onlineGameRoom!.player1Id : _onlineGameRoom!.player2Id!;
+    final String offeringPlayerId = _isHost
+        ? _onlineGameRoom!.player1Id
+        : _onlineGameRoom!.player2Id!;
 
     await _gameService.offerRematch(_onlineGameRoom!.gameId, offeringPlayerId);
     _logger.i('Rematch offer initiated by $offeringPlayerId');
@@ -631,12 +631,11 @@ class GameProvider extends ChangeNotifier {
           _stopTimers();
           // Use post-frame callback to avoid build-time issues
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            final String? userId =
-                _isOnlineGame && _onlineGameRoom != null
-                    ? (_isHost
-                        ? _onlineGameRoom!.player1Id
-                        : _onlineGameRoom!.player2Id)
-                    : null;
+            final String? userId = _isOnlineGame && _onlineGameRoom != null
+                ? (_isHost
+                      ? _onlineGameRoom!.player1Id
+                      : _onlineGameRoom!.player2Id)
+                : null;
             checkGameOver(userId: userId);
           });
         }
@@ -654,12 +653,11 @@ class GameProvider extends ChangeNotifier {
           _stopTimers();
           // Use post-frame callback to avoid build-time issues
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            final String? userId =
-                _isOnlineGame && _onlineGameRoom != null
-                    ? (_isHost
-                        ? _onlineGameRoom!.player1Id
-                        : _onlineGameRoom!.player2Id)
-                    : null;
+            final String? userId = _isOnlineGame && _onlineGameRoom != null
+                ? (_isHost
+                      ? _onlineGameRoom!.player1Id
+                      : _onlineGameRoom!.player2Id)
+                : null;
             checkGameOver(userId: userId);
           });
         }
@@ -903,8 +901,8 @@ class GameProvider extends ChangeNotifier {
           final winner = (_game.result as bishop.WonGame).winner;
           updateData[Constants.fieldWinnerId] =
               (winner == _onlineGameRoom!.player1Color)
-                  ? _onlineGameRoom!.player1Id
-                  : _onlineGameRoom!.player2Id;
+              ? _onlineGameRoom!.player1Id
+              : _onlineGameRoom!.player2Id;
         }
 
         await _gameService.updateGameRoom(_onlineGameRoom!.gameId, updateData);
@@ -917,12 +915,9 @@ class GameProvider extends ChangeNotifier {
       }
 
       // Check game over after all updates, passing userId if available
-      final String? userId =
-          _isOnlineGame && _onlineGameRoom != null
-              ? (_isHost
-                  ? _onlineGameRoom!.player1Id
-                  : _onlineGameRoom!.player2Id)
-              : null;
+      final String? userId = _isOnlineGame && _onlineGameRoom != null
+          ? (_isHost ? _onlineGameRoom!.player1Id : _onlineGameRoom!.player2Id)
+          : null;
       checkGameOver(userId: userId);
 
       if (!_game.gameOver) {
@@ -1237,10 +1232,9 @@ class GameProvider extends ChangeNotifier {
         _friendRequestSubscription = _friendService
             .getFriendRequests(userId)
             .listen((requests) {
-              final opponentId =
-                  _isHost
-                      ? _onlineGameRoom?.player2Id
-                      : _onlineGameRoom?.player1Id;
+              final opponentId = _isHost
+                  ? _onlineGameRoom?.player2Id
+                  : _onlineGameRoom?.player1Id;
               if (opponentId != null) {
                 final requestExists = requests.any(
                   (req) => req.uid == opponentId,
@@ -1576,11 +1570,11 @@ class GameProvider extends ChangeNotifier {
       // Swap player color for the new game based on the updated room
       _player =
           updatedRoom.player1Id ==
-                  (_isHost
-                      ? _onlineGameRoom!.player1Id
-                      : _onlineGameRoom!.player2Id)
-              ? updatedRoom.player1Color
-              : updatedRoom.player2Color!;
+              (_isHost
+                  ? _onlineGameRoom!.player1Id
+                  : _onlineGameRoom!.player2Id)
+          ? updatedRoom.player1Color
+          : updatedRoom.player2Color!;
 
       _logger.i(
         'REMATCH DEBUG: About to reset game and clear game result. Current game result: ${_gameResultNotifier.value}',
@@ -1655,18 +1649,16 @@ class GameProvider extends ChangeNotifier {
       _stopTimers();
       if (updatedRoom.status == Constants.statusAborted) {
         _gameResultNotifier.value = WonGameAborted(
-          winner:
-              updatedRoom.player1Color == Squares.white
-                  ? Squares.black
-                  : Squares.white,
+          winner: updatedRoom.player1Color == Squares.white
+              ? Squares.black
+              : Squares.white,
         );
       }
       // Set game result based on winnerId or status
       else if (updatedRoom.winnerId != null) {
-        final winnerColor =
-            updatedRoom.player1Id == updatedRoom.winnerId
-                ? updatedRoom.player1Color
-                : updatedRoom.player2Color;
+        final winnerColor = updatedRoom.player1Id == updatedRoom.winnerId
+            ? updatedRoom.player1Color
+            : updatedRoom.player2Color;
         if (winnerColor != null) {
           _gameResultNotifier.value = WonGameResignation(winner: winnerColor);
         }
@@ -1777,10 +1769,9 @@ class GameProvider extends ChangeNotifier {
     _gameResultNotifier.value = WonGameTimeout(winner: winner);
     _stopTimers();
 
-    final winnerId =
-        winner == _onlineGameRoom!.player1Color
-            ? _onlineGameRoom!.player1Id
-            : _onlineGameRoom!.player2Id;
+    final winnerId = winner == _onlineGameRoom!.player1Color
+        ? _onlineGameRoom!.player1Id
+        : _onlineGameRoom!.player2Id;
 
     // Both players should be able to update the game status to prevent
     // other players from joining abandoned games
@@ -1799,8 +1790,9 @@ class GameProvider extends ChangeNotifier {
     }
 
     // Determine the current user's ID for saving the game
-    final currentUserId =
-        _isHost ? _onlineGameRoom!.player1Id : _onlineGameRoom!.player2Id;
+    final currentUserId = _isHost
+        ? _onlineGameRoom!.player1Id
+        : _onlineGameRoom!.player2Id;
 
     if (currentUserId != null) {
       checkGameOver(userId: currentUserId);
@@ -1815,10 +1807,9 @@ class GameProvider extends ChangeNotifier {
     if (!_isOnlineGame || _onlineGameRoom == null) return;
 
     // Black wins by abortion
-    final winnerColor =
-        _onlineGameRoom!.player1Color == Squares.white
-            ? Squares.black
-            : Squares.white;
+    final winnerColor = _onlineGameRoom!.player1Color == Squares.white
+        ? Squares.black
+        : Squares.white;
     _gameResultNotifier.value = WonGameAborted(winner: winnerColor);
     _stopTimers();
 
