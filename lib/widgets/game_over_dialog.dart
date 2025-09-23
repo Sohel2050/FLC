@@ -48,6 +48,9 @@ class _GameOverDialogState extends State<GameOverDialog> {
   }
 
   void _createRewardedAd() {
+    // check if we can load ads
+    if (widget.user.removeAds == true) return;
+
     RewardedAd.load(
       adUnitId: AdMobService.getRewardedAdUnitId(context)!,
       request: const AdRequest(),

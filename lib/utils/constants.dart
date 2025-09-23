@@ -144,7 +144,7 @@ class Constants {
   static const String none = 'none';
 
   static const String classical = 'Classical';
-  static const String tempo = 'Tempo';
+  static const String fast = 'Fast';
   static const String blitz3 = 'Blitz3';
   static const String blitz5 = 'Blitz5';
 
@@ -165,7 +165,7 @@ class Constants {
 
   static const List<Map<String, dynamic>> gameModes = [
     {'title': classical, 'timeControl': '60 sec/move', 'icon': Icons.timer},
-    {'title': tempo, 'timeControl': '20 sec/move', 'icon': Icons.speed},
+    {'title': fast, 'timeControl': '30 sec/move', 'icon': Icons.speed},
     {
       'title': blitz3,
       'timeControl': '3 min + 5s bonus 3s',

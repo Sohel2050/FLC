@@ -36,6 +36,11 @@ void main() async {
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
+  // Enable offline persistence for Firestore
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+  );
+
   // Run database migrations
   //await MigrationService.runMigrations();
 

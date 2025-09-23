@@ -382,7 +382,7 @@ class _PlayScreenState extends State<PlayScreen>
                       if (title == Constants.blitz3 ||
                           title == Constants.blitz5) {
                         userRating = currentUserBlitzRating;
-                      } else if (title == Constants.tempo) {
+                      } else if (title == Constants.fast) {
                         userRating = currentUserTempoRating;
                       } else if (title == Constants.classical) {
                         userRating = currentClassicalRating;
