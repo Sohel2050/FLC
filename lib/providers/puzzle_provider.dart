@@ -4,7 +4,6 @@ import 'package:logger/logger.dart';
 import '../models/puzzle_model.dart';
 import '../models/puzzle_progress.dart';
 import '../services/puzzle_service.dart';
-import 'package:squares/squares.dart';
 
 // Class to represent the pattern of moves in a puzzle
 class PuzzleMovePattern {
@@ -488,6 +487,26 @@ class PuzzleProvider extends ChangeNotifier {
   /// End the current puzzle session
   Future<void> endCurrentSession({bool abandoned = false}) async {
     await _endCurrentSession(abandoned: abandoned);
+  }
+
+  /// Clear all puzzle progress for a user
+  Future<void> clearAllPuzzleProgress(String userId) async {
+    try {
+      _logger.i('Clearing all puzzle progress for user: $userId');
+      await _puzzleService.clearUserProgress(userId);
+
+      // Clear local cache
+      _progressByDifficulty.clear();
+
+      // Reload user progress
+      await _loadUserProgressWithErrorHandling();
+
+      notifyListeners();
+      _logger.i('All puzzle progress cleared for user: $userId');
+    } catch (e) {
+      _logger.e('Error clearing all puzzle progress for user $userId: $e');
+      rethrow;
+    }
   }
 
   // Private helper methods

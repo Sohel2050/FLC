@@ -54,6 +54,13 @@ class _PuzzlesScreenState extends State<PuzzlesScreen> {
         title: const Text('Chess Puzzles'),
         backgroundColor: Theme.of(context).colorScheme.surface,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => _showResetConfirmationDialog(context),
+            tooltip: 'Reset all puzzle progress',
+          ),
+        ],
       ),
       body: Consumer<PuzzleProvider>(
         builder: (context, puzzleProvider, child) {
@@ -408,6 +415,107 @@ class _PuzzlesScreenState extends State<PuzzlesScreen> {
           e,
           onRetry: () =>
               _onDifficultySelected(context, difficulty, puzzleProvider),
+        );
+      }
+    }
+  }
+
+  void _showResetConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Reset All Progress'),
+          content: const Text(
+            'Are you sure you want to reset and clear all saved puzzle progress? This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Reset'),
+            ),
+          ],
+        );
+      },
+    ).then((confirmed) {
+      if (confirmed == true) {
+        _resetAllPuzzles(context);
+      }
+    });
+  }
+
+  void _resetAllPuzzles(BuildContext context) async {
+    try {
+      final puzzleProvider = context.read<PuzzleProvider>();
+      final userProvider = context.read<UserProvider>();
+
+      // Check if user is logged in
+      final userId = userProvider.user?.uid;
+      if (userId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You must be logged in to reset progress'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Resetting progress...'),
+            ],
+          ),
+        ),
+      );
+
+      // Clear all puzzle progress
+      await puzzleProvider.clearAllPuzzleProgress(userId);
+
+      // Close loading dialog
+      if (context.mounted) {
+        Navigator.of(context).pop();
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('All puzzle progress has been reset'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Reinitialize puzzles to reflect the reset
+        _initializePuzzles();
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (context.mounted) {
+        Navigator.of(context).pop();
+
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to reset progress: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
