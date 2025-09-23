@@ -226,13 +226,6 @@ class _PuzzleBoardScreenState extends State<PuzzleBoardScreen> {
     }
   }
 
-  String _formatMoveForDisplay(String uciMove) {
-    // Convert UCI move to a more readable format
-    // For now, just return the UCI notation, but this could be enhanced
-    // to show algebraic notation like "Kg8" instead of "h8g8"
-    return uciMove;
-  }
-
   void _makeOpponentMove() {
     final session = _puzzleProvider.currentSession;
     if (session == null) return;
