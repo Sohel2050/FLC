@@ -137,8 +137,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   imageUrl: invite.player1PhotoUrl,
                   radius: 20,
                   isEditable: false,
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primaryContainer,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.primaryContainer,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -295,8 +296,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder:
-                              (context) => ProfileScreen(user: currentUser),
+                          builder: (context) =>
+                              ProfileScreen(user: currentUser),
                         ),
                       );
                     },
@@ -305,8 +306,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       radius: 24,
                       isEditable: false,
                       countryCode: currentUser.countryCode,
-                      backgroundColor:
-                          Theme.of(context).colorScheme.primaryContainer,
+                      backgroundColor: Theme.of(
+                        context,
+                      ).colorScheme.primaryContainer,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -411,9 +413,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       if (!currentUser.isGuest) {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder:
-                                (context) =>
-                                    StatisticsScreen(user: currentUser),
+                            builder: (context) =>
+                                StatisticsScreen(user: currentUser),
                           ),
                         );
                       } else {
@@ -428,9 +429,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       if (!currentUser.isGuest) {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder:
-                                (context) =>
-                                    SavedGamesScreen(user: currentUser),
+                            builder: (context) =>
+                                SavedGamesScreen(user: currentUser),
                           ),
                         );
                       } else {
@@ -458,25 +458,24 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       }
                     }
                   },
-                  itemBuilder:
-                      (context) => [
-                        const PopupMenuItem(
-                          value: 'rules',
-                          child: Text('Game Rules'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'stats',
-                          child: Text('Statistics'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'saved',
-                          child: Text('Saved Games'),
-                        ),
-                        const PopupMenuItem(
-                          value: 'ranking',
-                          child: Text('Rankings'),
-                        ),
-                      ],
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
+                      value: 'rules',
+                      child: Text('Game Rules'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'stats',
+                      child: Text('Statistics'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'saved',
+                      child: Text('Saved Games'),
+                    ),
+                    const PopupMenuItem(
+                      value: 'ranking',
+                      child: Text('Rankings'),
+                    ),
+                  ],
                 ),
               ],
             ),
